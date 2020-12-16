@@ -9,12 +9,30 @@ pub struct IncompatibleStages {
     pub perm_stage: Stage,
 }
 
+impl IncompatibleStages {
+    /// Constructs a new [`IncompatibleStages`] from its constituent parts
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Perm, Stage, perm::IncompatibleStages};
+    ///
+    /// assert_eq!(
+    ///     format!("{}", IncompatibleStages::new(4, Stage::MAJOR)),
+    ///     "A Perm of stage 8 can't permute a slice of len 4"
+    /// );
+    /// ```
+    pub fn new(length: usize, perm_stage: Stage) -> Self {
+        IncompatibleStages { length, perm_stage }
+    }
+}
+
 impl std::fmt::Display for IncompatibleStages {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "A Perm of stage {} can't permute a slice of len {}",
-            self.perm_stage, self.length
+            self.perm_stage.as_usize(),
+            self.length
         )
     }
 }
