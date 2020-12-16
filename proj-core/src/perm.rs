@@ -75,11 +75,33 @@ impl From<Vec<usize>> for Perm {
     }
 }
 
+impl std::ops::Mul<Perm> for Perm {
+    type Output = Result<Perm, IncompatibleStages>;
+
+    /// Multiply two [`Perm`]s together (consuming both inputs).  This has the effect of using the
+    /// RHS to permute the LHS, which is opposite to the mathematical matrix-based representation
+    /// of permutations.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::Perm;
+    ///
+    /// // Calculate the Perm that represents permuting by '2134' and then '4321'
+    /// assert_eq!(
+    ///     Perm::from(vec![0, 1, 2, 3]) * Perm::from(vec![3, 2, 1, 0]),
+    ///     Ok(Perm::from(vec![3, 2, 1, 0]))
+    /// );
+    /// ```
+    fn mul(self, rhs: Perm) -> Self::Output {
+        Ok(Perm::from(rhs.permute(&self.vec)?))
+    }
+}
+
 impl std::ops::Mul<&'_ Perm> for &'_ Perm {
     type Output = Result<Perm, IncompatibleStages>;
 
-    /// Multiply two [`Perm`]s together.  This has the effect of using the RHS to permute the LHS,
-    /// which is opposite to the mathematical matrix-based representation of permutations.
+    /// Multiply two borrowed [`Perm`]s together.  This has the effect of using the RHS to permute
+    /// the LHS, which is opposite to the mathematical matrix-based representation of permutations.
     ///
     /// # Example
     /// ```
