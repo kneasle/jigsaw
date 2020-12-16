@@ -114,7 +114,7 @@ impl std::ops::Mul<Perm> for Perm {
     /// );
     /// ```
     fn mul(self, rhs: Perm) -> Self::Output {
-        Ok(Perm::from(rhs.permute(&self.vec)?))
+        &self * &rhs
     }
 }
 
