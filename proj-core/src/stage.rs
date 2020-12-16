@@ -1,3 +1,5 @@
+//! A representation of a stage, with human-friendly `const`s and display names.
+
 /// A newtype over [`usize`] that represents a stage.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Stage(usize);

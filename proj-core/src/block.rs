@@ -1,3 +1,6 @@
+//! A representation of a [`Block`] of ringing; i.e. a sort of 'multi-permutation' which takes a
+//! starting [`Row`] and yields a sequence of permuted [`Row`]s.
+
 use crate::perm::IncompatibleStages;
 use crate::{Perm, Stage};
 

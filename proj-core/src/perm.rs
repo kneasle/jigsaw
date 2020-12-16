@@ -1,3 +1,6 @@
+//! A representation of generic permutations (i.e. a [`Perm`] doesn't just have to permute
+//! [`Row`]s).
+
 use crate::Stage;
 
 /// An error created when a [`Perm`] was used to permute something with the wrong length

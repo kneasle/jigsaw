@@ -1,3 +1,5 @@
+//! A library to provide idiomatic representations of commonly used components of Change Ringing.
+
 pub mod bell;
 pub mod block;
 pub mod perm;
