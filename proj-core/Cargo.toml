@@ -1,0 +1,6 @@
+[package]
+name = "proj_core"
+version = "0.1.0"
+authors = ["Ben White-Horne <kneasle@gmail.com>"]
+edition = "2018"
+description = "A core set of basic composing utils used by my 3rd year project."
