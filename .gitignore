@@ -1,0 +1,7 @@
+**.aux
+**.fdb_latexmk
+**.fls
+report/*.log
+report/report.pdf
+report/*.synctex.gz
+report/*.toc
