@@ -101,7 +101,23 @@ impl Stage {
 
 impl std::fmt::Display for Stage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+        match self.0 {
+            3 => write!(f, "Singles"),
+            4 => write!(f, "Minimus"),
+            5 => write!(f, "Doubles"),
+            6 => write!(f, "Minor"),
+            7 => write!(f, "Triples"),
+            8 => write!(f, "Major"),
+            9 => write!(f, "Caters"),
+            10 => write!(f, "Royal"),
+            11 => write!(f, "Cinques"),
+            12 => write!(f, "Maximus"),
+            13 => write!(f, "Septuples"),
+            14 => write!(f, "Fourteen"),
+            15 => write!(f, "Sextuples"),
+            16 => write!(f, "Sixteen"),
+            x => write!(f, "Stage {}", x),
+        }
     }
 }
 
