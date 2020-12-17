@@ -3,7 +3,8 @@
 /// A lookup string of the bell names
 const BELL_NAMES: &'static str = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
 
-/// A `Bell` representing the 'treble' on any stage.  Equivalent to `Bell::from_name('1')`.
+/// A [`Bell`] representing the 'treble' on any stage.  Equivalent to
+/// `Bell::from_name('1').unwrap()`.
 ///
 /// # Example
 /// ```
@@ -99,6 +100,10 @@ impl Bell {
     /// // Creating a `Bell` with `from_index` should return the same index passed to it
     /// assert_eq!(Bell::from_index(0).index(), 0);
     /// assert_eq!(Bell::from_index(12).index(), 12);
+    ///
+    /// assert_eq!(Bell::from_name('8').unwrap().index(), 7);
+    /// assert_eq!(Bell::from_name('0').unwrap().index(), 9);
+    /// assert_eq!(Bell::from_name('T').unwrap().index(), 11);
     /// ```
     #[inline]
     pub fn index(self) -> usize {
@@ -112,6 +117,7 @@ impl Bell {
     /// use proj_core::Bell;
     ///
     /// assert_eq!(Bell::from_index(0).number(), 1);
+    /// assert_eq!(Bell::from_name('0').unwrap().number(), 10);
     /// // Using `from_number` should return the same number that was passed to it
     /// assert_eq!(Bell::from_number(4).unwrap().number(), 4);
     /// assert_eq!(Bell::from_number(10).unwrap().number(), 10);
