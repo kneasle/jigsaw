@@ -8,6 +8,6 @@ pub mod stage;
 
 pub use bell::Bell;
 pub use block::Block;
-pub use perm::Perm;
+pub use perm::{IncompatibleStages, Perm};
 pub use row::{InvalidRowErr, Row};
 pub use stage::Stage;
