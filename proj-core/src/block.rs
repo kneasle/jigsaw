@@ -7,9 +7,10 @@ use crate::{Perm, Stage};
 /// A `Block` is a generalisation of [`Perm`], where instead of taking a [`Row`] and mapping that
 /// to a single [`Row`], we map that [`Row`] to **multiple** [`Row`]s.
 ///
-/// A few properties hold:
+/// A few things to note about `Block`s:
+/// - Like [`Perm`], a `Block` can be used to permute slices of any [`Clone`] type, provided that
+///   the length of the input slice the same as the [`Stage`] of the `Block`.
 /// - A [`Perm`] is just a special case of a [`Block`] of length `1`.
-/// - Blocks are closed under concatenation
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Block {
     /// The [`Perm`]s making up this `Block`.
@@ -18,12 +19,13 @@ pub struct Block {
     /// 1. All [`Perm`]s in `Block::perms` are permuting _the starting [`Row`]_, not each other.
     /// 2. There is an implicit [identity `Perm`](Perm::id) at the start of every `Block`, but this
     ///    is not stored in `Block::perms`.
-    /// 3. The last [`Perm`] in `BlocK::perms` is 'left-over' - i.e. it shouldn't be used for truth
+    /// 3. The last [`Perm`] in `Block::perms` is 'left-over' - i.e. it shouldn't be used for truth
     ///    checking, and is used to generate the starting [`Row`] for the next `Block` that would
     ///    be rung after this one.
     ///
     /// We also enforce the following invariants:
-    /// 1. `Block::perms` contains at least one [`Perm`].  Zero-length `Block`s cannot be created.
+    /// 1. `Block::perms` contains at least one [`Perm`].  Zero-length `Block`s cannot be created
+    ///    using `safe` code.
     /// 2. All the [`Perm`]s in `Block::perms` must have the same [`Stage`].
     ///
     /// As an example, let's take the `Block` representing one lead of
