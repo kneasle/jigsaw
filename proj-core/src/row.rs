@@ -46,6 +46,32 @@ pub type RowResult = Result<Row, InvalidRowErr>;
 /// all the constructors and then assumed as an invariant.
 ///
 /// This is similar to how [`&str`](str) and [`String`] are required to be valid UTF-8.
+///
+/// # Example
+/// ```
+/// use proj_core::{Bell, Row, Stage, InvalidRowErr};
+///
+/// // Create rounds on 8 bells.  Rounds is always valid on any `Stage`
+/// let rounds_on_8 = Row::rounds(Stage::MAJOR);
+/// assert_eq!(rounds_on_8.stage(), Stage::MAJOR);
+/// assert_eq!(rounds_on_8.to_string(), "12345678");
+///
+/// // Parse a generic (valid) change from a string.  Note how invalid
+/// // `char`s are skipped.  This could fail if the resulting `Row` is
+/// // invalid, so we use ? to handle that possibility.
+/// let queens = Row::parse("13579 | 24680")?;
+/// assert_eq!(queens.stage(), Stage::ROYAL);
+/// assert_eq!(queens.to_string(), "1357924680");
+///
+/// // If we try to parse an invalid `Row`, we get an error.  This means
+/// // that we can assume that all `Row`s satisfy the Framework's definition
+/// assert_eq!(
+///     Row::parse("112345"),
+///     Err(InvalidRowErr::DuplicateBell(Bell::from_name('1').unwrap()))
+/// );
+/// #
+/// # Ok::<(), InvalidRowErr>(())
+/// ```
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Row {
     /// The underlying [`Vec`] of [`Bell`]s
@@ -74,14 +100,13 @@ impl Row {
     ///
     /// # Example
     /// ```
-    /// use proj_core::{Bell, Row, Stage};
-    /// use proj_core::row::InvalidRowErr;
+    /// use proj_core::{Bell, Row, Stage, InvalidRowErr};
     ///
     /// // Parsing a valid Row gives back `Ok(Row)`
-    /// assert_eq!(Row::parse("12543").unwrap().to_string(), "12543");
+    /// assert_eq!(Row::parse("12543")?.to_string(), "12543");
     /// // Parsing valid rows with invalid characters gives back `Ok(Row)`
-    /// assert_eq!(Row::parse("4321\t[65 78]").unwrap().to_string(), "43216578");
-    /// assert_eq!(Row::parse("3|2|1  6|5|4  9|8|7").unwrap().to_string(), "321654987");
+    /// assert_eq!(Row::parse("4321\t[65 78]")?.to_string(), "43216578");
+    /// assert_eq!(Row::parse("3|2|1  6|5|4  9|8|7")?.to_string(), "321654987");
     /// // Parsing an invalid `Row` causes an error describing the problem
     /// assert_eq!(
     ///     Row::parse("112345"),
@@ -89,8 +114,12 @@ impl Row {
     /// );
     /// assert_eq!(
     ///     Row::parse("12745"),
-    ///     Err(InvalidRowErr::BellOutOfStage(Bell::from_number(7).unwrap(), Stage::DOUBLES))
+    ///     Err(InvalidRowErr::BellOutOfStage(
+    ///         Bell::from_number(7).unwrap(),
+    ///         Stage::DOUBLES
+    ///     ))
     /// );
+    /// # Ok::<(), InvalidRowErr>(())
     /// ```
     pub fn parse(s: &str) -> RowResult {
         Row::from_iter(s.chars().filter_map(Bell::from_name))
@@ -98,7 +127,29 @@ impl Row {
 
     /// Utility function that creates a `Row` from an iterator of [`Bell`]s, performing the
     /// validity check.
-    fn from_iter<I>(iter: I) -> RowResult
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Bell, Row, Stage, InvalidRowErr};
+    ///
+    /// // Create a valid row from an iterator over `Bell`s
+    /// let iter = [0, 3, 4, 2, 1].iter().copied().map(Bell::from_index);
+    /// let row = Row::from_iter(iter)?;
+    /// assert_eq!(row.to_string(), "14532");
+    /// // Attempt to create an invalid row from an iterator over `Bell`s
+    /// // (we get an error)
+    /// let iter = [0, 3, 7, 2, 1].iter().copied().map(Bell::from_index);
+    /// assert_eq!(
+    ///     Row::from_iter(iter),
+    ///     Err(InvalidRowErr::BellOutOfStage(
+    ///         Bell::from_name('8').unwrap(),
+    ///         Stage::DOUBLES,
+    ///     ))
+    /// );
+    ///
+    /// # Ok::<(), InvalidRowErr>(())
+    /// ```
+    pub fn from_iter<I>(iter: I) -> RowResult
     where
         I: Iterator<Item = Bell>,
     {
@@ -106,6 +157,73 @@ impl Row {
             bells: iter.collect(),
         }
         .check_validity()
+    }
+
+    /// Creates a `Row` from a [`Vec`] of [`Bell`]s, checking that the the resulting `Row` is valid.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Bell, InvalidRowErr, Row};
+    ///
+    /// // Converting a `Row` from a valid `Vec` of `Bell`s is fine
+    /// assert_eq!(
+    ///     Row::from_vec(vec![
+    ///         Bell::from_name('4').unwrap(),
+    ///         Bell::from_name('2').unwrap(),
+    ///         Bell::from_name('1').unwrap(),
+    ///         Bell::from_name('3').unwrap(),
+    ///     ])?.to_string(),
+    ///     "4213"
+    /// );
+    /// // Converting a `Row` from an invalid `Vec` of `Bell`s is not so fine
+    /// assert_eq!(
+    ///     Row::from_vec(vec![
+    ///         Bell::from_name('4').unwrap(),
+    ///         Bell::from_name('2').unwrap(),
+    ///         Bell::from_name('1').unwrap(),
+    ///         Bell::from_name('4').unwrap(),
+    ///     ]),
+    ///     Err(InvalidRowErr::DuplicateBell(Bell::from_name('4').unwrap()))
+    /// );
+    /// # Ok::<(), InvalidRowErr>(())
+    /// ```
+    pub fn from_vec(bells: Vec<Bell>) -> RowResult {
+        Row { bells }.check_validity()
+    }
+
+    /// Creates a `Row` from a [`Vec`] of [`Bell`]s, **without** checking that the the resulting
+    /// `Row` is valid.  Only use this if you're certain that the input is valid, since performing
+    /// invalid operations on `Row`s is undefined behaviour.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Bell, InvalidRowErr, Row};
+    ///
+    /// // Converting a `Row` from a valid `Vec` of `Bell`s is fine
+    /// assert_eq!(
+    ///     Row::from_vec_unchecked(vec![
+    ///         Bell::from_name('4').unwrap(),
+    ///         Bell::from_name('2').unwrap(),
+    ///         Bell::from_name('1').unwrap(),
+    ///         Bell::from_name('3').unwrap(),
+    ///     ]).to_string(),
+    ///     "4213"
+    /// );
+    /// // Converting a `Row` from an invalid `Vec` of `Bell`s **works**,
+    /// // but creates an invalid `Row`
+    /// assert_eq!(
+    ///     Row::from_vec_unchecked(vec![
+    ///         Bell::from_name('4').unwrap(),
+    ///         Bell::from_name('2').unwrap(),
+    ///         Bell::from_name('1').unwrap(),
+    ///         Bell::from_name('4').unwrap(),
+    ///     ]).to_string(),
+    ///     "4214"
+    /// );
+    /// ```
+    #[inline]
+    pub fn from_vec_unchecked(bells: Vec<Bell>) -> Row {
+        Row { bells }
     }
 
     /// Checks the validity of a potential `Row`, returning it if valid and returning an
@@ -131,12 +249,52 @@ impl Row {
     }
 
     /// Returns the [`Stage`] of this `Row`.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Row, Stage};
+    ///
+    /// // Rounds on a given `Stage` should have that `Stage`
+    /// assert_eq!(Row::rounds(Stage::MINIMUS).stage(), Stage::MINIMUS);
+    /// assert_eq!(Row::rounds(Stage::SEPTUPLES).stage(), Stage::SEPTUPLES);
+    ///
+    /// assert_eq!(Row::parse("41325")?.stage(), Stage::DOUBLES);
+    /// assert_eq!(Row::parse("321 654 987 0")?.stage(), Stage::ROYAL);
+    /// # Ok::<(), proj_core::InvalidRowErr>(())
+    /// ```
     #[inline]
     pub fn stage(&self) -> Stage {
         self.bells.len().into()
     }
 
-    /// Concatenates the names of the [`Bell`]s in this `Row` to the end of a [`String`]
+    /// Returns an immutable reference to the underlying slice of [`Bell`]s that makes up this
+    /// `Row`.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Bell, Row};
+    ///
+    /// let tittums = Row::parse("15263748")?;
+    /// assert_eq!(tittums.slice()[3], Bell::from_name('6').unwrap());
+    /// # Ok::<(), proj_core::InvalidRowErr>(())
+    /// ```
+    #[inline]
+    pub fn slice(&self) -> &[Bell] {
+        &self.bells[..]
+    }
+
+    /// Concatenates the names of the [`Bell`]s in this `Row` to the end of a [`String`].
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::Row;
+    ///
+    /// let waterfall = Row::parse("6543217890")?;
+    /// let mut string = "Waterfall is: ".to_string();
+    /// waterfall.push_to_string(&mut string);
+    /// assert_eq!(string, "Waterfall is: 6543217890");
+    /// # Ok::<(), proj_core::InvalidRowErr>(())
+    /// ```
     pub fn push_to_string(&self, string: &mut String) {
         for b in &self.bells {
             string.push_str(&b.name());
@@ -144,6 +302,15 @@ impl Row {
     }
 
     /// Returns a [`String`] representing this `Row`.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Row, Stage};
+    ///
+    /// assert_eq!(Row::rounds(Stage::MAJOR).to_string(), "12345678");
+    /// assert_eq!(Row::parse("146235")?.to_string(), "146235");
+    /// # Ok::<(), proj_core::InvalidRowErr>(())
+    /// ```
     pub fn to_string(&self) -> String {
         let mut s = String::with_capacity(self.stage().as_usize());
         self.push_to_string(&mut s);
