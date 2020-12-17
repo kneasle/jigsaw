@@ -3,6 +3,11 @@
 
 use crate::Stage;
 
+// Imports that are only used by doc comments (meaning rustc will generate a warning if not
+// suppressed)
+#[allow(unused_imports)]
+use crate::Row;
+
 /// An error created when a [`Perm`] was used to permute something with the wrong length
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct IncompatibleStages {

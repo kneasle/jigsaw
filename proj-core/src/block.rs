@@ -2,7 +2,7 @@
 //! starting [`Row`] and yields a sequence of permuted [`Row`]s.
 
 use crate::perm::IncompatibleStages;
-use crate::{Perm, Stage};
+use crate::{Perm, Row, Stage};
 
 /// A `Block` is a generalisation of [`Perm`], where instead of taking a [`Row`] and mapping that
 /// to a single [`Row`], we map that [`Row`] to **multiple** [`Row`]s.
