@@ -1,8 +1,7 @@
 //! A representation of a [`Block`] of ringing; i.e. a sort of 'multi-permutation' which takes a
 //! starting [`Row`] and yields a sequence of permuted [`Row`]s.
 
-use crate::perm::IncompatibleStages;
-use crate::{Perm, Row, Stage};
+use crate::{Bell, IncompatibleStages, Perm, Row, Stage};
 
 /// A `Block` is a generalisation of [`Perm`], where instead of taking a [`Row`] and mapping that
 /// to a single [`Row`], we map that [`Row`] to **multiple** [`Row`]s.
@@ -69,7 +68,7 @@ impl Block {
         self.perms.len()
     }
 
-    /// Returns an [`Iterator`] which returns permutions of the contents of `slice`
+    /// Returns an [`Iterator`] which returns permutions of the contents of a given `slice`.
     #[inline]
     pub fn perm_iter<'b, 's, T>(
         &'b self,
@@ -81,6 +80,13 @@ impl Block {
         PermIter::from_block(self, slice)
     }
 
+    /// Takes a [`Row`] of the same [`Stage`] as this `Block` and returns an [`Iterator`] that
+    /// generates the sequence of [`Row`]s that make up this `Block` starting at that [`Row`].
+    #[inline]
+    pub fn row_iter<'b, 'r>(&'b self, row: &'r Row) -> Result<RowIter<'b, 'r>, IncompatibleStages> {
+        RowIter::from_block(self, row)
+    }
+
     /// Returns the 'left-over' [`Perm`] of this `Block`.  This [`Perm`] represents the overall
     /// effect of the `Block`, and should not be used when generating rows for truth checking.
     #[inline]
@@ -90,7 +96,7 @@ impl Block {
     }
 }
 
-/// A small enum to track the state of [`PermIter`]
+/// A small enum to track the state of [`PermIter`].
 #[derive(Debug, Clone)]
 enum IterState {
     /// The [`PermIter`] hasn't returned anything yet, so should just return the original slice
@@ -103,27 +109,24 @@ enum IterState {
 /// [`Stage`], and generates the sequence of permutations of that slice that correspond to the
 /// [`Block`].  The elements of the slices will be [`Clone`]s of the original items.
 #[derive(Debug, Clone)]
-pub struct PermIter<'block, 'slice, T>
-where
-    T: Clone,
-{
-    perm_iter: std::slice::Iter<'block, Perm>,
+pub struct PermIter<'block, 'slice, T> {
+    block_iter: std::slice::Iter<'block, Perm>,
     state: IterState,
     slice: &'slice [T],
 }
 
-impl<'block, 'slice, T> PermIter<'block, 'slice, T>
-where
-    T: Clone,
-{
+impl<'block, 'slice, T> PermIter<'block, 'slice, T> {
     /// Creates a new `PermIter` given a [`Block`] and a slice of items which implement [`Clone`]
-    fn from_block(block: &'block Block, slice: &'slice [T]) -> Result<Self, IncompatibleStages> {
+    fn from_block(block: &'block Block, slice: &'slice [T]) -> Result<Self, IncompatibleStages>
+    where
+        T: Clone,
+    {
         if block.stage().as_usize() != slice.len() {
             return Err(IncompatibleStages::new(slice.len(), block.stage()));
         }
         Ok(PermIter {
             // We can unwrap here, because `block.perms.len() > 0`
-            perm_iter: block.perms.split_last().unwrap().1.iter(),
+            block_iter: block.perms.split_last().unwrap().1.iter(),
             state: IterState::Identity,
             slice,
         })
@@ -146,7 +149,33 @@ where
             // of the same stage.  The constructor [`PermIter::from_block`] also guaruntees that
             // the [`Block`]'s stage is compatible with the length of the slice.
             // => The unwrap is safe
-            IterState::PermFromBlock => Some(self.perm_iter.next()?.permute(self.slice).unwrap()),
+            IterState::PermFromBlock => Some(self.block_iter.next()?.permute(self.slice).unwrap()),
         }
+    }
+}
+
+/// An [`Iterator`] that takes a [`Block`] and a [`Row`] with the same [`Stage`] and generates the
+/// sequence of [`Row`]s that make up the [`Block`] starting at that [`Row`].
+#[derive(Debug, Clone)]
+pub struct RowIter<'block, 'row> {
+    perm_iter: PermIter<'block, 'row, Bell>,
+}
+
+impl<'block, 'row> RowIter<'block, 'row> {
+    /// Creates a new `RowIter` given a [`Block`] and a [`Row`].
+    fn from_block(block: &'block Block, start_row: &'row Row) -> Result<Self, IncompatibleStages> {
+        Ok(RowIter {
+            perm_iter: PermIter::from_block(block, start_row.slice())?,
+        })
+    }
+}
+
+impl<'block, 'row> Iterator for RowIter<'block, 'row> {
+    type Item = Row;
+
+    fn next(&mut self) -> Option<Row> {
+        // We can use `from_vec_unchecked`, because the permuted `Row` must be valid if the
+        // `Perm` and input `Row` both satisfy their invariants
+        self.perm_iter.next().map(Row::from_vec_unchecked)
     }
 }
