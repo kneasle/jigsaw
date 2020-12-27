@@ -106,3 +106,39 @@ type Block = Chain Block Block | SinglePermutation Perm
   Links: [main page](https://www.math.ubc.ca/~holroyd/inpact/help.html),
   [screenshot](https://www.math.ubc.ca/~holroyd/inpact/scrsht.gif),
   [download](https://www.math.ubc.ca/~holroyd/inpact/inpact1_2.zip)
+
+## 16/12/20
+- Started writing code.  Implemented `Perm` and `Block` as generic permutations and blocks that can
+  be used to permute any input.
+
+## Chat w/ Alexander Holroyd
+- Talked a lot about file formats for storing compositions; he mostly agreed with my thoughts
+- He demonstrated Inpact, and it was cool.
+
+  Pros of Inpact:
+  - It is completely general; it makes no assumptions about the structure of your comp.  All comps
+    are a DAG of nested blocks, with blocks being able to be used multiple times:
+    ```haskell
+    data Comp = Comp Block
+    data Block = Chain [Block] | Perm
+    ```
+
+    What we'd probably want is something more like this (where `{| ... |}` represents a bag):
+    ```haskell
+    data Comp = {| Frag |}
+    data Frag = Frag Block
+    data Block = Chain [Block] | Perm
+    ```
+
+    I do agree that generality is a worthy thing to strive for, but in order for an app to be
+    useful I think it needs to have some pragmatic custom ways to display data (e.g. displaying
+    comps as tenor-observation calling positions).
+  - It is interactive - you right click to re-prove
+
+  Cons of Inpact:
+  - It can't handle 'partial' compositions
+  - It is not particularly visual
+  - The representation of falseness used is pretty unituitive - it simply tells you where the false
+    rows are, not their relation
+- I sketched out my ideas for how the program should look, and he generally approved:
+  ![A-Holroyd sketch](a-holroyd.png)
