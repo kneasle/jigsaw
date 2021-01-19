@@ -1,6 +1,7 @@
 # Project Notes
 
 ## Meeting 2020-11-17
+
 - Discussed what composing is
 - A composition is at its core a set of rows along with a set of leads which start at those rows.
 - Two main types of composition
@@ -23,6 +24,7 @@
 # Random musings on composition structure
 
 ## Permutation
+
 A permutation represents a change from one row to another, but is not a sequence of bells.  For example,
 the place notation `14` on Major corresponds to the permutation:
 ```
@@ -42,12 +44,13 @@ and
 ```
 are equivalent definitions of the permutation represented by the `14` PN.
 
-For convenience, I will write permutations as though they start from `123456...`, so the `14` PN would become
-`<13246587>`.
+For convenience, I will write permutations as though they start from `123456...`, so the `14` PN
+would become `<13246587>`.
 
 ## Block
-A block is an ordered sequence of permutations (not rows).  A block has no defined starting row - it can be
-modelled as a function that takes a start row and produces a sequence of rows:
+
+A block is an ordered sequence of permutations (not rows).  A block has no defined starting row - it
+can be modelled as a function that takes a start row and produces a sequence of rows:
 
 ```haskell
 class Block a where
@@ -68,6 +71,7 @@ type Block = Chain Block Block | SinglePermutation Perm
 ```
 
 ## More musings
+
 - Permutations and rows are different things:
   - Permutations are functions of type `[T; n] -> [T; n]` and can permute anything
   - Row is a sequence of Bells.
@@ -97,6 +101,7 @@ type Block = Chain Block Block | SinglePermutation Perm
 - Blocks can be applied to a given Row to convert them into a fragment
 
 ## Facebook poll
+
 - It seems that the building a comp from smaller blocks is quite a common thing that people want,
   even for people who mostly make extents.
 - There was an impressive split between coursing orders and course heads
@@ -108,25 +113,29 @@ type Block = Chain Block Block | SinglePermutation Perm
   [download](https://www.math.ubc.ca/~holroyd/inpact/inpact1_2.zip)
 
 ## 16/12/20
+
 - Started writing code.  Implemented `Perm` and `Block` as generic permutations and blocks that can
   be used to permute any input.
 
 ## Chat w/ Alexander Holroyd
+
 - Talked a lot about file formats for storing compositions; he mostly agreed with my thoughts
 - He demonstrated Inpact, and it was cool.
 
   Pros of Inpact:
   - It is completely general; it makes no assumptions about the structure of your comp.  All comps
-    are a DAG of nested blocks, with blocks being able to be used multiple times:
+    are single blocks starting from rounds, represented as a DAG of nested blocks with blocks being
+    able to be used multiple times:
     ```haskell
     data Comp = Comp Block
     data Block = Chain [Block] | Perm
     ```
 
-    What we'd probably want is something more like this (where `{| ... |}` represents a bag):
+    What we'd probably want is something more like this (where `{| ... |}` represents a bag, or an
+    set with repeats):
     ```haskell
     data Comp = {| Frag |}
-    data Frag = Frag Block
+    data Frag = Frag Block Row
     data Block = Chain [Block] | Perm
     ```
 
