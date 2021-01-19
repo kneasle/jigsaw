@@ -130,10 +130,73 @@ blocks into one contiguous composition in such a way that the remainder is as mu
 
 \subsubsection{Adding Queens}
 
---- Snip ---
+--- snip ---
 
 
 
-\subsection{Discussions with composers}
+\pagebreak
+
+\section{An initial design}
+
+\subsection{Requirements}
+
+To give a way of ranking the result of this project, I will give a set of requirements for the
+application that I will develop.  I think that the resulting application should:
+
+\begin{enumerate}
+    \item Be a cross-platform GUI-based application that is easy to install and run, and should
+        leverage the visual aspect of GUIs to aid the composer.  The program should feel snappy and
+        responsive, even on lower end machines.
+    \item Be general enough to represent anything in change ringing.
+    \item Be able to handle `partial' compositions --- i.e.\ a composition does not have to be a
+        round block starting and ending in rounds.  Ideally, a composition should be an unordered
+        set of `fragments', each of which is a block (not necessarily round) that starts at a given
+        row.
+    \item Represent falseness in a way that's easily digestible to composers, in a way that shows
+        the composer exactly \emph{which} rows are false, not just where the falseness is.
+    \item Provide a customisable music scoring system, to allow the composer to specify exactly what
+        they care about in this composition.
+    \item Provide easy support for multi-part compositions, used for both proving and music scoring.
+\end{enumerate}
+
+To achieve goal \textbf{(1)} in a reasonable amount of time, I'm going to start by writing the GUI
+as a web page (likely much of the graphics code will be JavaScript) with the `backend' code written
+in Rust and compiled to WebAssembly.
+
+\bigskip
+
+\noindent In an attempt to satisfy the remaining goals, I propose the following design.
+
+\subsection{The design}
+
+\subsubsection{Goal \#3: Partial Compositions}
+
+I propose that we store an unfinished/`partial' composition as a set of unordered and independent
+pieces which are generated and proved as a whole.  I'll call these pieces `fragments' and they can
+be thought of as miniature compositions in their own right, inasmuch as they should are intended to
+be rung as a section but don't necessarily start or end at rounds.  This program will model the
+composing process as repeatedly manipulating fragments until a true round block is reached which has
+the desired properties (length, music content, etc.).
+
+Ways of modifying fragments should include:
+
+\begin{itemize}
+    \item \textbf{Deleting} an existing fragment
+    \item \textbf{Creating} a new fragment from a block and a starting row
+    \item \textbf{Splitting} a fragment at some position to produce two fragments
+    \item \textbf{Reversing} a fragment so all its rows occur in the opposite order
+    \item \textbf{Extending} a fragment (either at the start or end) to make that fragment longer
+    \item \textbf{Combining} two fragments (if the first row of the second is the `leftover' row
+        from the first).
+    \item Perhaps also \textbf{inserting} round blocks into existing fragments
+\end{itemize}
+
+\subsubsection{Goal \#6: Multipart Compositions}
+
+In order to elegantly handle multipart comps, we allow the user to specify an arbitrary set $P$ of
+rows as part heads.  Then, each row that the user sees is `expanded' into multiple separate rows by
+premultiplying with each of the specified part heads.  Therefore, when the user adds a row $r$ to
+the composition, they are in fact adding $|P|$ rows ($pr \, \forall \, p \in P$), and the proving
+and music scoring will work over this expanded set of rows.
 
 \end{document}
