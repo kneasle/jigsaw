@@ -8,7 +8,7 @@ const BELL_NAMES: &'static str = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
 ///
 /// # Example
 /// ```
-/// use proj_core::{Bell, bell::TREBLE};
+/// use proj_core::{Bell, TREBLE};
 ///
 /// // `TREBLE` should be the bell with name '1'
 /// assert_eq!(Bell::from_name('1'), Some(TREBLE));

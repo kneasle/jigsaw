@@ -22,7 +22,7 @@ impl IncompatibleStages {
     ///
     /// # Example
     /// ```
-    /// use proj_core::{Perm, Stage, perm::IncompatibleStages};
+    /// use proj_core::{Perm, Stage, IncompatibleStages};
     ///
     /// assert_eq!(
     ///     format!("{}", IncompatibleStages::new(4, Stage::MAJOR)),

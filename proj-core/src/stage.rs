@@ -56,6 +56,9 @@ impl Stage {
 /// assert_eq!(Stage::SEXTUPLES, Stage::from(15));
 /// ```
 impl Stage {
+    /// A `Stage` with `2` working bells
+    pub const TWO: Stage = Stage(3);
+
     /// A `Stage` with `3` working bells
     pub const SINGLES: Stage = Stage(3);
 
@@ -102,6 +105,7 @@ impl Stage {
 impl std::fmt::Display for Stage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.0 {
+            2 => write!(f, "Two"),
             3 => write!(f, "Singles"),
             4 => write!(f, "Minimus"),
             5 => write!(f, "Doubles"),

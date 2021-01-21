@@ -1,10 +1,10 @@
 //! Idiomatic Rust representations of commonly used primitives for Change Ringing compositions.
 
-pub mod bell;
+mod bell;
 pub mod block;
-pub mod perm;
-pub mod row;
-pub mod stage;
+mod perm;
+mod row;
+mod stage;
 
 pub use bell::{Bell, TREBLE};
 pub use block::Block;
