@@ -8,7 +8,7 @@ use crate::{Bell, IncompatibleStages, Perm, Row, Stage};
 ///
 /// A few things to note about `Block`s:
 /// - All `Block`s must have non-zero length.  Zero-length blocks cannot be created with `safe`
-///   code, and will cause undefined behaviour, usually `panic!`s.
+///   code, and will cause undefined behaviour, usually `panic!`ing.
 /// - A [`Perm`] is just a special case of a [`Block`] of length `1`.
 /// - Like [`Perm`], a `Block` can be used to permute slices of any [`Clone`] type, provided that
 ///   the length of the input slice the same as the [`Stage`] of the `Block`.
