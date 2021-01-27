@@ -80,6 +80,7 @@ pub struct Row {
     bells: Vec<Bell>,
 }
 
+#[wasm_bindgen]
 impl Row {
     /// Creates a [`Row`] representing rounds on a given [`Stage`].
     ///
@@ -97,6 +98,43 @@ impl Row {
         }
     }
 
+    /// Returns the [`Stage`] of this `Row`.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Row, Stage};
+    ///
+    /// // Rounds on a given `Stage` should have that `Stage`
+    /// assert_eq!(Row::rounds(Stage::MINIMUS).stage(), Stage::MINIMUS);
+    /// assert_eq!(Row::rounds(Stage::SEPTUPLES).stage(), Stage::SEPTUPLES);
+    ///
+    /// assert_eq!(Row::parse("41325")?.stage(), Stage::DOUBLES);
+    /// assert_eq!(Row::parse("321 654 987 0")?.stage(), Stage::ROYAL);
+    /// # Ok::<(), proj_core::InvalidRowErr>(())
+    /// ```
+    #[inline]
+    pub fn stage(&self) -> Stage {
+        self.bells.len().into()
+    }
+
+    /// Returns a [`String`] representing this `Row`.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Row, Stage};
+    ///
+    /// assert_eq!(Row::rounds(Stage::MAJOR).to_string(), "12345678");
+    /// assert_eq!(Row::parse("146235")?.to_string(), "146235");
+    /// # Ok::<(), proj_core::InvalidRowErr>(())
+    /// ```
+    pub fn to_string(&self) -> String {
+        let mut s = String::with_capacity(self.stage().as_usize());
+        self.push_to_string(&mut s);
+        s
+    }
+}
+
+impl Row {
     /// Parse a string into a `Row`, skipping any [`char`]s that aren't valid bell names.  This
     /// returns `Err(`[`InvalidRowErr`]`)` if the `Row` would be invalid.
     ///
@@ -250,25 +288,6 @@ impl Row {
         Ok(self)
     }
 
-    /// Returns the [`Stage`] of this `Row`.
-    ///
-    /// # Example
-    /// ```
-    /// use proj_core::{Row, Stage};
-    ///
-    /// // Rounds on a given `Stage` should have that `Stage`
-    /// assert_eq!(Row::rounds(Stage::MINIMUS).stage(), Stage::MINIMUS);
-    /// assert_eq!(Row::rounds(Stage::SEPTUPLES).stage(), Stage::SEPTUPLES);
-    ///
-    /// assert_eq!(Row::parse("41325")?.stage(), Stage::DOUBLES);
-    /// assert_eq!(Row::parse("321 654 987 0")?.stage(), Stage::ROYAL);
-    /// # Ok::<(), proj_core::InvalidRowErr>(())
-    /// ```
-    #[inline]
-    pub fn stage(&self) -> Stage {
-        self.bells.len().into()
-    }
-
     /// Returns an immutable reference to the underlying slice of [`Bell`]s that makes up this
     /// `Row`.
     ///
@@ -301,22 +320,6 @@ impl Row {
         for b in &self.bells {
             string.push_str(&b.name());
         }
-    }
-
-    /// Returns a [`String`] representing this `Row`.
-    ///
-    /// # Example
-    /// ```
-    /// use proj_core::{Row, Stage};
-    ///
-    /// assert_eq!(Row::rounds(Stage::MAJOR).to_string(), "12345678");
-    /// assert_eq!(Row::parse("146235")?.to_string(), "146235");
-    /// # Ok::<(), proj_core::InvalidRowErr>(())
-    /// ```
-    pub fn to_string(&self) -> String {
-        let mut s = String::with_capacity(self.stage().as_usize());
-        self.push_to_string(&mut s);
-        s
     }
 }
 
