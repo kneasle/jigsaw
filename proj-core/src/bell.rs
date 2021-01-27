@@ -1,5 +1,7 @@
 //! A type-safe representation of a bell.
 
+use wasm_bindgen::prelude::*;
+
 /// A lookup string of the bell names
 const BELL_NAMES: &'static str = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
 
@@ -22,6 +24,7 @@ pub const TREBLE: Bell = Bell { index: 0 };
 
 /// A type-safe representation of a 'bell', which adds things like conversions to and from
 /// commonly-used bell names.
+#[wasm_bindgen]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Bell {
     /// A zero-indexed number representing the `Bell`.  I.e the treble is always

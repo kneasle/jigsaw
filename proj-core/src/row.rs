@@ -1,6 +1,7 @@
 //! A heap-allocated row of [`Bell`]s.
 
 use crate::{Bell, Stage};
+use wasm_bindgen::prelude::*;
 
 // Imports that are only used by doc comments (meaning rustc will generate a warning if not
 // suppressed)
@@ -72,6 +73,7 @@ pub type RowResult = Result<Row, InvalidRowErr>;
 /// #
 /// # Ok::<(), InvalidRowErr>(())
 /// ```
+#[wasm_bindgen]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Row {
     /// The underlying [`Vec`] of [`Bell`]s

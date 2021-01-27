@@ -1,5 +1,7 @@
 //! A representation of a stage, with human-friendly `const`s and display names.
 
+use wasm_bindgen::prelude::*;
+
 /// A newtype over [`usize`] that represents a stage.
 ///
 /// To create a new `Stage`, you can either create it directly by using `Stage::from(usize)` or use
@@ -24,9 +26,11 @@
 /// assert_eq!(&format!("{}", Stage::MAXIMUS), "Maximus");
 /// assert_eq!(&format!("{}", Stage::from(9)), "Caters");
 /// ```
+#[wasm_bindgen]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Stage(usize);
 
+#[wasm_bindgen]
 impl Stage {
     /// Returns this `Stage` as a [`usize`].
     ///

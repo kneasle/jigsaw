@@ -2,6 +2,7 @@
 //! [`Row`]s).
 
 use crate::Stage;
+use wasm_bindgen::prelude::*;
 
 // Imports that are only used by doc comments (meaning rustc will generate a warning if not
 // suppressed)
@@ -48,6 +49,7 @@ impl std::error::Error for IncompatibleStages {}
 
 /// A representation of a permutation.  A permutation can be thought of as a function that takes
 /// any sequence and returns the same sequence with the elements in a different order.
+#[wasm_bindgen]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Perm {
     /// A [`Vec`] representing the underlying permutation as a sequence of indices.
