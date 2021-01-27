@@ -8,13 +8,13 @@
     <body style="margin: 0; width: 100%; height: 100%">
         <!-- Note the usage of `type=module` here as this is an ES6 module -->
         <script type="module">
-            import { reverse, default as init } from './proj.js';
+            import { reverse, Frag, default as init } from './proj.js';
 
             async function run() {
                 await init('./proj_bg.wasm');
 
-                // make the function available to the browser
                 window.reverse = reverse;
+                window.Frag = Frag;
 
                 start();
             }

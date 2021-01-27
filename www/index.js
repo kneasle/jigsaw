@@ -4,10 +4,48 @@
 // real life pixels - so dpr provides that scale-up
 const dpr = window.devicePixelRatio || 1;
 
+const COL_WIDTH = 16;
+const ROW_HEIGHT = 22;
+const ROW_FONT = "20px Courier";
+const RIGHT_MARGIN_WIDTH = COL_WIDTH * 1;
+const LEFT_MARGIN_WIDTH = COL_WIDTH * 1;
+
 /* ===== GLOBAL VARIABLES ===== */
 
 // Variables set in the `start()` function
 let canv, ctx;
+
+// Viewport controls
+// ...
+
+function drawRow(x, y, bells, call_str, method_str, is_ruleoff) {
+    const text_baseline = y + ROW_HEIGHT * 0.75;
+    const right = x + COL_WIDTH * bells.length;
+    ctx.font = ROW_FONT;
+    // Call string
+    ctx.textAlign = "right";
+    ctx.fillText(call_str, x - LEFT_MARGIN_WIDTH, text_baseline);
+    // Bells
+    ctx.textAlign = "center";
+    for (let i = 0; i < bells.length; i++) {
+        if (Math.random() < 0.2) {
+            ctx.fillStyle = "#5b5";
+            ctx.fillRect(x + COL_WIDTH * i, y, COL_WIDTH, ROW_HEIGHT);
+        }
+        ctx.fillStyle = "black";
+        ctx.fillText(bells[i], x + COL_WIDTH * (i + 0.5), text_baseline);
+    }
+    // Ruleoff
+    if (is_ruleoff) {
+        ctx.beginPath();
+        ctx.moveTo(x, y + ROW_HEIGHT);
+        ctx.lineTo(right, y + ROW_HEIGHT);
+        ctx.stroke();
+    }
+    // Method string
+    ctx.textAlign = "left";
+    ctx.fillText(method_str, x + bells.length * COL_WIDTH + RIGHT_MARGIN_WIDTH, text_baseline);
+}
 
 function onWindowResize() {
     // Set the canvas size according to its new on-screen size
@@ -29,6 +67,19 @@ function draw() {
     ctx.arc(100, 100, 80, 0, Math.PI * 2);
     ctx.stroke();
 
+    const frag = Frag.example();
+    for (let i = 0; i < frag.len(); i++) {
+        const annot_row = frag.get_row(i);
+        drawRow(
+            200,
+            200 + ROW_HEIGHT * i,
+            annot_row.row().to_string(),
+            annot_row.call_str(),
+            annot_row.method_str(),
+            annot_row.is_ruleoff()
+        );
+    }
+
     // Reset the canvas' transform matrix so that the next frame is rendered correctly
     ctx.restore();
 }
@@ -40,8 +91,6 @@ function start() {
     // Correctly handle window resizing
     window.addEventListener('resize', onWindowResize);
     onWindowResize();
-
-    console.log(reverse("Hello"));
 
     window.requestAnimationFrame(draw);
 }
