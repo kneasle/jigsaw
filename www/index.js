@@ -66,10 +66,6 @@ function draw() {
     ctx.clearRect(0, 0, canv.width, canv.height);
     ctx.scale(dpr, dpr);
 
-    ctx.beginPath();
-    ctx.arc(100, 100, 80, 0, Math.PI * 2);
-    ctx.stroke();
-
     const frag = Frag.example();
     for (let i = 0; i < frag.len(); i++) {
         const annot_row = frag.get_row(i);
