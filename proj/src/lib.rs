@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use proj_core::{Bell, Row};
 use wasm_bindgen::prelude::*;
 
@@ -34,6 +35,11 @@ impl AnnotatedRow {
         self.row.clone()
     }
 
+    /// The number of [`Bell`]s in this `Row`
+    pub fn len(&self) -> usize {
+        self.row.slice().len()
+    }
+
     /// Returns the [`Bell`]s that make up this row, as [`Vec`] of 0-indexed integers
     pub fn bells_indices(&self) -> Vec<usize> {
         self.row.slice().iter().copied().map(Bell::index).collect()
@@ -52,6 +58,37 @@ impl AnnotatedRow {
     /// Returns `true` if this `AnnotatedRow` should have a line rendered underneath it
     pub fn is_ruleoff(&self) -> bool {
         self.is_lead_end
+    }
+
+    /// Returns the music highlighting layout for this row, with each [`bool`] in the [`Vec`]
+    /// deciding whether or not that bell is part of music
+    pub fn highlights(&self) -> Vec<usize> {
+        /// Helper function which calculates the length of the longest run taken from an iterator
+        /// of bells
+        fn run_len(iter: impl Iterator<Item = Bell>) -> usize {
+            let pairs: itertools::TupleWindows<_, (Bell, Bell)> = iter.tuple_windows();
+            pairs
+                .take_while(|(x, y)| (x.index() as isize - y.index() as isize).abs() == 1)
+                .count()
+                + 1
+        }
+        let mut highlights = vec![0; self.len()];
+        // Highlight >=4 bell runs off the front
+        let run_len_front = run_len(self.row.iter());
+        if run_len_front >= 4 {
+            for i in 0..run_len_front {
+                highlights[i] = 1;
+            }
+        }
+        // Highlight >=4 bell runs off the front
+        let run_len_back = run_len(self.row.iter().rev());
+        if run_len_back >= 4 {
+            for i in 0..run_len_back {
+                highlights[self.len() - 1 - i] = 1;
+            }
+        }
+        // Return the highlights
+        highlights
     }
 }
 

@@ -304,6 +304,12 @@ impl Row {
         &self.bells[..]
     }
 
+    /// Returns an iterator over the [`Bell`]s in this `Row`
+    #[inline]
+    pub fn iter<'a>(&'a self) -> std::iter::Copied<std::slice::Iter<'a, Bell>> {
+        self.slice().iter().copied()
+    }
+
     /// Concatenates the names of the [`Bell`]s in this `Row` to the end of a [`String`].
     ///
     /// # Example

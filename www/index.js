@@ -18,17 +18,20 @@ let canv, ctx;
 // Viewport controls
 // ...
 
-function drawRow(x, y, bells, call_str, method_str, is_ruleoff) {
+function drawRow(x, y, annot_row) {
+    // Set values that are the same across all the bells
+    const bells = annot_row.row().to_string();
+    const highlights = annot_row.highlights();
     const text_baseline = y + ROW_HEIGHT * 0.75;
     const right = x + COL_WIDTH * bells.length;
     ctx.font = ROW_FONT;
     // Call string
     ctx.textAlign = "right";
-    ctx.fillText(call_str, x - LEFT_MARGIN_WIDTH, text_baseline);
+    ctx.fillText(annot_row.call_str(), x - LEFT_MARGIN_WIDTH, text_baseline);
     // Bells
     ctx.textAlign = "center";
     for (let i = 0; i < bells.length; i++) {
-        if (Math.random() < 0.2) {
+        if (highlights[i] != 0) {
             ctx.fillStyle = "#5b5";
             ctx.fillRect(x + COL_WIDTH * i, y, COL_WIDTH, ROW_HEIGHT);
         }
@@ -36,7 +39,7 @@ function drawRow(x, y, bells, call_str, method_str, is_ruleoff) {
         ctx.fillText(bells[i], x + COL_WIDTH * (i + 0.5), text_baseline);
     }
     // Ruleoff
-    if (is_ruleoff) {
+    if (annot_row.is_ruleoff()) {
         ctx.beginPath();
         ctx.moveTo(x, y + ROW_HEIGHT);
         ctx.lineTo(right, y + ROW_HEIGHT);
@@ -44,7 +47,7 @@ function drawRow(x, y, bells, call_str, method_str, is_ruleoff) {
     }
     // Method string
     ctx.textAlign = "left";
-    ctx.fillText(method_str, x + bells.length * COL_WIDTH + RIGHT_MARGIN_WIDTH, text_baseline);
+    ctx.fillText(annot_row.method_str(), x + bells.length * COL_WIDTH + RIGHT_MARGIN_WIDTH, text_baseline);
 }
 
 function onWindowResize() {
@@ -70,14 +73,7 @@ function draw() {
     const frag = Frag.example();
     for (let i = 0; i < frag.len(); i++) {
         const annot_row = frag.get_row(i);
-        drawRow(
-            200,
-            200 + ROW_HEIGHT * i,
-            annot_row.row().to_string(),
-            annot_row.call_str(),
-            annot_row.method_str(),
-            annot_row.is_ruleoff()
-        );
+        drawRow(200, 200 + ROW_HEIGHT * i, annot_row);
     }
 
     // Reset the canvas' transform matrix so that the next frame is rendered correctly
