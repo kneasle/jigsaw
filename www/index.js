@@ -4,12 +4,16 @@
 // real life pixels - so dpr provides that scale-up
 const dpr = window.devicePixelRatio || 1;
 
-// Row display consts
+// Display config
 const COL_WIDTH = 16;
 const ROW_HEIGHT = 22;
 const ROW_FONT = "20px Courier";
 const RIGHT_MARGIN_WIDTH = COL_WIDTH * 1;
 const LEFT_MARGIN_WIDTH = COL_WIDTH * 1;
+const FALSE_ROW_GROUP_COLS = ["#f00", "#dd0", "#0b0", "#0bf", "#55f", "#f0f"];
+const FALSE_ROW_GROUP_NOTCH_WIDTH = 0.3;
+const FALSE_ROW_GROUP_NOTCH_HEIGHT = 0.3;
+const FALSE_ROW_GROUP_LINE_WIDTH = 3;
 
 // How many pixels off the edge of the screen the viewport culling will happen
 const VIEW_CULLING_EXTRA_SIZE = 20;
@@ -77,6 +81,15 @@ function drawRow(x, y, annot_row) {
     }
 }
 
+function drawFalsenessIndicator(x, min_y, max_y, notch_width, notch_height) {
+    ctx.beginPath();
+    ctx.moveTo(x + notch_width, min_y);
+    ctx.lineTo(x, min_y + notch_height);
+    ctx.lineTo(x, max_y - notch_height);
+    ctx.lineTo(x + notch_width, max_y);
+    ctx.stroke();
+}
+
 function draw() {
     // Clear the screen and correct for HDPI displays
     ctx.save();
@@ -87,8 +100,34 @@ function draw() {
     ctx.translate(-viewport.x, -viewport.y);
 
     const frag = Frag.example();
+    // Rows
     for (let i = 0; i < frag.len(); i++) {
         drawRow(frag.x, frag.y + ROW_HEIGHT * i, frag.get_row(i));
+    }
+    // Falseness
+    ctx.lineWidth = FALSE_ROW_GROUP_LINE_WIDTH;
+    const false_row_groups = frag.false_row_groups();
+    for (let i = 0; i < false_row_groups.length; i += 3) {
+        // Unpack data from the silly way we have to send it through WASM
+        const start = false_row_groups[i + 0];
+        const end = false_row_groups[i + 1];
+        const group = false_row_groups[i + 2];
+        // Draw the lines
+        ctx.strokeStyle = FALSE_ROW_GROUP_COLS[group % FALSE_ROW_GROUP_COLS.length];
+        drawFalsenessIndicator(
+            frag.x + LEFT_MARGIN_WIDTH * -0.5,
+            frag.y + ROW_HEIGHT * start,
+            frag.y + ROW_HEIGHT * end,
+            LEFT_MARGIN_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
+            ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT
+        );
+        drawFalsenessIndicator(
+            frag.x + frag.num_bells() * COL_WIDTH + RIGHT_MARGIN_WIDTH * 0.5,
+            frag.y + ROW_HEIGHT * start,
+            frag.y + ROW_HEIGHT * end,
+            - RIGHT_MARGIN_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
+            ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT
+        );
     }
 
     // Reset the canvas' transform matrix so that the next frame is rendered correctly
