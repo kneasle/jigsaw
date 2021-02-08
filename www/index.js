@@ -26,6 +26,11 @@ let viewport = { x: 0, y: 0, w: 100, h: 100 };
 /* ===== DRAWING CODE ===== */
 
 function drawRow(x, y, annot_row) {
+    // Don't draw if the row is going to be off the screen
+    if (y < viewport.y - viewport.h / 2 - VIEW_CULLING_EXTRA_SIZE
+     || y > viewport.y + viewport.h / 2 + VIEW_CULLING_EXTRA_SIZE) {
+        return;
+    }
     // Set values that are the same across all the bells
     const bells = annot_row.row().to_string();
     const highlights = annot_row.highlights();
@@ -71,19 +76,9 @@ function draw() {
     ctx.translate(viewport.w / 2, viewport.h / 2);
     ctx.translate(-viewport.x, -viewport.y);
 
-    // Calculate viewport for row culling 
     const frag = Frag.example();
     for (let i = 0; i < frag.len(); i++) {
-        const annot_row = frag.get_row(i);
-        const y = -200 + ROW_HEIGHT * i;
-        const x = -100;
-        // Only draw the row if it's actually on the screen
-        if (y < viewport.y - viewport.h / 2 - VIEW_CULLING_EXTRA_SIZE
-         || y > viewport.y + viewport.h / 2 + VIEW_CULLING_EXTRA_SIZE) {
-            continue;
-        }
-        // Draw the row if it hasn't been culled
-        drawRow(x, y, annot_row);
+        drawRow(-100, -200 + ROW_HEIGHT * i, frag.get_row(i));
     }
 
     // Reset the canvas' transform matrix so that the next frame is rendered correctly
