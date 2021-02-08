@@ -115,6 +115,8 @@ impl AnnotatedRow {
 #[derive(Clone, Debug)]
 pub struct Frag {
     rows: Vec<AnnotatedRow>,
+    pub x: f32,
+    pub y: f32,
 }
 
 #[wasm_bindgen]
@@ -160,7 +162,11 @@ impl Frag {
         rows[223].call_str = Some("sH".to_owned());
         rows[255].call_str = Some("sH".to_owned());
         // Create the fragment and return
-        Frag { rows }
+        Frag {
+            rows,
+            x: -100.0,
+            y: -200.0,
+        }
     }
 }
 

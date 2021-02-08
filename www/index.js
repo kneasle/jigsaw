@@ -88,7 +88,7 @@ function draw() {
 
     const frag = Frag.example();
     for (let i = 0; i < frag.len(); i++) {
-        drawRow(-100, -200 + ROW_HEIGHT * i, frag.get_row(i));
+        drawRow(frag.x, frag.y + ROW_HEIGHT * i, frag.get_row(i));
     }
 
     // Reset the canvas' transform matrix so that the next frame is rendered correctly
