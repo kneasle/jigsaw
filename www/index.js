@@ -18,7 +18,9 @@ const VIEW_CULLING_EXTRA_SIZE = 20;
 
 // Variables set in the `start()` function
 let canv, ctx;
-let start_time;
+
+// Mouse variables that the browser should keep track of but doesn't
+let mouse_coords = { x: 0, y: 0 };
 
 // Viewport controls
 let viewport = { x: 0, y: 0, w: 100, h: 100 };
@@ -63,11 +65,6 @@ function drawRow(x, y, annot_row) {
 }
 
 function draw() {
-    // Generate the width and height of the window in user-defined pixels ('px' from CSS)
-    // Move the viewport
-    const elapsed_time = (Date.now() - start_time) / 1000;
-    viewport.y = elapsed_time * 50;
-
     // Clear the screen and correct for HDPI displays
     ctx.save();
     ctx.clearRect(0, 0, canv.width, canv.height);
@@ -91,7 +88,12 @@ function frame() {
     // window.requestAnimationFrame(frame);
 }
 
-/* ===== CALLBACKS ===== */
+// Request for a frame to be rendered
+function requestFrame() {
+    window.requestAnimationFrame(frame);
+}
+
+/* ===== EVENT LISTENERS ===== */
 
 function onWindowResize() {
     // Set the canvas size according to its new on-screen size
@@ -103,18 +105,42 @@ function onWindowResize() {
     viewport.h = rect.height;
 
     // Request a frame to be drawn
-    window.requestAnimationFrame(frame);
+    requestFrame();
 }
+
+function onMouseMove(e) {
+    if (e.offsetX == 0 && e.offsetY == 0) {
+        return;
+    }
+    if (isButton(e, 0)) {
+        viewport.x -= e.offsetX - mouse_coords.x;
+        viewport.y -= e.offsetY - mouse_coords.y;
+    }
+
+    mouse_coords.x = e.offsetX;
+    mouse_coords.y = e.offsetY;
+
+    requestFrame();
+}
+
+function isButton(e, button) {
+    // Deal with Safari being ideosyncratic
+    const button_mask = (e.buttons === undefined ? e.which : e.buttons);
+    return (button_mask & (1 << button)) != 0;
+}
+
+/* ===== STARTUP CODE ===== */
 
 function start() {
     canv = document.getElementById("comp-canvas");
     ctx = canv.getContext("2d");
-
-    start_time = Date.now();
     
-    // Correctly handle window resizing
+    // Bind event listeners to all the things we need
     window.addEventListener('resize', onWindowResize);
+    window.addEventListener('mousemove', onMouseMove);
+
+    // Generate a window resize event on startup to make sure the display gets initialised properly
     onWindowResize();
 
-    window.requestAnimationFrame(frame);
+    requestFrame();
 }
