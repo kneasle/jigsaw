@@ -90,16 +90,7 @@ function drawFalsenessIndicator(x, min_y, max_y, notch_width, notch_height) {
     ctx.stroke();
 }
 
-function draw() {
-    // Clear the screen and correct for HDPI displays
-    ctx.save();
-    ctx.clearRect(0, 0, canv.width, canv.height);
-    ctx.scale(dpr, dpr);
-    // Move so that the camera's origin is in the centre of the screen
-    ctx.translate(viewport.w / 2, viewport.h / 2);
-    ctx.translate(-viewport.x, -viewport.y);
-
-    const frag = Frag.example();
+function drawFrag(frag) {
     // Rows
     for (let i = 0; i < frag.len(); i++) {
         drawRow(frag.x, frag.y + ROW_HEIGHT * i, frag.get_row(i));
@@ -129,6 +120,19 @@ function draw() {
             ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT
         );
     }
+}
+
+function draw() {
+    // Clear the screen and correct for HDPI displays
+    ctx.save();
+    ctx.clearRect(0, 0, canv.width, canv.height);
+    ctx.scale(dpr, dpr);
+    // Move so that the camera's origin is in the centre of the screen
+    ctx.translate(viewport.w / 2, viewport.h / 2);
+    ctx.translate(-viewport.x, -viewport.y);
+
+    const frag = Frag.example();
+    drawFrag(frag);
 
     // Reset the canvas' transform matrix so that the next frame is rendered correctly
     ctx.restore();
