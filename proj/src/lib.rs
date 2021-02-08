@@ -90,6 +90,25 @@ impl AnnotatedRow {
         // Return the highlights
         highlights
     }
+
+    /// Returns the ranges of the row that should be highlighted.  These are 0-indexed and
+    /// act the same way as `..` in Rust, so the result `[0, 4, 5, 10]` would highlight the first
+    /// and last 4 bells in a row of Royal.  This is used by the rendering code to avoid lines
+    /// between the individual rectangles under each bell.
+    pub fn highlight_ranges(&self) -> Vec<usize> {
+        let mut last_highlighted = 0;
+        let mut ranges = Vec::new();
+        for (i, &h) in self.highlights().iter().enumerate() {
+            if h != last_highlighted {
+                ranges.push(i);
+            }
+            last_highlighted = h;
+        }
+        if last_highlighted != 0 {
+            ranges.push(self.len());
+        }
+        ranges
+    }
 }
 
 #[wasm_bindgen]
@@ -112,7 +131,7 @@ impl Frag {
         self.rows.len()
     }
 
-    /// Generates an example composition (in this case, it's https://complib.org/composition/75822)
+    /// Generates an example fragment (in this case, it's https://complib.org/composition/75822)
     pub fn example() -> Frag {
         let mut rows: Vec<_> = include_str!("example-comp")
             .lines()
@@ -136,10 +155,10 @@ impl Frag {
             rows[i * 32 + 31].is_lead_end = true;
         }
         // Calls
-        rows[31].call_str = Some("s".to_owned());
-        rows[63].call_str = Some("s".to_owned());
-        rows[223].call_str = Some("s".to_owned());
-        rows[255].call_str = Some("s".to_owned());
+        rows[31].call_str = Some("sB".to_owned());
+        rows[63].call_str = Some("sB".to_owned());
+        rows[223].call_str = Some("sH".to_owned());
+        rows[255].call_str = Some("sH".to_owned());
         // Create the fragment and return
         Frag { rows }
     }

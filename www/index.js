@@ -35,21 +35,28 @@ function drawRow(x, y, annot_row) {
     }
     // Set values that are the same across all the bells
     const bells = annot_row.row().to_string();
-    const highlights = annot_row.highlights();
+    const hl_ranges = annot_row.highlight_ranges();
+    const method_str = annot_row.method_str();
+    const call_str = annot_row.call_str();
     const text_baseline = y + ROW_HEIGHT * 0.75;
     const right = x + COL_WIDTH * bells.length;
     ctx.font = ROW_FONT;
     // Call string
-    ctx.textAlign = "right";
-    ctx.fillText(annot_row.call_str(), x - LEFT_MARGIN_WIDTH, text_baseline);
+    if (call_str) {
+        ctx.textAlign = "right";
+        ctx.fillText(call_str, x - LEFT_MARGIN_WIDTH, text_baseline);
+    }
+    // Highlighting
+    ctx.fillStyle = "#5b5";
+    for (let i = 0; i < hl_ranges.length; i += 2) {
+        const start = hl_ranges[i];
+        const end = hl_ranges[i + 1];
+        ctx.fillRect(x + COL_WIDTH * start, y, COL_WIDTH * (end - start), ROW_HEIGHT);
+    }
     // Bells
     ctx.textAlign = "center";
+    ctx.fillStyle = "black";
     for (let i = 0; i < bells.length; i++) {
-        if (highlights[i] != 0) {
-            ctx.fillStyle = "#5b5";
-            ctx.fillRect(x + COL_WIDTH * i, y, COL_WIDTH, ROW_HEIGHT);
-        }
-        ctx.fillStyle = "black";
         ctx.fillText(bells[i], x + COL_WIDTH * (i + 0.5), text_baseline);
     }
     // Ruleoff
@@ -60,8 +67,14 @@ function drawRow(x, y, annot_row) {
         ctx.stroke();
     }
     // Method string
-    ctx.textAlign = "left";
-    ctx.fillText(annot_row.method_str(), x + bells.length * COL_WIDTH + RIGHT_MARGIN_WIDTH, text_baseline);
+    if (method_str) {
+        ctx.textAlign = "left";
+        ctx.fillText(
+            method_str,
+            x + bells.length * COL_WIDTH + RIGHT_MARGIN_WIDTH,
+            text_baseline
+        );
+    }
 }
 
 function draw() {
