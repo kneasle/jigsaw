@@ -17,13 +17,14 @@ Change ringing is an artform which is almost exclusive to England, where people 
 in continually evolving sequences, known as ``changes'' or ``rows''.  
 
 More specifically, this project is concerned with the art of `composing' --- designing sequences of
-rows for ringers to perform.  The art of composing predates computers by several centuries, so
-composers have historically created compositions using pen, paper and copious amounts of both skill and
-patience.  However, change ringing compositions are at their core sequences of permutations and are
-therefore extremely ameanable to both mathematical and computer analysis.  Even the
-first computers have been used to mechanise parts of composing (namely ``proving'' --- verifying
-that a composition contains no repeated rows), and as the increasing speed of computers has been
-exploited to allow computers to fully generate some compositions.
+rows for ringers to perform.  The art of composing predates computers by several centuries (the
+ealiest surviving record of composing come from Fabian Stedman in the 1700s), so composers have
+historically created compositions using pen, paper and copious amounts of both skill and patience.
+However, change ringing compositions are at their core sequences of permutations and are therefore
+extremely ameanable to both mathematical and computer analysis.  Even the first computers have been
+used to mechanise parts of composing (namely ``proving'' --- verifying that a composition contains
+no repeated rows), and as the increasing speed of computers has been exploited to allow computers to
+fully generate some compositions.
 
 But brute force is still no match for the creativity of human composers, and one mostly unexplored area
 of composing is software that \emph{aids} human composers by giving instant feedback and
@@ -37,6 +38,8 @@ This is analogous to what software like Musescore or Sibelius do for composing m
 \pagebreak
 
 \section{Introduction}
+
+\iffalse
 
 \subsection{Problems that this project is trying to solve}
 
@@ -135,6 +138,45 @@ blocks into one contiguous composition in such a way that the remainder is as mu
 
 
 \pagebreak
+
+\fi
+
+
+
+\subsection{What problem is this project trying to solve?}
+
+As with anything, ringing composing covers a wide and diverse selection of different activities
+(each with their own specific workflow) and it would be naive to expect an application to support
+all of these whilst still feeling remotely cohesive.  However, there is common ground between many
+(if not all) of these workflows, and this project is designed to approach one of these.
+
+The task in question is the problem of going from an \emph{idea} or \emph{sketch} for a composition
+to a complete composition.  More concretely, the `idea' usually takes the form of the composer
+inventing some sections of a composition (known in this project as ``fragments'') which they want to
+ring along with some ideas of how these fragments can be joined, and the `complete' composition is a
+single fragment (beginning and ending with rounds) containing the desired number of rows.  The
+important thing to note here is that the composing process is very incremental --- the composer
+begins with some ideas and slowly builds them up into something that could be rung by humans.
+
+Also, there are invariants we want to check at every step in the process.  The most vital of these
+is the ``truth'' of the composition --- in most cases, a composition is considered ``true'' if all
+the rows contained within it are unique.  This is a critical invariant to uphold because ringing
+performances are only valid if they are true, so a composition which contains even one repeated row
+is essentially useless.  The next most used statistic to keep track of is the ``length'' of the
+current composition, i.e.\ number of rows included so far.  This is important because there are
+standard minimum lengths for compositions (any composition containing at least 5000 rows is called a
+``peal'', any composition containing at least 1250 rows is a ``quarter peal''), and as a ringer you
+don't want to ring for much longer than you have to.  So practically no-one will ring a 6000 change
+peal or a 1500 change quarter peal, despite these being allowed.
+
+Near the start of the year, I asked other composers on the ringing Facebook group how they composed
+and there was near-unanimous agreement that an application like this would be extremely useful (the
+consensus was that it wouldn't and shouldn't solve every problem, but nearly everyone I spoke to
+does something like this at some point during their composing workflow).  I also spent some time
+looking for something similar to no avail, and during the large amount of discussion that followed
+my question no-one else came up with anything either.  I therefore conclude that this is the first
+project like this that has been created.
+
 
 \section{An initial design}
 
