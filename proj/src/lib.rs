@@ -193,8 +193,3 @@ impl Frag {
         ];
     }
 }
-
-#[wasm_bindgen]
-pub fn reverse(s: String) -> String {
-    s.chars().rev().skip(1).collect()
-}
