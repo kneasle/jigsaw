@@ -3,11 +3,6 @@
 use crate::{Bell, Stage};
 use wasm_bindgen::prelude::*;
 
-// Imports that are only used by doc comments (meaning rustc will generate a warning if not
-// suppressed)
-#[allow(unused_imports)]
-use crate::Perm;
-
 /// All the possible ways that a [`Row`] could be invalid.
 ///
 /// Note that by the Pigeon Hole Principle, we do not need a third entry
@@ -17,8 +12,8 @@ use crate::Perm;
 pub enum InvalidRowErr {
     /// A [`Bell`] would appear twice in the new [`Row`] (for example in `113456` or `4152357`)
     DuplicateBell(Bell),
-    /// A [`Bell`] is not within the range of the [`Stage`] of the new [`Row`] (for example in
-    /// `12745` or `5432`).
+    /// A [`Bell`] is not within the range of the [`Stage`] of the new [`Row`] (for example `7` in
+    /// `12745` or `5` in `5432`).
     BellOutOfStage(Bell, Stage),
 }
 
@@ -37,16 +32,51 @@ impl std::fmt::Display for InvalidRowErr {
 
 pub type RowResult = Result<Row, InvalidRowErr>;
 
+/// An error created when a [`Row`] was used to permute something with the wrong length
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct IncompatibleStages {
+    /// The [`Stage`] of the [`Row`] that was being permuted
+    lhs_stage: Stage,
+    /// The [`Stage`] of the [`Row`] that was doing the permuting
+    rhs_stage: Stage,
+}
+
+impl IncompatibleStages {
+    /// Compares two [`Stage`]s, returning `Ok(())` if they are equal and returning the appropriate
+    /// `IncompatibleStages` error if not.
+    pub(crate) fn test_err(lhs_stage: Stage, rhs_stage: Stage) -> Result<(), Self> {
+        if lhs_stage == rhs_stage {
+            Ok(())
+        } else {
+            Err(IncompatibleStages {
+                lhs_stage,
+                rhs_stage,
+            })
+        }
+    }
+}
+
+impl std::fmt::Display for IncompatibleStages {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Incompatible stages: {} (lhs), {} (rhs)",
+            self.lhs_stage, self.rhs_stage
+        )
+    }
+}
+
+impl std::error::Error for IncompatibleStages {}
+
 /// A single `Row` of [`Bell`]s.
 ///
-/// This can be viewed as a [`Perm`]utation of [rounds](Row::rounds) on a given [`Stage`].
+/// This can be viewed as a permutation of [rounds](Row::rounds) on a given [`Stage`].
 ///
-/// A `Row` is **required** to be a valid `Row` according to
+/// A `Row` must always be valid according to
 /// [the Framework](https://cccbr.github.io/method_ringing_framework/fundamentals.html) - i.e., it
-/// must contain every [`Bell`] up to the [`Stage`] once and precisely once.  This is checked in
-/// all the constructors and then assumed as an invariant.
-///
-/// This is similar to how [`&str`](str) and [`String`] are required to be valid UTF-8.
+/// must contain every [`Bell`] up to its [`Stage`] once and precisely once.  This is only checked
+/// in the constructors and then used as assumed knowledge to avoid further checks.  This is
+/// similar to how [`&str`](str) and [`String`] are required to be valid UTF-8.
 ///
 /// # Example
 /// ```
@@ -74,7 +104,7 @@ pub type RowResult = Result<Row, InvalidRowErr>;
 /// # Ok::<(), InvalidRowErr>(())
 /// ```
 #[wasm_bindgen]
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Row {
     /// The underlying [`Vec`] of [`Bell`]s
     bells: Vec<Bell>,
@@ -301,7 +331,7 @@ impl Row {
     /// ```
     #[inline]
     pub fn slice(&self) -> &[Bell] {
-        &self.bells[..]
+        self.bells.as_slice()
     }
 
     /// Returns an iterator over the [`Bell`]s in this `Row`
@@ -310,7 +340,9 @@ impl Row {
         self.slice().iter().copied()
     }
 
-    /// Concatenates the names of the [`Bell`]s in this `Row` to the end of a [`String`].
+    /// Concatenates the names of the [`Bell`]s in this `Row` to the end of a [`String`].  See also
+    /// [`to_string`](Row::to_string), which returns a new [`String`] rather than concatenating to
+    /// an existing one.
     ///
     /// # Example
     /// ```
@@ -329,8 +361,75 @@ impl Row {
     }
 }
 
+impl std::fmt::Debug for Row {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Row({})", self.to_string())
+    }
+}
+
 impl std::fmt::Display for Row {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_string())
+    }
+}
+
+impl std::ops::Index<usize> for Row {
+    type Output = Bell;
+
+    fn index(&self, index: usize) -> &Bell {
+        &self.slice()[index]
+    }
+}
+
+impl std::ops::Mul for Row {
+    type Output = Row;
+
+    /// Uses the RHS to permute the LHS, consuming both arguments.
+    ///
+    /// # Panics
+    ///
+    /// This panics if the [`Row`]s have different [`Stages`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use proj_core::Row;
+    ///
+    /// assert_eq!(
+    ///     Row::parse("13425678")? * Row::parse("43217568")?,
+    ///     Row::parse("24317568")?
+    /// );
+    ///
+    /// # Ok::<(), proj_core::InvalidRowErr>(())
+    /// ```
+    fn mul(self, rhs: Row) -> Row {
+        &self * &rhs
+    }
+}
+
+impl std::ops::Mul for &Row {
+    type Output = Row;
+
+    /// Uses the RHS to permute the LHS without consuming either argument.
+    ///
+    /// # Panics
+    ///
+    /// This panics if the [`Row`]s have different [`Stages`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use proj_core::Row;
+    ///
+    /// assert_eq!(
+    ///     &Row::parse("13425678")? * &Row::parse("43217568")?,
+    ///     Row::parse("24317568")?
+    /// );
+    ///
+    /// # Ok::<(), proj_core::InvalidRowErr>(())
+    /// ```
+    fn mul(self, rhs: &Row) -> Row {
+        IncompatibleStages::test_err(self.stage(), rhs.stage()).unwrap();
+        Row::from_vec_unchecked(rhs.iter().map(|b| self[b.index()]).collect())
     }
 }

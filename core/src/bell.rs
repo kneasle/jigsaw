@@ -166,7 +166,7 @@ impl Bell {
     /// // Other bells display as their single-character names
     /// assert_eq!(Bell::from_number(12).unwrap().name(), "T");
     /// assert_eq!(Bell::from_number(16).unwrap().name(), "D");
-    /// // Anything too big simply display as '<{bell.number()}>'
+    /// // Anything too big simply displays as '<{bell.number()}>'
     /// assert_eq!(Bell::from_number(100).unwrap().name(), "<100>");
     /// ```
     pub fn name(&self) -> String {
