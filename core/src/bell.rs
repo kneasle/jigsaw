@@ -94,6 +94,28 @@ impl Bell {
         number.checked_sub(1).map(Bell::from_index)
     }
 
+    /// Converts this `Bell` into the [`char`] that it should be displayed as.  If the `Bell` is
+    /// too big to have a corresponding name, then [`None`] is returned.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::Bell;
+    ///
+    /// // A 'Bell' with index 0 is the treble, and therefore displays as `1`
+    /// assert_eq!(Bell::from_index(0).to_char(), Some('1'));
+    /// // The 11th should display as 'E'
+    /// assert_eq!(Bell::from_number(11).unwrap().to_char(), Some('E'));
+    ///
+    /// // Trying to display the 100th Bell fails:
+    /// assert_eq!(Bell::from_number(100).unwrap().to_char(), None);
+    /// ```
+    pub fn to_char(&self) -> Option<char> {
+        BELL_NAMES.as_bytes().get(self.index).map(|x| *x as char)
+    }
+}
+
+#[wasm_bindgen]
+impl Bell {
     /// Returns the 0-indexed representation of this `Bell`.
     ///
     /// # Example
@@ -128,25 +150,6 @@ impl Bell {
     #[inline]
     pub fn number(self) -> usize {
         self.index + 1
-    }
-
-    /// Converts this `Bell` into the [`char`] that it should be displayed as.  If the `Bell` is
-    /// too big to have a corresponding name, then [`None`] is returned.
-    ///
-    /// # Example
-    /// ```
-    /// use proj_core::Bell;
-    ///
-    /// // A 'Bell' with index 0 is the treble, and therefore displays as `1`
-    /// assert_eq!(Bell::from_index(0).to_char(), Some('1'));
-    /// // The 11th should display as 'E'
-    /// assert_eq!(Bell::from_number(11).unwrap().to_char(), Some('E'));
-    ///
-    /// // Trying to display the 100th Bell fails:
-    /// assert_eq!(Bell::from_number(100).unwrap().to_char(), None);
-    /// ```
-    pub fn to_char(&self) -> Option<char> {
-        BELL_NAMES.as_bytes().get(self.index).map(|x| *x as char)
     }
 
     /// Converts this `Bell` into a [`String`] that it should be displayed as.  Unlike
