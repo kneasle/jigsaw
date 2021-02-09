@@ -22,6 +22,8 @@ const VIEW_CULLING_EXTRA_SIZE = 20;
 
 // Variables set in the `start()` function
 let canv, ctx;
+// The comp being edited
+let comp;
 
 // Mouse variables that the browser should keep track of but doesn't
 let mouse_coords = { x: 0, y: 0 };
@@ -96,6 +98,7 @@ function drawFrag(frag) {
         drawRow(frag.x, frag.y + ROW_HEIGHT * i, frag.get_row(i));
     }
     // Falseness
+    /*
     ctx.lineWidth = FALSE_ROW_GROUP_LINE_WIDTH;
     const false_row_groups = frag.false_row_groups();
     for (let i = 0; i < false_row_groups.length; i += 3) {
@@ -120,6 +123,7 @@ function drawFrag(frag) {
             ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT
         );
     }
+    */
 }
 
 function draw() {
@@ -131,8 +135,9 @@ function draw() {
     ctx.translate(viewport.w / 2, viewport.h / 2);
     ctx.translate(-viewport.x, -viewport.y);
 
-    const frag = Frag.example();
-    drawFrag(frag);
+    for (let f = 0; f < comp.num_frags(); f++) {
+        drawFrag(comp.get_frag(f));
+    }
 
     // Reset the canvas' transform matrix so that the next frame is rendered correctly
     ctx.restore();
@@ -190,6 +195,8 @@ function isButton(e, button) {
 function start() {
     canv = document.getElementById("comp-canvas");
     ctx = canv.getContext("2d");
+
+    comp = Comp.example();
     
     // Bind event listeners to all the things we need
     window.addEventListener('resize', onWindowResize);

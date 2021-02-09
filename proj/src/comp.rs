@@ -79,12 +79,9 @@ impl Comp {
         c.rebuild_state();
         c
     }
-}
 
-#[wasm_bindgen]
-impl Comp {
     /// Rebuild the cached state, as though the [`Spec`] had changed.
-    pub fn rebuild_state(&mut self) {
+    fn rebuild_state(&mut self) {
         // Rebuild the expanded rows
         self.spec.gen_rows(&mut self.all_rows);
         // Generate the truth of the composition, by sorting the rows and then generating the
@@ -111,7 +108,11 @@ impl Comp {
             self.false_row_groups.push(current_group.clone());
         }
     }
+}
 
+// Stuff required specifically for JS rendering
+#[wasm_bindgen]
+impl Comp {
     /// Create an example composition
     pub fn example() -> Comp {
         Self::from_spec(Spec {
@@ -119,12 +120,22 @@ impl Comp {
             part_heads: vec![Row::rounds(Stage::MAJOR), Row::backrounds(Stage::MAJOR)],
         })
     }
+
+    pub fn num_frags(&self) -> usize {
+        self.spec.frags.len()
+    }
+
+    pub fn get_frag(&self, i: usize) -> Frag {
+        self.spec.frags[i].clone()
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::Comp;
+
     #[test]
     fn test() {
-        let c = super::Comp::example();
+        let _c = Comp::example();
     }
 }
