@@ -2,6 +2,8 @@ use itertools::Itertools;
 use proj_core::{Bell, Row};
 use wasm_bindgen::prelude::*;
 
+pub mod comp;
+
 fn clone_or_empty(string: &Option<String>) -> String {
     match string {
         Some(x) => x.clone(),
@@ -137,7 +139,7 @@ impl Frag {
             "Bristol",
             "Lessness",
             "Yorkshire",
-            "Cooktown Orchid",
+            "York",
             "Superlative",
             "Cornwall",
             "Bristol",
