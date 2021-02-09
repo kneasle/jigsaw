@@ -112,7 +112,7 @@ pub struct Row {
 
 #[wasm_bindgen]
 impl Row {
-    /// Creates a [`Row`] representing rounds on a given [`Stage`].
+    /// Creates rounds on a given [`Stage`].
     ///
     /// # Example
     /// ```
@@ -123,9 +123,41 @@ impl Row {
     /// ```
     pub fn rounds(stage: Stage) -> Row {
         // We skip the validity check, because it is trivially satisfied by rounds
-        Row {
-            bells: (0..stage.as_usize()).map(Bell::from_index).collect(),
-        }
+        Row::from_vec_unchecked((0..stage.as_usize()).map(Bell::from_index).collect())
+    }
+
+    /// Creates backrounds on a given [`Stage`].
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Row, Stage};
+    ///
+    /// assert_eq!(Row::backrounds(Stage::MINIMUS).to_string(), "4321");
+    /// assert_eq!(Row::backrounds(Stage::CATERS).to_string(), "987654321");
+    /// ```
+    pub fn backrounds(stage: Stage) -> Row {
+        // We skip the validity check, because it is trivially satisfied by backrounds
+        Row::from_vec_unchecked((0..stage.as_usize()).rev().map(Bell::from_index).collect())
+    }
+
+    /// Creates Queens on a given [`Stage`].
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Row, Stage};
+    ///
+    /// assert_eq!(Row::queens(Stage::MINIMUS).to_string(), "1324");
+    /// assert_eq!(Row::queens(Stage::CATERS).to_string(), "135792468");
+    /// ```
+    pub fn queens(stage: Stage) -> Row {
+        // We skip the validity check, because it is trivially satisfied by backrounds
+        Row::from_vec_unchecked(
+            (0..stage.as_usize())
+                .step_by(2)
+                .chain((1..stage.as_usize()).step_by(2))
+                .map(Bell::from_index)
+                .collect(),
+        )
     }
 
     /// Returns the [`Stage`] of this `Row`.
