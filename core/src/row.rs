@@ -1,4 +1,4 @@
-//! A heap-allocated row of [`Bell`]s.
+//! A heap-allocated row of [`Bell`]s.  This is also used as a permutation.
 
 use crate::{Bell, Stage};
 use wasm_bindgen::prelude::*;
@@ -104,7 +104,7 @@ impl std::error::Error for IncompatibleStages {}
 /// # Ok::<(), InvalidRowErr>(())
 /// ```
 #[wasm_bindgen]
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Row {
     /// The underlying [`Vec`] of [`Bell`]s
     bells: Vec<Bell>,
@@ -193,6 +193,26 @@ impl Row {
         let mut s = String::with_capacity(self.stage().as_usize());
         self.push_to_string(&mut s);
         s
+    }
+
+    /// A very collision-resistant hash function.  It is guarunteed to be perfectly
+    /// collision-resistant on the following [`Stage`]s:
+    /// - 16-bit machines: Up to 6 bells
+    /// - 32-bit machines: Up to 9 bells
+    /// - 64-bit machines: Up to 16 bells
+    ///
+    /// This hashing algorithm works by reading the row as a number using the stage as a base, thus
+    /// guarunteeing that (ignoring overflow), two [`Row`]s will only be hashed to the same value
+    /// if they are in fact the same.  This is ludicrously inefficient in terms of hash density,
+    /// but it is fast and perfect and in most cases will suffice.
+    pub fn fast_hash(&self) -> usize {
+        let mut accum = 0;
+        let mut multiplier = 1;
+        for b in self.slice() {
+            accum *= b.index() * multiplier;
+            multiplier *= self.stage().as_usize();
+        }
+        accum
     }
 }
 
