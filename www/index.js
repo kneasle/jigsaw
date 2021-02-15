@@ -36,7 +36,7 @@ let viewport = { x: 0, y: 0, w: 100, h: 100 };
 
 /* ===== DRAWING CODE ===== */
 
-function drawRow(x, y, comp, f, r) {
+function drawRow(x, y, f, r) {
     // Don't draw if the row is going to be off the screen
     if (y < viewport.y - viewport.h / 2 - VIEW_CULLING_EXTRA_SIZE
      || y > viewport.y + viewport.h / 2 + VIEW_CULLING_EXTRA_SIZE) {
@@ -62,7 +62,12 @@ function drawRow(x, y, comp, f, r) {
     for (let i = 0; i < hl_ranges.length; i += 2) {
         const start = hl_ranges[i];
         const end = hl_ranges[i + 1];
-        ctx.fillRect(x + COL_WIDTH * start, y, COL_WIDTH * (end - start), ROW_HEIGHT);
+        ctx.fillRect(
+            x + COL_WIDTH * start,
+            y,
+            COL_WIDTH * (end - start),
+            ROW_HEIGHT
+        );
     }
     // Bells
     ctx.textAlign = "center";
@@ -101,10 +106,10 @@ function drawFalsenessIndicator(x, min_y, max_y, notch_width, notch_height) {
     ctx.stroke();
 }
 
-function drawFrag(comp, f) {
+function drawFrag(f) {
     // Rows
     for (let i = 0; i < comp.frag_len(f); i++) {
-        drawRow(comp.frag_x(f), comp.frag_y(f) + ROW_HEIGHT * i, comp, f, i);
+        drawRow(comp.frag_x(f), comp.frag_y(f) + ROW_HEIGHT * i, f, i);
     }
     // Falseness
     /*
@@ -145,7 +150,7 @@ function draw() {
     ctx.translate(-viewport.x, -viewport.y);
 
     for (let f = 0; f < comp.num_frags(); f++) {
-        drawFrag(comp, f);
+        drawFrag(f);
     }
 
     // Reset the canvas' transform matrix so that the next frame is rendered correctly
