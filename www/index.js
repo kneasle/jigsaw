@@ -146,8 +146,8 @@ function draw() {
     ctx.clearRect(0, 0, canv.width, canv.height);
     ctx.scale(dpr, dpr);
     // Move so that the camera's origin is in the centre of the screen
-    ctx.translate(viewport.w / 2, viewport.h / 2);
-    ctx.translate(-viewport.x, -viewport.y);
+    ctx.translate(Math.round(viewport.w / 2), Math.round(viewport.h / 2));
+    ctx.translate(Math.round(-viewport.x), Math.round(-viewport.y));
 
     for (let f = 0; f < comp.num_frags(); f++) {
         drawFrag(f);
