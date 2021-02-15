@@ -41,7 +41,7 @@ pub struct ExpandedRow {
     method_str: Option<String>,
     is_lead_end: bool,
     /// One [`Row`] for each part of the composition
-    expanded_rows: Vec<Row>,
+    pub expanded_rows: Vec<Row>,
     pub highlight_ranges: Vec<(usize, usize)>,
 }
 

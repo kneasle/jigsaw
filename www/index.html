@@ -27,5 +27,13 @@
                        width: 100%; height: 100%;
                        margin: 0;">
         </canvas>
+        <div style="position: absolute; top: 0; left: 0; background: #ffffffdd;">
+            <p style="margin: 5px;">Viewing Part: <select name="part-head" id="part-head">
+                <!-- The part heads are filled in only when the wasm is loaded, which is far enough
+                     after page load to cause jank, so we fill this with a sensible default so that
+                     hopefully the jank is less noticeable. -->
+                <option value="0">#1: 12345678</option>
+            </select></p>
+        </div>
     </body>
 </html>

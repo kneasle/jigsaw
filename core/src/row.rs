@@ -392,6 +392,57 @@ impl Row {
         self.slice().iter().copied()
     }
 
+    /// Perform an in-place check that this `Row` is equal to rounds.  `x.is_rounds()` is an
+    /// optimised version of `x == Row::rounds(x.stage())`.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Row, Stage};
+    ///
+    /// // Rounds is ... rounds (DOH)
+    /// assert!(Row::rounds(Stage::MAXIMUS).is_rounds());
+    /// // This is not rounds
+    /// assert!(!Row::parse("18423756")?.is_rounds());
+    /// # Ok::<(), proj_core::InvalidRowErr>(())
+    /// ```
+    pub fn is_rounds(&self) -> bool {
+        self.iter().enumerate().all(|(i, b)| b.index() == i)
+    }
+
+    /// All the `Row`s formed by repeatedly permuting a given `Row`.  The first item returned will
+    /// always be the input `Row`, and the last will always be `rounds`.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::Row;
+    ///
+    /// // The closure of "18234567" are all the fixed-treble cyclic part heads.
+    /// assert_eq!(
+    ///     Row::parse("18234567")?.closure(),
+    ///     vec![
+    ///         Row::parse("18234567")?,
+    ///         Row::parse("17823456")?,
+    ///         Row::parse("16782345")?,
+    ///         Row::parse("15678234")?,
+    ///         Row::parse("14567823")?,
+    ///         Row::parse("13456782")?,
+    ///         Row::parse("12345678")?,
+    ///     ]
+    /// );
+    /// # Ok::<(), proj_core::InvalidRowErr>(())
+    /// ```
+    pub fn closure(&self) -> Vec<Row> {
+        let mut closure = Vec::new();
+        let mut row = self.clone();
+        loop {
+            closure.push(row.clone());
+            if row.is_rounds() {
+                return closure;
+            }
+            row = &row * self;
+        }
+    }
+
     /// Concatenates the names of the [`Bell`]s in this `Row` to the end of a [`String`].  See also
     /// [`to_string`](Row::to_string), which returns a new [`String`] rather than concatenating to
     /// an existing one.

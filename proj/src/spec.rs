@@ -93,9 +93,14 @@ pub struct Spec {
 impl Spec {
     /// Creates an example Spec
     pub fn example() -> Spec {
+        // Generate all the cyclic part heads, and make sure that we start with rounds
+        let mut part_heads = Row::parse("18234567").unwrap().closure();
+        let rounds = part_heads.pop().unwrap();
+        part_heads.insert(0, rounds);
+        // Create a Spec and return
         Spec {
             frags: vec![Frag::example()],
-            part_heads: vec![Row::rounds(Stage::MAJOR), Row::backrounds(Stage::MAJOR)],
+            part_heads,
             stage: Stage::MAJOR,
         }
     }

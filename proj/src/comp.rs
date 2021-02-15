@@ -52,6 +52,14 @@ impl Comp {
         self.spec.frags.len()
     }
 
+    pub fn num_parts(&self) -> usize {
+        self.spec.part_heads.len()
+    }
+
+    pub fn part_head_str(&self, i: usize) -> String {
+        self.spec.part_heads[i].to_string()
+    }
+
     // Fragment getters
     pub fn frag_x(&self, i: usize) -> f32 {
         self.spec.frags[i].x
@@ -78,8 +86,8 @@ impl Comp {
         self.spec.frags[f].rows[r].is_lead_end
     }
 
-    pub fn bell_index(&self, f: usize, r: usize, b: usize) -> usize {
-        self.spec.frags[f].rows[r].row[b].index()
+    pub fn bell_index(&self, p: usize, f: usize, r: usize, b: usize) -> usize {
+        self.derived_state.annot_frags[f].exp_rows[r].expanded_rows[p][b].index()
     }
 
     pub fn highlight_ranges(&self, f: usize, r: usize) -> Vec<usize> {

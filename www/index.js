@@ -25,6 +25,8 @@ const VIEW_CULLING_EXTRA_SIZE = 20;
 let canv, ctx;
 // The comp being edited
 let comp;
+// The part index being viewed
+let current_part = 0;
 
 // Mouse variables that the browser should keep track of but doesn't
 let mouse_coords = { x: 0, y: 0 };
@@ -66,7 +68,11 @@ function drawRow(x, y, comp, f, r) {
     ctx.textAlign = "center";
     ctx.fillStyle = "black";
     for (let b = 0; b < stage; b++) {
-        ctx.fillText(BELL_NAMES[comp.bell_index(f, r, b)], x + COL_WIDTH * (b + 0.5), text_baseline);
+        ctx.fillText(
+            BELL_NAMES[comp.bell_index(current_part, f, r, b)],
+            x + COL_WIDTH * (b + 0.5),
+            text_baseline
+        );
     }
     // Ruleoff
     if (is_ruleoff) {
@@ -193,6 +199,27 @@ function isButton(e, button) {
     return (button_mask & (1 << button)) != 0;
 }
 
+/* ===== HUD CODE ===== */
+
+function onPartHeadChange(evt) {
+    // Update which part to display, and update the screen
+    current_part = parseInt(evt.target.value);
+    requestFrame();
+}
+
+function updatePartHeadList() {
+    let ph_list = document.getElementById("part-head");
+    // Clear the existing children
+    ph_list.innerHTML = '';
+    // Add the new part heads
+    for (var i = 0; i < comp.num_parts(); i++) {
+        let new_opt = document.createElement("option");
+        new_opt.value = i.toString();
+        new_opt.innerText = "#" + (i + 1).toString() + ": " + comp.part_head_str(i);
+        ph_list.appendChild(new_opt);
+    }
+}
+
 /* ===== STARTUP CODE ===== */
 
 function start() {
@@ -202,11 +229,13 @@ function start() {
     comp = Comp.example();
     
     // Bind event listeners to all the things we need
-    window.addEventListener('resize', onWindowResize);
-    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener("resize", onWindowResize);
+    window.addEventListener("mousemove", onMouseMove);
+    document.getElementById("part-head").addEventListener("change", onPartHeadChange);
 
-    // Generate a window resize event on startup to make sure the display gets initialised properly
+    // Force a load of updates to make sure that things are initialised
     onWindowResize();
+    updatePartHeadList();
 
     requestFrame();
 }
