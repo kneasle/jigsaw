@@ -7,7 +7,8 @@ const dpr = window.devicePixelRatio || 1;
 // Display config
 const COL_WIDTH = 16;
 const ROW_HEIGHT = 22;
-const ROW_FONT = "20px Courier";
+const ROW_FONT = "20px monospace";
+const BELL_NAMES = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
 const RIGHT_MARGIN_WIDTH = COL_WIDTH * 1;
 const LEFT_MARGIN_WIDTH = COL_WIDTH * 1;
 const FALSE_ROW_GROUP_COLS = ["#f00", "#dd0", "#0b0", "#0bf", "#55f", "#f0f"];
@@ -33,21 +34,23 @@ let viewport = { x: 0, y: 0, w: 100, h: 100 };
 
 /* ===== DRAWING CODE ===== */
 
-function drawRow(x, y, annot_row) {
+function drawRow(x, y, comp, f, r) {
     // Don't draw if the row is going to be off the screen
     if (y < viewport.y - viewport.h / 2 - VIEW_CULLING_EXTRA_SIZE
      || y > viewport.y + viewport.h / 2 + VIEW_CULLING_EXTRA_SIZE) {
         return;
     }
-    // Set values that are the same across all the bells
-    const bells = annot_row.row().to_string();
-    const hl_ranges = annot_row.highlight_ranges();
-    const method_str = annot_row.method_str();
-    const call_str = annot_row.call_str();
+    // Calculate some useful values
+    const stage = comp.stage();
     const text_baseline = y + ROW_HEIGHT * 0.75;
-    const right = x + COL_WIDTH * bells.length;
-    ctx.font = ROW_FONT;
+    const right = x + COL_WIDTH * stage;
+    // Read data from comp
+    const method_str = comp.method_str(f, r);
+    const call_str = comp.call_str(f, r);
+    const is_ruleoff = comp.is_ruleoff(f, r);
+    const hl_ranges = comp.highlight_ranges(f, r);
     // Call string
+    ctx.font = ROW_FONT;
     if (call_str) {
         ctx.textAlign = "right";
         ctx.fillText(call_str, x - LEFT_MARGIN_WIDTH, text_baseline);
@@ -62,11 +65,11 @@ function drawRow(x, y, annot_row) {
     // Bells
     ctx.textAlign = "center";
     ctx.fillStyle = "black";
-    for (let i = 0; i < bells.length; i++) {
-        ctx.fillText(bells[i], x + COL_WIDTH * (i + 0.5), text_baseline);
+    for (let b = 0; b < stage; b++) {
+        ctx.fillText(BELL_NAMES[comp.bell_index(f, r, b)], x + COL_WIDTH * (b + 0.5), text_baseline);
     }
     // Ruleoff
-    if (annot_row.is_ruleoff()) {
+    if (is_ruleoff) {
         ctx.beginPath();
         ctx.moveTo(x, y + ROW_HEIGHT);
         ctx.lineTo(right, y + ROW_HEIGHT);
@@ -77,7 +80,7 @@ function drawRow(x, y, annot_row) {
         ctx.textAlign = "left";
         ctx.fillText(
             method_str,
-            x + bells.length * COL_WIDTH + RIGHT_MARGIN_WIDTH,
+            x + stage * COL_WIDTH + RIGHT_MARGIN_WIDTH,
             text_baseline
         );
     }
@@ -92,10 +95,10 @@ function drawFalsenessIndicator(x, min_y, max_y, notch_width, notch_height) {
     ctx.stroke();
 }
 
-function drawFrag(frag) {
+function drawFrag(comp, f) {
     // Rows
-    for (let i = 0; i < frag.len(); i++) {
-        drawRow(frag.x, frag.y + ROW_HEIGHT * i, frag.get_row(i));
+    for (let i = 0; i < comp.frag_len(f); i++) {
+        drawRow(comp.frag_x(f), comp.frag_y(f) + ROW_HEIGHT * i, comp, f, i);
     }
     // Falseness
     /*
@@ -136,7 +139,7 @@ function draw() {
     ctx.translate(-viewport.x, -viewport.y);
 
     for (let f = 0; f < comp.num_frags(); f++) {
-        drawFrag(comp.get_frag(f));
+        drawFrag(comp, f);
     }
 
     // Reset the canvas' transform matrix so that the next frame is rendered correctly
