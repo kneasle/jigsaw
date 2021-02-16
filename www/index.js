@@ -107,32 +107,26 @@ function drawFrag(x, y, frag) {
         drawRow(x, y + ROW_HEIGHT * i, frag.exp_rows[i]);
     }
     // Falseness
-    /*
     ctx.lineWidth = FALSE_ROW_GROUP_LINE_WIDTH;
-    const false_row_groups = frag.false_row_groups();
-    for (let i = 0; i < false_row_groups.length; i += 3) {
-        // Unpack data from the silly way we have to send it through WASM
-        const start = false_row_groups[i + 0];
-        const end = false_row_groups[i + 1];
-        const group = false_row_groups[i + 2];
+    for (let i = 0; i < frag.false_row_ranges.length; i++) {
+        const range = frag.false_row_ranges[i];
         // Draw the lines
-        ctx.strokeStyle = FALSE_ROW_GROUP_COLS[group % FALSE_ROW_GROUP_COLS.length];
+        ctx.strokeStyle = FALSE_ROW_GROUP_COLS[range.group % FALSE_ROW_GROUP_COLS.length];
         drawFalsenessIndicator(
-            frag.x + LEFT_MARGIN_WIDTH * -0.5,
-            frag.y + ROW_HEIGHT * start,
-            frag.y + ROW_HEIGHT * end,
+            x + LEFT_MARGIN_WIDTH * -0.5,
+            y + ROW_HEIGHT * range.start,
+            y + ROW_HEIGHT * (range.end + 1),
             LEFT_MARGIN_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
             ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT
         );
         drawFalsenessIndicator(
-            frag.x + frag.num_bells() * COL_WIDTH + RIGHT_MARGIN_WIDTH * 0.5,
-            frag.y + ROW_HEIGHT * start,
-            frag.y + ROW_HEIGHT * end,
+            x + comp.stage() * COL_WIDTH + RIGHT_MARGIN_WIDTH * 0.5,
+            y + ROW_HEIGHT * range.start,
+            y + ROW_HEIGHT * (range.end + 1),
             - RIGHT_MARGIN_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
             ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT
         );
     }
-    */
 }
 
 function draw() {
