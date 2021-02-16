@@ -1,13 +1,7 @@
 use crate::derived_state::DerivedState;
 use crate::spec::Spec;
+use serde_json::to_string;
 use wasm_bindgen::prelude::*;
-
-fn clone_or_empty(string: &Option<String>) -> String {
-    match string {
-        Some(x) => x.clone(),
-        None => "".to_owned(),
-    }
-}
 
 /// The complete state of a partial composition.  The data-flow is:
 /// - User makes some edit, which changes the [`Spec`]ification
@@ -28,16 +22,21 @@ impl Comp {
             spec,
         }
     }
-
-    /// Rebuild the cached state, as though the [`Spec`] had changed.
-    fn rebuild_state(&mut self) {
-        self.derived_state = DerivedState::from_spec(&self.spec);
-    }
 }
 
 // Stuff required specifically for JS rendering
 #[wasm_bindgen]
 impl Comp {
+    /// Rebuild the cached state, as though the [`Spec`] had changed.
+    pub fn rebuild_state(&mut self) {
+        self.derived_state = DerivedState::from_spec(&self.spec);
+    }
+
+    /// Return a JSON serialisation of the derived state
+    pub fn derived_state(&self) -> String {
+        to_string(&self.derived_state).unwrap()
+    }
+
     /// Create an example composition
     pub fn example() -> Comp {
         Self::from_spec(Spec::example())
@@ -46,10 +45,6 @@ impl Comp {
     // Comp-wide getters
     pub fn stage(&self) -> usize {
         self.spec.stage.as_usize()
-    }
-
-    pub fn num_frags(&self) -> usize {
-        self.spec.frags.len()
     }
 
     pub fn num_parts(&self) -> usize {
@@ -67,33 +62,6 @@ impl Comp {
 
     pub fn frag_y(&self, i: usize) -> f32 {
         self.spec.frags[i].y
-    }
-
-    pub fn frag_len(&self, i: usize) -> usize {
-        self.spec.frags[i].len()
-    }
-
-    // Row getters
-    pub fn method_str(&self, f: usize, r: usize) -> String {
-        clone_or_empty(&self.spec.frags[f].rows[r].method_str)
-    }
-
-    pub fn call_str(&self, f: usize, r: usize) -> String {
-        clone_or_empty(&self.spec.frags[f].rows[r].call_str)
-    }
-
-    pub fn is_ruleoff(&self, f: usize, r: usize) -> bool {
-        self.spec.frags[f].rows[r].is_lead_end
-    }
-
-    pub fn bell_index(&self, p: usize, f: usize, r: usize, b: usize) -> usize {
-        self.derived_state.annot_frags[f].exp_rows[r].expanded_rows[p][b].index()
-    }
-
-    pub fn music_highlights(&self, f: usize, r: usize) -> Vec<usize> {
-        self.derived_state.annot_frags[f].exp_rows[r]
-            .music_highlights
-            .clone()
     }
 }
 

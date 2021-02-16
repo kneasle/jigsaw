@@ -12,8 +12,8 @@ cd $ROOT
 
 # Build the Rust library to WASM
 cd proj
-cargo build --target wasm32-unknown-unknown
-wasm-bindgen --target web --no-typescript --out-dir . ~/.build/rust/wasm32-unknown-unknown/debug/proj.wasm
+cargo build --target wasm32-unknown-unknown --release
+wasm-bindgen --target web --no-typescript --out-dir . ~/.build/rust/wasm32-unknown-unknown/release/proj.wasm
 wasm-gc proj_bg.wasm
 cd $ROOT
 # Copy all files into the out/ directory

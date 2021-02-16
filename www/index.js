@@ -28,6 +28,7 @@ const VIEW_CULLING_EXTRA_SIZE = 20;
 let canv, ctx;
 // The comp being edited
 let comp;
+let derived_state;
 // The part index being viewed
 let current_part = 0;
 
@@ -39,7 +40,7 @@ let viewport = { x: 0, y: 0, w: 100, h: 100 };
 
 /* ===== DRAWING CODE ===== */
 
-function drawRow(x, y, f, r) {
+function drawRow(x, y, row) {
     // Don't draw if the row is going to be off the screen
     if (y < viewport.y - viewport.h / 2 - VIEW_CULLING_EXTRA_SIZE
      || y > viewport.y + viewport.h / 2 + VIEW_CULLING_EXTRA_SIZE) {
@@ -49,47 +50,42 @@ function drawRow(x, y, f, r) {
     const stage = comp.stage();
     const text_baseline = y + ROW_HEIGHT * 0.75;
     const right = x + COL_WIDTH * stage;
-    // Read data from comp
-    const method_str = comp.method_str(f, r);
-    const call_str = comp.call_str(f, r);
-    const is_ruleoff = comp.is_ruleoff(f, r);
-    const music_highlights = comp.music_highlights(f, r);
     // Call string
     ctx.font = ROW_FONT;
-    if (call_str) {
+    if (row.call_str) {
         ctx.textAlign = "right";
-        ctx.fillText(call_str, x - LEFT_MARGIN_WIDTH, text_baseline);
+        ctx.fillText(row.call_str, x - LEFT_MARGIN_WIDTH, text_baseline);
     }
     // Bells
     ctx.textAlign = "center";
     for (let b = 0; b < stage; b++) {
         ctx.fillStyle = "#5b5";
-        ctx.globalAlpha = 1 - Math.pow(1 - MUSIC_OPACITY, music_highlights[b]);
+        ctx.globalAlpha = 1 - Math.pow(1 - MUSIC_OPACITY, row.music_highlights[b]);
         // Music highlighting
-        if (music_highlights[b] > 0) {
+        if (row.music_highlights[b] > 0) {
             ctx.fillRect(x + COL_WIDTH * b, y, COL_WIDTH, ROW_HEIGHT);
         }
         ctx.globalAlpha = 1;
         // Text
         ctx.fillStyle = "black";
         ctx.fillText(
-            BELL_NAMES[comp.bell_index(current_part, f, r, b)],
+            BELL_NAMES[row.expanded_rows[current_part][b]],
             x + COL_WIDTH * (b + 0.5),
             text_baseline
         );
     }
     // Ruleoff
-    if (is_ruleoff) {
+    if (row.is_lead_end) {
         ctx.beginPath();
         ctx.moveTo(x, y + ROW_HEIGHT);
         ctx.lineTo(right, y + ROW_HEIGHT);
         ctx.stroke();
     }
     // Method string
-    if (method_str) {
+    if (row.method_str) {
         ctx.textAlign = "left";
         ctx.fillText(
-            method_str,
+            row.method_str,
             x + stage * COL_WIDTH + RIGHT_MARGIN_WIDTH,
             text_baseline
         );
@@ -105,10 +101,10 @@ function drawFalsenessIndicator(x, min_y, max_y, notch_width, notch_height) {
     ctx.stroke();
 }
 
-function drawFrag(f) {
+function drawFrag(x, y, frag) {
     // Rows
-    for (let i = 0; i < comp.frag_len(f); i++) {
-        drawRow(comp.frag_x(f), comp.frag_y(f) + ROW_HEIGHT * i, f, i);
+    for (let i = 0; i < frag.exp_rows.length; i++) {
+        drawRow(x, y + ROW_HEIGHT * i, frag.exp_rows[i]);
     }
     // Falseness
     /*
@@ -148,8 +144,8 @@ function draw() {
     ctx.translate(Math.round(viewport.w / 2), Math.round(viewport.h / 2));
     ctx.translate(Math.round(-viewport.x), Math.round(-viewport.y));
 
-    for (let f = 0; f < comp.num_frags(); f++) {
-        drawFrag(f);
+    for (let f = 0; f < derived_state.annot_frags.length; f++) {
+        drawFrag(comp.frag_x(f), comp.frag_y(f), derived_state.annot_frags[f]);
     }
 
     // Reset the canvas' transform matrix so that the next frame is rendered correctly
@@ -231,6 +227,7 @@ function start() {
     ctx = canv.getContext("2d");
 
     comp = Comp.example();
+    derived_state = JSON.parse(comp.derived_state());
     
     // Bind event listeners to all the things we need
     window.addEventListener("resize", onWindowResize);

@@ -1,5 +1,6 @@
 use crate::spec::{AnnotatedRow, Spec};
-use proj_core::{run_len, Row, Stage};
+use proj_core::{run_len, Bell, Row, Stage};
+use serde::Serialize;
 
 /// A small datatype that represents **where** a given row comes from in the composition.  This is
 /// useful because the composition contains many fragments, and each row of this could expand into
@@ -24,14 +25,14 @@ impl RowOrigin {
 /// All the information required for JS to render a single [`Row`] from the [`Spec`].  Note that
 /// because of multipart expansion, this single on-screen [`Row`] actually represents many expanded
 /// [`Row`]s, and this datatype reflects that.
-#[derive(Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct ExpandedRow {
     call_str: Option<String>,
     method_str: Option<String>,
     is_lead_end: bool,
     /// One [`Row`] for each part of the composition
-    pub expanded_rows: Vec<Row>,
-    pub music_highlights: Vec<usize>,
+    expanded_rows: Vec<Vec<usize>>,
+    music_highlights: Vec<usize>,
 }
 
 impl ExpandedRow {
@@ -67,21 +68,24 @@ impl ExpandedRow {
             method_str: row.method_str.clone(),
             is_lead_end: row.is_lead_end,
             music_highlights: Self::calculate_music(&all_rows, row.row.stage()),
-            expanded_rows: all_rows,
+            expanded_rows: all_rows
+                .into_iter()
+                .map(|r| r.iter().map(Bell::index).collect())
+                .collect(),
         }
     }
 }
 
 /// The information required for JS to render the rows inside a [`Frag`]
-#[derive(Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct AnnotFrag {
     false_row_groups: Vec<()>,
-    pub exp_rows: Vec<ExpandedRow>,
+    exp_rows: Vec<ExpandedRow>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Debug, Clone)]
 pub struct DerivedState {
-    pub annot_frags: Vec<AnnotFrag>,
+    annot_frags: Vec<AnnotFrag>,
 }
 
 impl DerivedState {
