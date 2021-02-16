@@ -90,15 +90,10 @@ impl Comp {
         self.derived_state.annot_frags[f].exp_rows[r].expanded_rows[p][b].index()
     }
 
-    pub fn highlight_ranges(&self, f: usize, r: usize) -> Vec<usize> {
-        let slice = &self.derived_state.annot_frags[f].exp_rows[r].highlight_ranges;
-        // Flatten the `Vec<(usize, usize)>` into a `Vec<usize>` with twice the length
-        let mut v = Vec::with_capacity(slice.len() * 2);
-        for (i, j) in slice {
-            v.push(*i);
-            v.push(*j);
-        }
-        v
+    pub fn music_highlights(&self, f: usize, r: usize) -> Vec<usize> {
+        self.derived_state.annot_frags[f].exp_rows[r]
+            .music_highlights
+            .clone()
     }
 }
 

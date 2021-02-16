@@ -7,10 +7,13 @@ const dpr = window.devicePixelRatio || 1;
 // Display config
 const COL_WIDTH = 16;
 const ROW_HEIGHT = 22;
-const ROW_FONT = "20px monospace";
-const BELL_NAMES = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
 const RIGHT_MARGIN_WIDTH = COL_WIDTH * 1;
 const LEFT_MARGIN_WIDTH = COL_WIDTH * 1;
+
+const ROW_FONT = "20px monospace";
+const BELL_NAMES = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
+const MUSIC_OPACITY = 0.2;
+
 const FALSE_ROW_GROUP_COLS = ["#f00", "#dd0", "#0b0", "#0bf", "#55f", "#f0f"];
 const FALSE_ROW_GROUP_NOTCH_WIDTH = 0.3;
 const FALSE_ROW_GROUP_NOTCH_HEIGHT = 0.3;
@@ -50,29 +53,25 @@ function drawRow(x, y, f, r) {
     const method_str = comp.method_str(f, r);
     const call_str = comp.call_str(f, r);
     const is_ruleoff = comp.is_ruleoff(f, r);
-    const hl_ranges = comp.highlight_ranges(f, r);
+    const music_highlights = comp.music_highlights(f, r);
     // Call string
     ctx.font = ROW_FONT;
     if (call_str) {
         ctx.textAlign = "right";
         ctx.fillText(call_str, x - LEFT_MARGIN_WIDTH, text_baseline);
     }
-    // Highlighting
-    ctx.fillStyle = "#5b5";
-    for (let i = 0; i < hl_ranges.length; i += 2) {
-        const start = hl_ranges[i];
-        const end = hl_ranges[i + 1];
-        ctx.fillRect(
-            x + COL_WIDTH * start,
-            y,
-            COL_WIDTH * (end - start),
-            ROW_HEIGHT
-        );
-    }
     // Bells
     ctx.textAlign = "center";
-    ctx.fillStyle = "black";
     for (let b = 0; b < stage; b++) {
+        ctx.fillStyle = "#5b5";
+        ctx.globalAlpha = 1 - Math.pow(1 - MUSIC_OPACITY, music_highlights[b]);
+        // Music highlighting
+        if (music_highlights[b] > 0) {
+            ctx.fillRect(x + COL_WIDTH * b, y, COL_WIDTH, ROW_HEIGHT);
+        }
+        ctx.globalAlpha = 1;
+        // Text
+        ctx.fillStyle = "black";
         ctx.fillText(
             BELL_NAMES[comp.bell_index(current_part, f, r, b)],
             x + COL_WIDTH * (b + 0.5),

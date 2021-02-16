@@ -1,6 +1,6 @@
 use crate::spec::{AnnotatedRow, Spec};
 use itertools::Itertools;
-use proj_core::{Bell, Row};
+use proj_core::{Bell, Row, Stage};
 
 /// Helper function to calculate the length of the longest run off the start of a given
 /// [`Iterator`]
@@ -42,24 +42,33 @@ pub struct ExpandedRow {
     is_lead_end: bool,
     /// One [`Row`] for each part of the composition
     pub expanded_rows: Vec<Row>,
-    pub highlight_ranges: Vec<(usize, usize)>,
+    pub music_highlights: Vec<usize>,
 }
 
 impl ExpandedRow {
-    fn generate_hl_ranges(row: &Row) -> Vec<(usize, usize)> {
-        // Build the ranges, given the run lengths off front and back
-        // TODO: Remove overlapping ranges, and allow accurate music detection across multiparts
-        let mut hl_ranges = Vec::new();
-        let run_len_f = run_len(row.iter());
-        if run_len_f >= 4 {
-            hl_ranges.push((0, run_len_f));
+    fn calculate_music(all_rows: &[Row], stage: Stage) -> Vec<usize> {
+        // Initialise the music scores with 0 for every place
+        let mut music = vec![0; stage.as_usize()];
+        // For each part that contains music, add one to the bells which are covered by the music
+        for r in all_rows {
+            // Highlight runs of >=4 bells of the **front**
+            let run_len_f = run_len(r.iter());
+            if run_len_f >= 4 {
+                for i in 0..run_len_f {
+                    music[i] += 1;
+                }
+            }
+            // Highlight runs of >=4 bells of the **back**
+            let run_len_b = run_len(r.iter().rev());
+            if run_len_b >= 4 {
+                // The 'max' prevents the two ranges from overlapping and causing music in multiple
+                // parts from being counted twice
+                for i in (stage.as_usize() - run_len_b).max(run_len_f)..stage.as_usize() {
+                    music[i] += 1;
+                }
+            }
         }
-        let run_len_b = run_len(row.iter().rev());
-        if run_len_b >= 4 {
-            let stage = row.stage().as_usize();
-            hl_ranges.push((stage - run_len_b, stage));
-        }
-        hl_ranges
+        music
     }
 
     pub fn new(row: &AnnotatedRow, part_heads: &[Row]) -> Self {
@@ -68,7 +77,7 @@ impl ExpandedRow {
             call_str: row.call_str.clone(),
             method_str: row.method_str.clone(),
             is_lead_end: row.is_lead_end,
-            highlight_ranges: Self::generate_hl_ranges(&all_rows[0]),
+            music_highlights: Self::calculate_music(&all_rows, row.row.stage()),
             expanded_rows: all_rows,
         }
     }
