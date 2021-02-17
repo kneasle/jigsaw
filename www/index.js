@@ -12,7 +12,7 @@ const LEFT_MARGIN_WIDTH = COL_WIDTH * 1;
 
 const ROW_FONT = "20px monospace";
 const BELL_NAMES = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
-const MUSIC_OPACITY = 0.2;
+const MUSIC_OPACITY = 0.13;
 const LEFTOVER_ROW_ALPHA = 0.4;
 
 const FALSE_ROW_GROUP_COLS = ["#f00", "#dd0", "#0b0", "#0bf", "#55f", "#f0f"];
