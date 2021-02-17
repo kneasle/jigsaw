@@ -53,6 +53,9 @@ impl From<RowOrigin> for RowLocation {
 fn is_false(b: &bool) -> bool {
     !b
 }
+fn is_all_empty(vs: &Vec<Vec<usize>>) -> bool {
+    vs.iter().all(Vec::is_empty)
+}
 
 /// All the information required for JS to render a single [`Row`] from the [`Spec`].  Note that
 /// because of multipart expansion, this single on-screen [`Row`] actually represents many expanded
@@ -68,20 +71,46 @@ pub struct ExpandedRow {
     is_leftover: bool,
     /// One [`Row`] for each part of the composition
     expanded_rows: Vec<Vec<usize>>,
-    music_highlights: Vec<usize>,
+    /// For each bell, shows which parts contain music
+    ///
+    /// E.g. for `21345678` under part heads `12345678, 18234567, ...` would form rows
+    /// ```text
+    /// 0: 21345678
+    /// 1: 81234567
+    /// 2: 71823456
+    /// 3: 61782345
+    /// 4: 51678234
+    /// 5: 41567823
+    /// 6: 31456782
+    /// ```
+    /// and the highlights would be:
+    /// ```
+    /// vec![
+    ///     vec![],
+    ///     vec![1],
+    ///     vec![1, 2],
+    ///     vec![0, 1, 2],
+    ///     vec![0, 1, 2, 3],
+    ///     vec![0, 1, 2, 3],
+    ///     vec![0, 1, 2, 3],
+    ///     vec![0, 1, 2, 3]
+    /// ]
+    /// ```
+    #[serde(skip_serializing_if = "is_all_empty")]
+    music_highlights: Vec<Vec<usize>>,
 }
 
 impl ExpandedRow {
-    fn calculate_music(all_rows: &[Row], stage: Stage) -> Vec<usize> {
+    fn calculate_music(all_rows: &[Row], stage: Stage) -> Vec<Vec<usize>> {
         // Initialise the music scores with 0 for every place
-        let mut music = vec![0; stage.as_usize()];
+        let mut music = vec![Vec::new(); stage.as_usize()];
         // For each part that contains music, add one to the bells which are covered by the music
-        for r in all_rows {
+        for (part, r) in all_rows.iter().enumerate() {
             // Highlight runs of >=4 bells of the **front**
             let run_len_f = run_len(r.iter());
             if run_len_f >= 4 {
                 for i in 0..run_len_f {
-                    music[i] += 1;
+                    music[i].push(part);
                 }
             }
             // Highlight runs of >=4 bells of the **back**
@@ -90,7 +119,7 @@ impl ExpandedRow {
                 // The 'max' prevents the two ranges from overlapping and causing music in multiple
                 // parts from being counted twice
                 for i in (stage.as_usize() - run_len_b).max(run_len_f)..stage.as_usize() {
-                    music[i] += 1;
+                    music[i].push(part);
                 }
             }
         }

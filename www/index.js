@@ -60,10 +60,14 @@ function drawRow(x, y, row) {
     // Bells
     ctx.textAlign = "center";
     for (let b = 0; b < stage; b++) {
-        ctx.fillStyle = "#5b5";
-        ctx.globalAlpha = 1 - Math.pow(1 - MUSIC_OPACITY, row.music_highlights[b]);
         // Music highlighting
-        if (row.music_highlights[b] > 0) {
+        if (row.music_highlights && row.music_highlights[b].length > 0) {
+            ctx.fillStyle = "#5b5";
+            // If some music happened in the part we're currently viewing, then set the alpha to 1,
+            // otherwise make an 'onionskinning' effect of the music from other parts
+            ctx.globalAlpha = row.music_highlights[b].includes(current_part)
+                ? 1
+                : 1 - Math.pow(1 - MUSIC_OPACITY, row.music_highlights[b].length);
             ctx.fillRect(x + COL_WIDTH * b, y, COL_WIDTH, ROW_HEIGHT);
         }
         ctx.globalAlpha = row.is_leftover ? LEFTOVER_ROW_ALPHA : 1;
@@ -75,6 +79,7 @@ function drawRow(x, y, row) {
             text_baseline
         );
     }
+    ctx.globalAlpha = 1;
     // Ruleoff
     if (row.is_lead_end) {
         ctx.beginPath();
