@@ -13,6 +13,7 @@ const LEFT_MARGIN_WIDTH = COL_WIDTH * 1;
 const ROW_FONT = "20px monospace";
 const BELL_NAMES = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
 const MUSIC_OPACITY = 0.2;
+const LEFTOVER_ROW_ALPHA = 0.4;
 
 const FALSE_ROW_GROUP_COLS = ["#f00", "#dd0", "#0b0", "#0bf", "#55f", "#f0f"];
 const FALSE_ROW_GROUP_NOTCH_WIDTH = 0.3;
@@ -65,7 +66,7 @@ function drawRow(x, y, row) {
         if (row.music_highlights[b] > 0) {
             ctx.fillRect(x + COL_WIDTH * b, y, COL_WIDTH, ROW_HEIGHT);
         }
-        ctx.globalAlpha = 1;
+        ctx.globalAlpha = row.is_leftover ? LEFTOVER_ROW_ALPHA : 1;
         // Text
         ctx.fillStyle = "black";
         ctx.fillText(

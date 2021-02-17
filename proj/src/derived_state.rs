@@ -49,6 +49,11 @@ impl From<RowOrigin> for RowLocation {
     }
 }
 
+// Required so that we can omit `"is_leftover" = false` when serialising
+fn is_false(b: &bool) -> bool {
+    !b
+}
+
 /// All the information required for JS to render a single [`Row`] from the [`Spec`].  Note that
 /// because of multipart expansion, this single on-screen [`Row`] actually represents many expanded
 /// [`Row`]s, and this datatype reflects that.
@@ -59,6 +64,8 @@ pub struct ExpandedRow {
     #[serde(skip_serializing_if = "Option::is_none")]
     method_str: Option<String>,
     is_lead_end: bool,
+    #[serde(skip_serializing_if = "is_false")]
+    is_leftover: bool,
     /// One [`Row`] for each part of the composition
     expanded_rows: Vec<Vec<usize>>,
     music_highlights: Vec<usize>,
@@ -90,7 +97,7 @@ impl ExpandedRow {
         music
     }
 
-    pub fn new(row: &AnnotatedRow, part_heads: &[Row]) -> Self {
+    pub fn new(row: &AnnotatedRow, part_heads: &[Row], is_leftover: bool) -> Self {
         let all_rows: Vec<Row> = part_heads.iter().map(|ph| ph * &row.row).collect();
         ExpandedRow {
             call_str: row.call_str.clone(),
@@ -101,6 +108,7 @@ impl ExpandedRow {
                 .into_iter()
                 .map(|r| r.iter().map(Bell::index).collect())
                 .collect(),
+            is_leftover,
         }
     }
 }
@@ -133,11 +141,13 @@ impl DerivedState {
         // same between all the parts, so will appear lots of times.
         let mut false_rows: HashSet<Vec<RowLocation>> = HashSet::new();
         {
-            // Expand all the rows and their origins from the composition into a `Vec` to be proved
+            // Expand all the rows and their origins from the composition into a `Vec` to be
+            // proved, excluding the last Row of each Frag, since that is 'left over' and as such
+            // shouldn't be used of proving
             let mut all_rows: Vec<(RowOrigin, Row)> = Vec::with_capacity(spec.len());
             for (p_ind, part_head) in spec.part_heads.iter().enumerate() {
                 for (f_ind, frag) in spec.frags.iter().enumerate() {
-                    for (r_ind, row) in frag.rows.iter().enumerate() {
+                    for (r_ind, row) in frag.rows[..frag.rows.len() - 1].iter().enumerate() {
                         all_rows.push((RowOrigin::new(p_ind, f_ind, r_ind), part_head * &row.row));
                     }
                 }
@@ -256,13 +266,17 @@ impl DerivedState {
                 .frags
                 .iter()
                 .enumerate()
-                .map(|(i, f)| AnnotFrag {
-                    false_row_ranges: ranges_by_frag.remove(&i).unwrap_or(vec![]),
-                    exp_rows: f
-                        .rows
-                        .iter()
-                        .map(|r| ExpandedRow::new(r, &spec.part_heads))
-                        .collect(),
+                .map(|(i, f)| {
+                    let last_row_ind = f.rows.len() - 1;
+                    AnnotFrag {
+                        false_row_ranges: ranges_by_frag.remove(&i).unwrap_or(vec![]),
+                        exp_rows: f
+                            .rows
+                            .iter()
+                            .enumerate()
+                            .map(|(i, r)| ExpandedRow::new(r, &spec.part_heads, i == last_row_ind))
+                            .collect(),
+                    }
                 })
                 .collect(),
         }
