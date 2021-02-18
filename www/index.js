@@ -10,15 +10,22 @@ const ROW_HEIGHT = 22;
 const RIGHT_MARGIN_WIDTH = COL_WIDTH * 1;
 const LEFT_MARGIN_WIDTH = COL_WIDTH * 1;
 
+const BACKGROUND_COL = "white";
+const FOREGROUND_COL = "black";
+
 const ROW_FONT = "20px monospace";
 const BELL_NAMES = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
-const MUSIC_OPACITY = 0.13;
-const LEFTOVER_ROW_ALPHA = 0.4;
+const RULEOFF_LINE_WIDTH = 1;
+const MUSIC_COL = "#5b5";
+const LEFTOVER_ROW_OPACITY = 0.4;
+const MUSIC_ONIONSKIN_OPACITY = 0.13;
 
 const FALSE_ROW_GROUP_COLS = ["#f00", "#dd0", "#0b0", "#0bf", "#55f", "#f0f"];
 const FALSE_ROW_GROUP_NOTCH_WIDTH = 0.3;
 const FALSE_ROW_GROUP_NOTCH_HEIGHT = 0.3;
 const FALSE_ROW_GROUP_LINE_WIDTH = 3;
+const FALSE_COUNT_COL_FALSE = "red";
+const FALSE_COUNT_COL_TRUE = "green";
 
 // How many pixels off the edge of the screen the viewport culling will happen
 const VIEW_CULLING_EXTRA_SIZE = 20;
@@ -62,17 +69,17 @@ function drawRow(x, y, row) {
     for (let b = 0; b < stage; b++) {
         // Music highlighting
         if (row.music_highlights && row.music_highlights[b].length > 0) {
-            ctx.fillStyle = "#5b5";
+            ctx.fillStyle = MUSIC_COL;
             // If some music happened in the part we're currently viewing, then set the alpha to 1,
             // otherwise make an 'onionskinning' effect of the music from other parts
             ctx.globalAlpha = row.music_highlights[b].includes(current_part)
                 ? 1
-                : 1 - Math.pow(1 - MUSIC_OPACITY, row.music_highlights[b].length);
+                : 1 - Math.pow(1 - MUSIC_ONIONSKIN_OPACITY, row.music_highlights[b].length);
             ctx.fillRect(x + COL_WIDTH * b, y, COL_WIDTH, ROW_HEIGHT);
         }
-        ctx.globalAlpha = row.is_leftover ? LEFTOVER_ROW_ALPHA : 1;
+        ctx.globalAlpha = row.is_leftover ? LEFTOVER_ROW_OPACITY : 1;
         // Text
-        ctx.fillStyle = "black";
+        ctx.fillStyle = FOREGROUND_COL;
         ctx.fillText(
             BELL_NAMES[row.expanded_rows[current_part][b]],
             x + COL_WIDTH * (b + 0.5),
@@ -82,9 +89,12 @@ function drawRow(x, y, row) {
     ctx.globalAlpha = 1;
     // Ruleoff
     if (row.is_lead_end) {
+        const ruleoff_y = Math.round(y + ROW_HEIGHT) - 0.5;
         ctx.beginPath();
-        ctx.moveTo(x, y + ROW_HEIGHT);
-        ctx.lineTo(right, y + ROW_HEIGHT);
+        ctx.moveTo(x, ruleoff_y);
+        ctx.lineTo(right, ruleoff_y);
+        ctx.strokeStyle = FOREGROUND_COL;
+        ctx.lineWidth = RULEOFF_LINE_WIDTH;
         ctx.stroke();
     }
     // Method string
@@ -136,9 +146,11 @@ function drawFrag(x, y, frag) {
 }
 
 function draw() {
-    // Clear the screen and correct for HDPI displays
+    // Clear then fill the screen and correct for HDPI displays
     ctx.save();
     ctx.clearRect(0, 0, canv.width, canv.height);
+    ctx.fillStyle = BACKGROUND_COL;
+    ctx.fillRect(0, 0, canv.width, canv.height);
     ctx.scale(dpr, dpr);
     // Move so that the camera's origin is in the centre of the screen
     ctx.translate(Math.round(viewport.w / 2), Math.round(viewport.h / 2));
@@ -213,7 +225,9 @@ function updateHUD() {
     falseness_info.innerText = derived_state.num_false_rows === 0
         ? "true"
         : derived_state.num_false_rows.toString() + " false";
-    falseness_info.style.color = derived_state.num_false_rows === 0 ? "green" : "red";
+    falseness_info.style.color = derived_state.num_false_rows === 0
+        ? FALSE_COUNT_COL_TRUE
+        : FALSE_COUNT_COL_FALSE;
 }
 
 function updatePartHeadList() {
