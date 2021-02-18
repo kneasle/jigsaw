@@ -216,12 +216,23 @@ impl DerivedState {
                 last_row = Some(r);
                 current_false_row_group.push(RowLocation::from(o));
             }
+            // Make sure that we don't miss the last false row group
+            if current_false_row_group.len() > 1 {
+                // Add these rows to the falseness counter
+                num_false_rows += current_false_row_group.len();
+                // If we saw more than 1 identical rows, then this counts as falseness and so we
+                // add this to the set of false rows.  We sort the row locations first, to make
+                // sure that if the same set of `RowLocation`s is found twice they are always added
+                // once (regardless of which order the rows were discovered).
+                current_false_row_group.sort();
+                false_rows.insert(current_false_row_group);
+            }
             // Return the number of false rows out of the block
             num_false_rows
         };
         /* Combine adjacent false row groups so that we use up fewer colours.  This relies on the
          * fact that all the `Vec`s in `false_rows` are sorted in increasing order by frag index and
-         * then row index. */
+         * then row index (and a unit test checks that). */
         let mut ranges_by_frag: HashMap<usize, Vec<FalseRowRange>> = HashMap::new();
         {
             /// A cheeky helper function which adds the ranges between two groups of false rows to
