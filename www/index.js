@@ -41,20 +41,23 @@ let derived_state;
 let current_part = 0;
 
 // Mouse variables that the browser should keep track of but doesn't
-let mouse_coords = { x: 0, y: 0 };
+let mouse_coords = {x: 0, y: 0};
 
 // Viewport controls
-let viewport = { x: 0, y: 0, w: 100, h: 100 };
+let viewport = {x: 0, y: 0, w: 100, h: 100};
 
 // Stuff that shouldn't be glovars but currently are
-let lines = {0: [1.5, "red"], 7: [2.5, "blue"]};
+let lines = {
+    0: [1.5, "red"],
+    7: [2.5, "blue"],
+};
 
 /* ===== DRAWING CODE ===== */
 
-function drawRow(x, y, row) {
+function draw_row(x, y, row) {
     // Don't draw if the row is going to be off the screen
     if (y < viewport.y - viewport.h / 2 - VIEW_CULLING_EXTRA_SIZE
-     || y > viewport.y + viewport.h / 2 + VIEW_CULLING_EXTRA_SIZE) {
+        || y > viewport.y + viewport.h / 2 + VIEW_CULLING_EXTRA_SIZE) {
         return;
     }
     // Calculate some useful values
@@ -113,7 +116,7 @@ function drawRow(x, y, row) {
     }
 }
 
-function drawFalsenessIndicator(x, min_y, max_y, notch_width, notch_height) {
+function draw_falseness_indicator(x, min_y, max_y, notch_width, notch_height) {
     ctx.beginPath();
     ctx.moveTo(x + notch_width, min_y);
     ctx.lineTo(x, min_y + notch_height);
@@ -122,10 +125,10 @@ function drawFalsenessIndicator(x, min_y, max_y, notch_width, notch_height) {
     ctx.stroke();
 }
 
-function drawFrag(x, y, frag) {
+function draw_frag(x, y, frag) {
     // Rows
     for (let i = 0; i < frag.exp_rows.length; i++) {
-        drawRow(x, y + ROW_HEIGHT * i, frag.exp_rows[i]);
+        draw_row(x, y + ROW_HEIGHT * i, frag.exp_rows[i]);
     }
     // Lines
     for (let l in lines) {
@@ -146,18 +149,18 @@ function drawFrag(x, y, frag) {
         const range = frag.false_row_ranges[i];
         // Draw the lines
         ctx.strokeStyle = FALSE_ROW_GROUP_COLS[range.group % FALSE_ROW_GROUP_COLS.length];
-        drawFalsenessIndicator(
+        draw_falseness_indicator(
             x + LEFT_MARGIN_WIDTH * -0.5,
             y + ROW_HEIGHT * range.start,
             y + ROW_HEIGHT * (range.end + 1),
             LEFT_MARGIN_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
             ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT
         );
-        drawFalsenessIndicator(
+        draw_falseness_indicator(
             x + comp.stage() * COL_WIDTH + RIGHT_MARGIN_WIDTH * 0.5,
             y + ROW_HEIGHT * range.start,
             y + ROW_HEIGHT * (range.end + 1),
-            - RIGHT_MARGIN_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
+            -RIGHT_MARGIN_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
             ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT
         );
     }
@@ -175,7 +178,7 @@ function draw() {
     ctx.translate(Math.round(-viewport.x), Math.round(-viewport.y));
 
     for (let f = 0; f < derived_state.annot_frags.length; f++) {
-        drawFrag(comp.frag_x(f), comp.frag_y(f), derived_state.annot_frags[f]);
+        draw_frag(comp.frag_x(f), comp.frag_y(f), derived_state.annot_frags[f]);
     }
 
     // Reset the canvas' transform matrix so that the next frame is rendered correctly
@@ -189,13 +192,13 @@ function frame() {
 }
 
 // Request for a frame to be rendered
-function requestFrame() {
+function request_frame() {
     window.requestAnimationFrame(frame);
 }
 
 /* ===== EVENT LISTENERS ===== */
 
-function onWindowResize() {
+function on_window_resize() {
     // Set the canvas size according to its new on-screen size
     var rect = canv.getBoundingClientRect();
     canv.width = rect.width * dpr;
@@ -205,14 +208,14 @@ function onWindowResize() {
     viewport.h = rect.height;
 
     // Request a frame to be drawn
-    requestFrame();
+    request_frame();
 }
 
-function onMouseMove(e) {
+function on_mouse_move(e) {
     if (e.offsetX == 0 && e.offsetY == 0) {
         return;
     }
-    if (isButton(e, 0)) {
+    if (is_button(e, 0)) {
         viewport.x -= e.offsetX - mouse_coords.x;
         viewport.y -= e.offsetY - mouse_coords.y;
     }
@@ -220,10 +223,10 @@ function onMouseMove(e) {
     mouse_coords.x = e.offsetX;
     mouse_coords.y = e.offsetY;
 
-    requestFrame();
+    request_frame();
 }
 
-function isButton(e, button) {
+function is_button(e, button) {
     // Deal with Safari being ideosyncratic
     const button_mask = (e.buttons === undefined ? e.which : e.buttons);
     return (button_mask & (1 << button)) != 0;
@@ -231,13 +234,13 @@ function isButton(e, button) {
 
 /* ===== HUD CODE ===== */
 
-function onPartHeadChange(evt) {
+function on_part_head_change(evt) {
     // Update which part to display, and update the screen
     current_part = parseInt(evt.target.value);
-    requestFrame();
+    request_frame();
 }
 
-function updateHUD() {
+function update_hud() {
     document.getElementById("row-counter").innerText = derived_state.num_rows.toString();
     const falseness_info = document.getElementById("falseness-info");
     falseness_info.innerText = derived_state.num_false_rows === 0
@@ -248,7 +251,7 @@ function updateHUD() {
         : FALSE_COUNT_COL_FALSE;
 }
 
-function updatePartHeadList() {
+function update_part_head_list() {
     let ph_list = document.getElementById("part-head");
     // Clear the existing children
     ph_list.innerHTML = '';
@@ -269,16 +272,16 @@ function start() {
 
     comp = Comp.example();
     derived_state = JSON.parse(comp.derived_state());
-    
+
     // Bind event listeners to all the things we need
-    window.addEventListener("resize", onWindowResize);
-    window.addEventListener("mousemove", onMouseMove);
-    document.getElementById("part-head").addEventListener("change", onPartHeadChange);
+    window.addEventListener("resize", on_window_resize);
+    window.addEventListener("mousemove", on_mouse_move);
+    document.getElementById("part-head").addEventListener("change", on_part_head_change);
 
     // Force a load of updates to make sure that things are initialised
-    onWindowResize();
-    updatePartHeadList();
-    updateHUD();
+    on_window_resize();
+    update_part_head_list();
+    update_hud();
 
-    requestFrame();
+    request_frame();
 }
