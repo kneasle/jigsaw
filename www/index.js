@@ -46,6 +46,9 @@ let mouse_coords = { x: 0, y: 0 };
 // Viewport controls
 let viewport = { x: 0, y: 0, w: 100, h: 100 };
 
+// Stuff that shouldn't be glovars but currently are
+let lines = {0: [1.5, "red"], 7: [2.5, "blue"]};
+
 /* ===== DRAWING CODE ===== */
 
 function drawRow(x, y, row) {
@@ -58,10 +61,12 @@ function drawRow(x, y, row) {
     const stage = comp.stage();
     const text_baseline = y + ROW_HEIGHT * 0.75;
     const right = x + COL_WIDTH * stage;
-    // Call string
+    // Set the font for the entire row
     ctx.font = ROW_FONT;
+    // Call string
     if (row.call_str) {
         ctx.textAlign = "right";
+        ctx.fillStyle = FOREGROUND_COL;
         ctx.fillText(row.call_str, x - LEFT_MARGIN_WIDTH, text_baseline);
     }
     // Bells
@@ -69,22 +74,21 @@ function drawRow(x, y, row) {
     for (let b = 0; b < stage; b++) {
         // Music highlighting
         if (row.music_highlights && row.music_highlights[b].length > 0) {
-            ctx.fillStyle = MUSIC_COL;
             // If some music happened in the part we're currently viewing, then set the alpha to 1,
             // otherwise make an 'onionskinning' effect of the music from other parts
             ctx.globalAlpha = row.music_highlights[b].includes(current_part)
                 ? 1
                 : 1 - Math.pow(1 - MUSIC_ONIONSKIN_OPACITY, row.music_highlights[b].length);
+            ctx.fillStyle = MUSIC_COL;
             ctx.fillRect(x + COL_WIDTH * b, y, COL_WIDTH, ROW_HEIGHT);
         }
-        ctx.globalAlpha = row.is_leftover ? LEFTOVER_ROW_OPACITY : 1;
         // Text
-        ctx.fillStyle = FOREGROUND_COL;
-        ctx.fillText(
-            BELL_NAMES[row.expanded_rows[current_part][b]],
-            x + COL_WIDTH * (b + 0.5),
-            text_baseline
-        );
+        const bell_index = row.expanded_rows[current_part][b];
+        if (!lines[bell_index]) {
+            ctx.globalAlpha = row.is_leftover ? LEFTOVER_ROW_OPACITY : 1;
+            ctx.fillStyle = FOREGROUND_COL;
+            ctx.fillText(BELL_NAMES[bell_index], x + COL_WIDTH * (b + 0.5), text_baseline);
+        }
     }
     ctx.globalAlpha = 1;
     // Ruleoff
@@ -100,6 +104,7 @@ function drawRow(x, y, row) {
     // Method string
     if (row.method_str) {
         ctx.textAlign = "left";
+        ctx.fillStyle = FOREGROUND_COL;
         ctx.fillText(
             row.method_str,
             x + stage * COL_WIDTH + RIGHT_MARGIN_WIDTH,
@@ -121,6 +126,19 @@ function drawFrag(x, y, frag) {
     // Rows
     for (let i = 0; i < frag.exp_rows.length; i++) {
         drawRow(x, y + ROW_HEIGHT * i, frag.exp_rows[i]);
+    }
+    // Lines
+    for (let l in lines) {
+        const width = lines[l][0];
+        const col = lines[l][1];
+        ctx.beginPath();
+        for (let i = 0; i < frag.exp_rows.length; i++) {
+            const ind = frag.exp_rows[i].expanded_rows[current_part].findIndex((x) => x == l);
+            ctx.lineTo(x + (ind + 0.5) * COL_WIDTH, y + ROW_HEIGHT * (i + 0.5));
+        }
+        ctx.lineWidth = width;
+        ctx.strokeStyle = col;
+        ctx.stroke();
     }
     // Falseness
     ctx.lineWidth = FALSE_ROW_GROUP_LINE_WIDTH;
