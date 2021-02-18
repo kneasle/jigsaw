@@ -207,6 +207,15 @@ function onPartHeadChange(evt) {
     requestFrame();
 }
 
+function updateHUD() {
+    document.getElementById("row-counter").innerText = derived_state.num_rows.toString();
+    const falseness_info = document.getElementById("falseness-info");
+    falseness_info.innerText = derived_state.num_false_rows === 0
+        ? "true"
+        : derived_state.num_false_rows.toString() + " false";
+    falseness_info.style.color = derived_state.num_false_rows === 0 ? "green" : "red";
+}
+
 function updatePartHeadList() {
     let ph_list = document.getElementById("part-head");
     // Clear the existing children
@@ -237,6 +246,7 @@ function start() {
     // Force a load of updates to make sure that things are initialised
     onWindowResize();
     updatePartHeadList();
+    updateHUD();
 
     requestFrame();
 }

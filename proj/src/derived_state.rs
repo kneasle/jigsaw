@@ -161,15 +161,16 @@ pub struct AnnotFrag {
 #[derive(Serialize, Debug, Clone)]
 pub struct DerivedState {
     annot_frags: Vec<AnnotFrag>,
+    num_rows: usize,
+    num_false_rows: usize,
 }
 
 impl DerivedState {
     pub fn from_spec(spec: &Spec) -> DerivedState {
-        /* Detect duplicate rows by looking for running duplicates */
         // We use a hashset because if the part heads form a group then any falseness will be the
         // same between all the parts, so will appear lots of times.
         let mut false_rows: HashSet<Vec<RowLocation>> = HashSet::new();
-        {
+        let num_false_rows = {
             // Expand all the rows and their origins from the composition into a `Vec` to be
             // proved, excluding the last Row of each Frag, since that is 'left over' and as such
             // shouldn't be used of proving
@@ -187,6 +188,7 @@ impl DerivedState {
             // this has length 1, i.e. all rows are unique.
             let mut current_false_row_group: Vec<RowLocation> = Vec::with_capacity(10);
             let mut last_row = None;
+            let mut num_false_rows = 0usize;
             // Iterate over all the rows, compiling groups as we go
             for (o, r) in all_rows {
                 if let Some(l_r) = &last_row {
@@ -195,9 +197,13 @@ impl DerivedState {
                         // starting a new set of rows and we need to check the last group for
                         // falseness.
                         if current_false_row_group.len() > 1 {
+                            // Add these rows to the falseness counter
+                            num_false_rows += current_false_row_group.len();
                             // If we saw more than 1 identical rows, then this counts as falseness
-                            // and so we add this to the set of false rows.  We sort the row first
-                            // to prevent duplicates
+                            // and so we add this to the set of false rows.  We sort the row
+                            // locations first, to make sure that if the same set of `RowLocation`s
+                            // is found twice they are always added once (regardless of which order
+                            // the rows were discovered).
                             current_false_row_group.sort();
                             false_rows.insert(std::mem::take(&mut current_false_row_group));
                         } else {
@@ -205,10 +211,14 @@ impl DerivedState {
                         }
                     }
                 }
+                // Make sure that the current row becomes the last row for the next iteration, and
+                // add this location to the current group.
                 last_row = Some(r);
                 current_false_row_group.push(RowLocation::from(o));
             }
-        }
+            // Return the number of false rows out of the block
+            num_false_rows
+        };
         /* Combine adjacent false row groups so that we use up fewer colours.  This relies on the
          * fact that all the `Vec`s in `false_rows` are sorted in increasing order by frag index and
          * then row index. */
@@ -308,6 +318,8 @@ impl DerivedState {
                     }
                 })
                 .collect(),
+            num_rows: spec.proof_len(),
+            num_false_rows,
         }
     }
 }

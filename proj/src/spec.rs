@@ -73,6 +73,12 @@ impl Frag {
         self.rows[index].clone()
     }
 
+    /// The number of rows in this fragment that should be proven
+    #[inline]
+    pub fn proof_len(&self) -> usize {
+        self.rows.len() - 1
+    }
+
     /// The number of rows in this fragment
     #[inline]
     pub fn len(&self) -> usize {
@@ -105,10 +111,16 @@ impl Spec {
         }
     }
 
+    /// Gets the number of [`Row`]s that should be proved in the expanded version of this comp,
+    /// without expanding anything.
+    pub fn proof_len(&self) -> usize {
+        self.part_heads.len() * self.frags.iter().map(Frag::proof_len).sum::<usize>()
+    }
+
     /// Gets the number of [`Row`]s that will appear in the expanded version of this comp, without
     /// expanding anything.
     pub fn len(&self) -> usize {
-        self.part_heads.len() * self.frags.iter().map(|f| f.len()).sum::<usize>()
+        self.part_heads.len() * self.frags.iter().map(Frag::len).sum::<usize>()
     }
 
     /// Write all the [`Row`]s that make up this `Spec` into a [`Vec`], reusing the storage where
