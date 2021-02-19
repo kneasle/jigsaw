@@ -107,14 +107,14 @@ impl ExpandedRow {
         // For each part that contains music, add one to the bells which are covered by the music
         for (part, r) in all_rows.iter().enumerate() {
             // Highlight runs of >=4 bells of the **front**
-            let run_len_f = run_len(r.iter());
+            let run_len_f = run_len(r.bells());
             if run_len_f >= 4 {
                 for i in 0..run_len_f {
                     music[i].push(part);
                 }
             }
             // Highlight runs of >=4 bells of the **back**
-            let run_len_b = run_len(r.iter().rev());
+            let run_len_b = run_len(r.bells().rev());
             if run_len_b >= 4 {
                 // The 'max' prevents the two ranges from overlapping and causing music in multiple
                 // parts from being counted twice
@@ -135,7 +135,7 @@ impl ExpandedRow {
             music_highlights: Self::calculate_music(&all_rows, row.row.stage()),
             expanded_rows: all_rows
                 .into_iter()
-                .map(|r| r.iter().map(Bell::index).collect())
+                .map(|r| r.bells().map(Bell::index).collect())
                 .collect(),
             is_leftover,
         }

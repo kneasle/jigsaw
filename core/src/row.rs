@@ -179,22 +179,6 @@ impl Row {
         self.bells.len().into()
     }
 
-    /// Returns a [`String`] representing this `Row`.
-    ///
-    /// # Example
-    /// ```
-    /// use proj_core::{Row, Stage};
-    ///
-    /// assert_eq!(Row::rounds(Stage::MAJOR).to_string(), "12345678");
-    /// assert_eq!(Row::parse("146235")?.to_string(), "146235");
-    /// # Ok::<(), proj_core::InvalidRowError>(())
-    /// ```
-    pub fn to_string(&self) -> String {
-        let mut s = String::with_capacity(self.stage().as_usize());
-        self.push_to_string(&mut s);
-        s
-    }
-
     /// A very collision-resistant hash function.  It is guarunteed to be perfectly
     /// collision-resistant on the following [`Stage`]s:
     /// - 16-bit machines: Up to 6 bells
@@ -244,7 +228,7 @@ impl Row {
     /// # Ok::<(), InvalidRowError>(())
     /// ```
     pub fn parse(s: &str) -> RowResult {
-        Row::from_iter(s.chars().filter_map(Bell::from_name))
+        Row::from_iter_checked(s.chars().filter_map(Bell::from_name))
     }
 
     /// Utility function that creates a `Row` from an iterator of [`Bell`]s, performing the
@@ -256,13 +240,13 @@ impl Row {
     ///
     /// // Create a valid row from an iterator over `Bell`s
     /// let iter = [0, 3, 4, 2, 1].iter().copied().map(Bell::from_index);
-    /// let row = Row::from_iter(iter)?;
+    /// let row = Row::from_iter_checked(iter)?;
     /// assert_eq!(row.to_string(), "14532");
     /// // Attempt to create an invalid row from an iterator over `Bell`s
     /// // (we get an error)
     /// let iter = [0, 3, 7, 2, 1].iter().copied().map(Bell::from_index);
     /// assert_eq!(
-    ///     Row::from_iter(iter),
+    ///     Row::from_iter_checked(iter),
     ///     Err(InvalidRowError::BellOutOfStage(
     ///         Bell::from_name('8').unwrap(),
     ///         Stage::DOUBLES,
@@ -271,7 +255,7 @@ impl Row {
     ///
     /// # Ok::<(), InvalidRowError>(())
     /// ```
-    pub fn from_iter<I>(iter: I) -> RowResult
+    pub fn from_iter_checked<I>(iter: I) -> RowResult
     where
         I: Iterator<Item = Bell>,
     {
@@ -388,7 +372,7 @@ impl Row {
 
     /// Returns an iterator over the [`Bell`]s in this `Row`
     #[inline]
-    pub fn iter<'a>(&'a self) -> std::iter::Copied<std::slice::Iter<'a, Bell>> {
+    pub fn bells(&self) -> std::iter::Copied<std::slice::Iter<'_, Bell>> {
         self.slice().iter().copied()
     }
 
@@ -406,7 +390,7 @@ impl Row {
     /// # Ok::<(), proj_core::InvalidRowError>(())
     /// ```
     pub fn is_rounds(&self) -> bool {
-        self.iter().enumerate().all(|(i, b)| b.index() == i)
+        self.bells().enumerate().all(|(i, b)| b.index() == i)
     }
 
     /// Multiply two `Row`s (i.e. use the RHS to permute the LHS), but without checking that the
@@ -433,7 +417,7 @@ impl Row {
     /// ```
     pub fn mul_unchecked(&self, rhs: &Row) -> Row {
         // We bypass the validity check because if two Rows are valid, then so is their product
-        Row::from_vec_unchecked(rhs.iter().map(|b| self[b.index()]).collect())
+        Row::from_vec_unchecked(rhs.bells().map(|b| self[b.index()]).collect())
     }
 
     /// All the `Row`s formed by repeatedly permuting a given `Row`.  The first item returned will
@@ -498,8 +482,20 @@ impl std::fmt::Debug for Row {
 }
 
 impl std::fmt::Display for Row {
+    /// Returns a [`String`] representing this `Row`.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Row, Stage};
+    ///
+    /// assert_eq!(Row::rounds(Stage::MAJOR).to_string(), "12345678");
+    /// assert_eq!(Row::parse("146235")?.to_string(), "146235");
+    /// # Ok::<(), proj_core::InvalidRowError>(())
+    /// ```
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_string())
+        let mut s = String::with_capacity(self.stage().as_usize());
+        self.push_to_string(&mut s);
+        write!(f, "{}", s)
     }
 }
 
@@ -583,7 +579,7 @@ impl std::ops::Not for &Row {
     /// ```
     fn not(self) -> Self::Output {
         let mut inv_bells = vec![Bell::from_index(0); self.stage().as_usize()];
-        for (i, b) in self.iter().enumerate() {
+        for (i, b) in self.bells().enumerate() {
             inv_bells[b.index()] = Bell::from_index(i);
         }
         // If `self` is a valid row, so will its inverse.  So we elide the validity check

@@ -18,7 +18,7 @@ mod tests {
     #[test]
     fn run_len() {
         for &(row, run_len_f) in &[("123456", 6), ("456231", 3), ("612345", 1)] {
-            assert_eq!(rl(Row::parse(row).unwrap().iter()), run_len_f);
+            assert_eq!(rl(Row::parse(row).unwrap().bells()), run_len_f);
         }
     }
 }

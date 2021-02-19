@@ -3,7 +3,7 @@
 use wasm_bindgen::prelude::*;
 
 /// A lookup string of the bell names
-const BELL_NAMES: &'static str = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
+const BELL_NAMES: &str = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
 
 /// A [`Bell`] representing the 'treble' on any stage.  Equivalent to
 /// `Bell::from_name('1').unwrap()`.

@@ -43,6 +43,8 @@ pub struct Block {
     rows: Vec<Row>,
 }
 
+// We don't need `is_empty`, because the length is guaruteed to be at least 1
+#[allow(clippy::len_without_is_empty)]
 impl Block {
     /// Parse a multi-line [`str`]ing into a `Block`.  This assumes that all subsequent [`Row`]s
     /// are permuting the first one.  Therefore, a given block (a lead of Plain Bob Minor, for
@@ -96,7 +98,7 @@ impl Block {
     /// Takes a [`Row`] of the same [`Stage`] as this `Block` and returns an [`Iterator`] that
     /// generates the sequence of [`Row`]s that make up this `Block` starting at that [`Row`].
     #[inline]
-    pub fn rows<'b, 'r>(&'b self) -> RowIter<'b> {
+    pub fn rows(&self) -> RowIter<'_> {
         RowIter::from_block(self)
     }
 
