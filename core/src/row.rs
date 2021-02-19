@@ -9,7 +9,7 @@ use wasm_bindgen::prelude::*;
 /// (`MissingBell(`[`Bell`]`)`) because in order for a [`Bell`] to be missing, another [`Bell`]
 /// must either be duplicated or out of range.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum InvalidRowErr {
+pub enum InvalidRowError {
     /// A [`Bell`] would appear twice in the new [`Row`] (for example in `113456` or `4152357`)
     DuplicateBell(Bell),
     /// A [`Bell`] is not within the range of the [`Stage`] of the new [`Row`] (for example `7` in
@@ -17,34 +17,34 @@ pub enum InvalidRowErr {
     BellOutOfStage(Bell, Stage),
 }
 
-impl std::fmt::Display for InvalidRowErr {
+impl std::fmt::Display for InvalidRowError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            InvalidRowErr::DuplicateBell(bell) => {
+            InvalidRowError::DuplicateBell(bell) => {
                 write!(f, "Bell {} would appear twice.", bell)
             }
-            InvalidRowErr::BellOutOfStage(bell, stage) => {
+            InvalidRowError::BellOutOfStage(bell, stage) => {
                 write!(f, "Bell {} is not within the stage {}", bell, stage)
             }
         }
     }
 }
 
-pub type RowResult = Result<Row, InvalidRowErr>;
+pub type RowResult = Result<Row, InvalidRowError>;
 
 /// An error created when a [`Row`] was used to permute something with the wrong length
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct IncompatibleStages {
     /// The [`Stage`] of the [`Row`] that was being permuted
-    lhs_stage: Stage,
+    pub(crate) lhs_stage: Stage,
     /// The [`Stage`] of the [`Row`] that was doing the permuting
-    rhs_stage: Stage,
+    pub(crate) rhs_stage: Stage,
 }
 
 impl IncompatibleStages {
     /// Compares two [`Stage`]s, returning `Ok(())` if they are equal and returning the appropriate
     /// `IncompatibleStages` error if not.
-    pub(crate) fn test_err(lhs_stage: Stage, rhs_stage: Stage) -> Result<(), Self> {
+    pub fn test_err(lhs_stage: Stage, rhs_stage: Stage) -> Result<(), Self> {
         if lhs_stage == rhs_stage {
             Ok(())
         } else {
@@ -80,7 +80,7 @@ impl std::error::Error for IncompatibleStages {}
 ///
 /// # Example
 /// ```
-/// use proj_core::{Bell, Row, Stage, InvalidRowErr};
+/// use proj_core::{Bell, Row, Stage, InvalidRowError};
 ///
 /// // Create rounds on 8 bells.  Rounds is always valid on any `Stage`
 /// let rounds_on_8 = Row::rounds(Stage::MAJOR);
@@ -98,10 +98,10 @@ impl std::error::Error for IncompatibleStages {}
 /// // that we can assume that all `Row`s satisfy the Framework's definition
 /// assert_eq!(
 ///     Row::parse("112345"),
-///     Err(InvalidRowErr::DuplicateBell(Bell::from_name('1').unwrap()))
+///     Err(InvalidRowError::DuplicateBell(Bell::from_name('1').unwrap()))
 /// );
 /// #
-/// # Ok::<(), InvalidRowErr>(())
+/// # Ok::<(), InvalidRowError>(())
 /// ```
 #[wasm_bindgen]
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
@@ -172,7 +172,7 @@ impl Row {
     ///
     /// assert_eq!(Row::parse("41325")?.stage(), Stage::DOUBLES);
     /// assert_eq!(Row::parse("321 654 987 0")?.stage(), Stage::ROYAL);
-    /// # Ok::<(), proj_core::InvalidRowErr>(())
+    /// # Ok::<(), proj_core::InvalidRowError>(())
     /// ```
     #[inline]
     pub fn stage(&self) -> Stage {
@@ -187,7 +187,7 @@ impl Row {
     ///
     /// assert_eq!(Row::rounds(Stage::MAJOR).to_string(), "12345678");
     /// assert_eq!(Row::parse("146235")?.to_string(), "146235");
-    /// # Ok::<(), proj_core::InvalidRowErr>(())
+    /// # Ok::<(), proj_core::InvalidRowError>(())
     /// ```
     pub fn to_string(&self) -> String {
         let mut s = String::with_capacity(self.stage().as_usize());
@@ -218,11 +218,11 @@ impl Row {
 
 impl Row {
     /// Parse a string into a `Row`, skipping any [`char`]s that aren't valid bell names.  This
-    /// returns `Err(`[`InvalidRowErr`]`)` if the `Row` would be invalid.
+    /// returns `Err(`[`InvalidRowError`]`)` if the `Row` would be invalid.
     ///
     /// # Example
     /// ```
-    /// use proj_core::{Bell, Row, Stage, InvalidRowErr};
+    /// use proj_core::{Bell, Row, Stage, InvalidRowError};
     ///
     /// // Parsing a valid Row gives back `Ok(Row)`
     /// assert_eq!(Row::parse("12543")?.to_string(), "12543");
@@ -232,16 +232,16 @@ impl Row {
     /// // Parsing an invalid `Row` causes an error describing the problem
     /// assert_eq!(
     ///     Row::parse("112345"),
-    ///     Err(InvalidRowErr::DuplicateBell(Bell::from_number(1).unwrap()))
+    ///     Err(InvalidRowError::DuplicateBell(Bell::from_number(1).unwrap()))
     /// );
     /// assert_eq!(
     ///     Row::parse("12745"),
-    ///     Err(InvalidRowErr::BellOutOfStage(
+    ///     Err(InvalidRowError::BellOutOfStage(
     ///         Bell::from_number(7).unwrap(),
     ///         Stage::DOUBLES
     ///     ))
     /// );
-    /// # Ok::<(), InvalidRowErr>(())
+    /// # Ok::<(), InvalidRowError>(())
     /// ```
     pub fn parse(s: &str) -> RowResult {
         Row::from_iter(s.chars().filter_map(Bell::from_name))
@@ -252,7 +252,7 @@ impl Row {
     ///
     /// # Example
     /// ```
-    /// use proj_core::{Bell, Row, Stage, InvalidRowErr};
+    /// use proj_core::{Bell, Row, Stage, InvalidRowError};
     ///
     /// // Create a valid row from an iterator over `Bell`s
     /// let iter = [0, 3, 4, 2, 1].iter().copied().map(Bell::from_index);
@@ -263,13 +263,13 @@ impl Row {
     /// let iter = [0, 3, 7, 2, 1].iter().copied().map(Bell::from_index);
     /// assert_eq!(
     ///     Row::from_iter(iter),
-    ///     Err(InvalidRowErr::BellOutOfStage(
+    ///     Err(InvalidRowError::BellOutOfStage(
     ///         Bell::from_name('8').unwrap(),
     ///         Stage::DOUBLES,
     ///     ))
     /// );
     ///
-    /// # Ok::<(), InvalidRowErr>(())
+    /// # Ok::<(), InvalidRowError>(())
     /// ```
     pub fn from_iter<I>(iter: I) -> RowResult
     where
@@ -285,7 +285,7 @@ impl Row {
     ///
     /// # Example
     /// ```
-    /// use proj_core::{Bell, InvalidRowErr, Row};
+    /// use proj_core::{Bell, InvalidRowError, Row};
     ///
     /// // Converting a `Row` from a valid `Vec` of `Bell`s is fine
     /// assert_eq!(
@@ -305,9 +305,9 @@ impl Row {
     ///         Bell::from_name('1').unwrap(),
     ///         Bell::from_name('4').unwrap(),
     ///     ]),
-    ///     Err(InvalidRowErr::DuplicateBell(Bell::from_name('4').unwrap()))
+    ///     Err(InvalidRowError::DuplicateBell(Bell::from_name('4').unwrap()))
     /// );
-    /// # Ok::<(), InvalidRowErr>(())
+    /// # Ok::<(), InvalidRowError>(())
     /// ```
     pub fn from_vec(bells: Vec<Bell>) -> RowResult {
         Row { bells }.check_validity()
@@ -319,7 +319,7 @@ impl Row {
     ///
     /// # Example
     /// ```
-    /// use proj_core::{Bell, InvalidRowErr, Row};
+    /// use proj_core::{Bell, InvalidRowError, Row};
     ///
     /// // Converting a `Row` from a valid `Vec` of `Bell`s is fine
     /// assert_eq!(
@@ -349,7 +349,7 @@ impl Row {
     }
 
     /// Checks the validity of a potential `Row`, returning it if valid and returning an
-    /// [`InvalidRowErr`] otherwise (consuming the potential `Row`).
+    /// [`InvalidRowError`] otherwise (consuming the potential `Row`).
     fn check_validity(self) -> RowResult {
         // We check validity by keeping a checklist of which `Bell`s we've seen, and checking off
         // each bell as we go.
@@ -359,9 +359,9 @@ impl Row {
             match checklist.get_mut(b.index()) {
                 // If the `Bell` is out of range of the checklist, it can't belong within the `Stage`
                 // of this `Row`
-                None => return Err(InvalidRowErr::BellOutOfStage(*b, self.stage())),
+                None => return Err(InvalidRowError::BellOutOfStage(*b, self.stage())),
                 // If the `Bell` has already been seen before, then it must be a duplicate
-                Some(&mut true) => return Err(InvalidRowErr::DuplicateBell(*b)),
+                Some(&mut true) => return Err(InvalidRowError::DuplicateBell(*b)),
                 // If the `Bell` has not been seen before, check off the checklist entry and continue
                 Some(x) => *x = true,
             }
@@ -379,7 +379,7 @@ impl Row {
     ///
     /// let tittums = Row::parse("15263748")?;
     /// assert_eq!(tittums.slice()[3], Bell::from_name('6').unwrap());
-    /// # Ok::<(), proj_core::InvalidRowErr>(())
+    /// # Ok::<(), proj_core::InvalidRowError>(())
     /// ```
     #[inline]
     pub fn slice(&self) -> &[Bell] {
@@ -403,10 +403,37 @@ impl Row {
     /// assert!(Row::rounds(Stage::MAXIMUS).is_rounds());
     /// // This is not rounds
     /// assert!(!Row::parse("18423756")?.is_rounds());
-    /// # Ok::<(), proj_core::InvalidRowErr>(())
+    /// # Ok::<(), proj_core::InvalidRowError>(())
     /// ```
     pub fn is_rounds(&self) -> bool {
         self.iter().enumerate().all(|(i, b)| b.index() == i)
+    }
+
+    /// Multiply two `Row`s (i.e. use the RHS to permute the LHS), but without checking that the
+    /// [`Stage`]s are compatible.  This is slighlty faster than using `*`, but the output is not
+    /// guaruteed to be valid unless both inputs have the same [`Stage`].
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Bell, Row, Stage, IncompatibleStages};
+    ///
+    /// // Multiplying two Rows of the same Stage is fine
+    /// assert_eq!(
+    ///     Row::parse("13425678")?.mul_unchecked(&Row::parse("43217568")?),
+    ///     Row::parse("24317568")?
+    /// );
+    /// // Multiplying two Rows of different Stages is not, and creates an invalid Row.
+    /// assert_eq!(
+    ///     Row::parse("13475628")?.mul_unchecked(&Row::parse("4321")?),
+    ///     Row::from_vec_unchecked(
+    ///         [7, 4, 3, 1].iter().map(|&x| Bell::from_number(x).unwrap()).collect()
+    ///     )
+    /// );
+    /// # Ok::<(), proj_core::InvalidRowError>(())
+    /// ```
+    pub fn mul_unchecked(&self, rhs: &Row) -> Row {
+        // We bypass the validity check because if two Rows are valid, then so is their product
+        Row::from_vec_unchecked(rhs.iter().map(|b| self[b.index()]).collect())
     }
 
     /// All the `Row`s formed by repeatedly permuting a given `Row`.  The first item returned will
@@ -429,7 +456,7 @@ impl Row {
     ///         Row::parse("12345678")?,
     ///     ]
     /// );
-    /// # Ok::<(), proj_core::InvalidRowErr>(())
+    /// # Ok::<(), proj_core::InvalidRowError>(())
     /// ```
     pub fn closure(&self) -> Vec<Row> {
         let mut closure = Vec::new();
@@ -439,7 +466,7 @@ impl Row {
             if row.is_rounds() {
                 return closure;
             }
-            row = &row * self;
+            row = row.mul_unchecked(self);
         }
     }
 
@@ -455,7 +482,7 @@ impl Row {
     /// let mut string = "Waterfall is: ".to_string();
     /// waterfall.push_to_string(&mut string);
     /// assert_eq!(string, "Waterfall is: 6543217890");
-    /// # Ok::<(), proj_core::InvalidRowErr>(())
+    /// # Ok::<(), proj_core::InvalidRowError>(())
     /// ```
     pub fn push_to_string(&self, string: &mut String) {
         for b in &self.bells {
@@ -485,54 +512,81 @@ impl std::ops::Index<usize> for Row {
 }
 
 impl std::ops::Mul for Row {
-    type Output = Row;
+    type Output = Result<Row, IncompatibleStages>;
 
-    /// Uses the RHS to permute the LHS, consuming both arguments.
-    ///
-    /// # Panics
-    ///
-    /// This panics if the [`Row`]s have different [`Stages`].
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use proj_core::Row;
-    ///
-    /// assert_eq!(
-    ///     Row::parse("13425678")? * Row::parse("43217568")?,
-    ///     Row::parse("24317568")?
-    /// );
-    ///
-    /// # Ok::<(), proj_core::InvalidRowErr>(())
-    /// ```
-    fn mul(self, rhs: Row) -> Row {
+    /// See [`&Row * &Row`](<&Row as std::ops::Mul>::mul) for docs.
+    fn mul(self, rhs: Row) -> Self::Output {
+        // Delegate to the borrowed version
         &self * &rhs
     }
 }
 
 impl std::ops::Mul for &Row {
-    type Output = Row;
+    type Output = Result<Row, IncompatibleStages>;
 
     /// Uses the RHS to permute the LHS without consuming either argument.
     ///
-    /// # Panics
-    ///
-    /// This panics if the [`Row`]s have different [`Stages`].
-    ///
     /// # Example
-    ///
     /// ```
-    /// use proj_core::Row;
+    /// use proj_core::{Row, Stage, IncompatibleStages};
     ///
+    /// // Multiplying two Rows of the same Stage is fine
     /// assert_eq!(
     ///     &Row::parse("13425678")? * &Row::parse("43217568")?,
-    ///     Row::parse("24317568")?
+    ///     Ok(Row::parse("24317568")?)
     /// );
-    ///
-    /// # Ok::<(), proj_core::InvalidRowErr>(())
+    /// // Multiplying two Rows of different Stages causes an error but no
+    /// // undefined behaviour
+    /// assert_eq!(
+    ///     (&Row::parse("13425678")? * &Row::parse("4321")?)
+    ///         .unwrap_err()
+    ///         .to_string(),
+    ///     "Incompatible stages: Major (lhs), Minimus (rhs)"
+    /// );
+    /// # Ok::<(), proj_core::InvalidRowError>(())
     /// ```
-    fn mul(self, rhs: &Row) -> Row {
-        IncompatibleStages::test_err(self.stage(), rhs.stage()).unwrap();
-        Row::from_vec_unchecked(rhs.iter().map(|b| self[b.index()]).collect())
+    fn mul(self, rhs: &Row) -> Self::Output {
+        IncompatibleStages::test_err(self.stage(), rhs.stage())?;
+        Ok(self.mul_unchecked(rhs))
+    }
+}
+
+impl std::ops::Not for Row {
+    type Output = Row;
+
+    /// See [`!&Row`](<&Row as std::ops::Not>::not) for docs.
+    #[inline]
+    fn not(self) -> Self::Output {
+        // Delegate to the borrowed version
+        !&self
+    }
+}
+
+impl std::ops::Not for &Row {
+    type Output = Row;
+
+    /// Find the inverse of a [`Row`].  If `X` is the input [`Row`], and `Y = !X`, then
+    /// `XY = YX = I` where `I` is the identity on the same stage as `X` (i.e. rounds).
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Row, Stage};
+    ///
+    /// // The inverse of Queens is Tittums
+    /// assert_eq!(!Row::parse("135246")?, Row::parse("142536")?);
+    /// // Backrounds is self-inverse
+    /// assert_eq!(!Row::backrounds(Stage::MAJOR), Row::backrounds(Stage::MAJOR));
+    /// // `1324` inverts to `1423`
+    /// assert_eq!(!Row::parse("1342")?, Row::parse("1423")?);
+    /// #
+    /// # Ok::<(), proj_core::InvalidRowError>(())
+    /// ```
+    fn not(self) -> Self::Output {
+        let mut inv_bells = vec![Bell::from_index(0); self.stage().as_usize()];
+        for (i, b) in self.iter().enumerate() {
+            inv_bells[b.index()] = Bell::from_index(i);
+        }
+        // If `self` is a valid row, so will its inverse.  So we elide the validity check
+        Row::from_vec_unchecked(inv_bells)
     }
 }

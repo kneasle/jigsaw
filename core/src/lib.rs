@@ -8,6 +8,6 @@ mod utils;
 
 pub use bell::{Bell, TREBLE};
 pub use block::Block;
-pub use row::{IncompatibleStages, InvalidRowErr, Row, RowResult};
+pub use row::{IncompatibleStages, InvalidRowError, Row, RowResult};
 pub use stage::Stage;
 pub use utils::run_len;

@@ -13,7 +13,7 @@ pub fn run_len(iter: impl Iterator<Item = Bell>) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::{run_len, Row};
+    use crate::{run_len as rl, Row};
 
     #[test]
     fn run_len() {

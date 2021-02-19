@@ -1,8 +1,22 @@
 //! A representation of a [`Block`] of ringing; i.e. a sort of 'multi-permutation' which takes a
 //! starting [`Row`] and yields a sequence of permuted [`Row`]s.
 
-use crate::{Row, Stage};
-use wasm_bindgen::prelude::*;
+use crate::{InvalidRowError, Row, Stage};
+
+/// All the possible ways that parsing a [`Block`] could fail
+#[derive(Debug, Clone)]
+pub enum ParseError {
+    OnlyOneRow,
+    InvalidRow {
+        line: usize,
+        err: InvalidRowError,
+    },
+    IncompatibleStages {
+        line: usize,
+        first_stage: Stage,
+        different_stage: Stage,
+    },
+}
 
 /// A `Block` is an ordered sequence of [`Row`]s
 ///
@@ -10,7 +24,6 @@ use wasm_bindgen::prelude::*;
 /// - All `Block`s must have non-zero length.  Zero-length blocks cannot be created with `safe`
 ///   code, and will cause undefined behaviour, usually `panic!`ing.
 /// - A [`Row`] can be viewed as a special case of a [`Block`] of length `1`.
-#[wasm_bindgen]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Block {
     /// The [`Row`]s making up this `Block`.
@@ -31,6 +44,41 @@ pub struct Block {
 }
 
 impl Block {
+    /// Parse a multi-line [`str`]ing into a `Block`.  This assumes that all subsequent [`Row`]s
+    /// are permuting the first one.  Therefore, a given block (a lead of Plain Bob Minor, for
+    /// instance) will be identical regardless of what starting [`Row`] is chosen.  The last
+    /// [`Row`] parsed will be considered 'left over' - i.e. it isn't directly part of this `Block`
+    /// but rather will be the first [`Row`] of any `Block` which gets appended to this one.
+    pub fn parse(s: &str) -> Result<Block, ParseError> {
+        // We store the _inverse_ of the first Row, because for each row R we are solving the
+        // equation `FX = R` where F is the first Row.  The solution to this is `X = F^-1 * R`, so
+        // it makes sense to invert F once and then use that in all subsequent calculations.
+        let mut first_row_inverse = None;
+        let mut rows = Vec::new();
+        for (i, l) in s.lines().enumerate() {
+            // Parse the line into a Row, and track which line of the string has the offending Row
+            let parsed_row =
+                Row::parse(l).map_err(|err| ParseError::InvalidRow { line: i, err })?;
+            if let Some(f_inv) = &first_row_inverse {
+                rows.push(
+                    (f_inv * &parsed_row).map_err(|s| ParseError::IncompatibleStages {
+                        line: i,
+                        first_stage: s.lhs_stage,
+                        different_stage: s.rhs_stage,
+                    })?,
+                );
+            } else {
+                first_row_inverse = Some(!parsed_row);
+            }
+        }
+        // Return an error if rows is empty (since a block with no leftover row is invalid)
+        if rows.is_empty() {
+            return Err(ParseError::OnlyOneRow);
+        }
+        // Create a block from the newly parsed [`Row`]s
+        Ok(Block { rows })
+    }
+
     /// Gets the [`Stage`] of this `Block`.
     #[inline]
     pub fn stage(&self) -> Stage {
@@ -48,7 +96,7 @@ impl Block {
     /// Takes a [`Row`] of the same [`Stage`] as this `Block` and returns an [`Iterator`] that
     /// generates the sequence of [`Row`]s that make up this `Block` starting at that [`Row`].
     #[inline]
-    pub fn row_iter<'b, 'r>(&'b self) -> RowIter<'b> {
+    pub fn rows<'b, 'r>(&'b self) -> RowIter<'b> {
         RowIter::from_block(self)
     }
 
