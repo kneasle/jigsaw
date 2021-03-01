@@ -1,13 +1,14 @@
 use crate::derived_state::RowOrigin;
 use proj_core::{Row, Stage};
+use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnotatedRow {
-    pub is_lead_end: bool,
-    pub method_str: Option<String>,
-    pub call_str: Option<String>,
-    pub row: Row,
+    pub(crate) is_lead_end: bool,
+    pub(crate) method_str: Option<MethodName>,
+    pub(crate) call_str: Option<String>,
+    pub(crate) row: Row,
 }
 
 impl AnnotatedRow {
@@ -20,6 +21,13 @@ impl AnnotatedRow {
             row,
         }
     }
+}
+
+/// A convenient data structure of the long and short method names
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize)]
+pub struct MethodName {
+    name: String,
+    shorthand: String,
 }
 
 /// A single unexpanded fragment of a composition
@@ -41,17 +49,21 @@ impl Frag {
         /* ANNOTATIONS */
         // Method names and LE ruleoffs
         let method_names = [
-            "Deva",
-            "Bristol",
-            "Lessness",
-            "Yorkshire",
-            "York",
-            "Superlative",
-            "Cornwall",
-            "Bristol",
+            ("Deva", "V"),
+            ("Bristol", "B"),
+            ("Lessness", "E"),
+            ("Yorkshire", "Y"),
+            ("York", "K"),
+            ("Superlative", "S"),
+            ("Cornwall", "W"),
+            ("Bristol", "B"),
         ];
         for i in 0..rows.len() / 32 {
-            rows[i * 32].method_str = Some(method_names[i].to_owned());
+            let (method_name, method_short) = method_names[i];
+            rows[i * 32].method_str = Some(MethodName {
+                name: method_name.to_owned(),
+                shorthand: method_short.to_owned(),
+            });
             rows[i * 32 + 31].is_lead_end = true;
         }
         // Calls
@@ -133,7 +145,7 @@ impl Spec {
                 for (row_index, annot_row) in frag.rows.iter().enumerate() {
                     out_vec.push((
                         RowOrigin::new(part_index, frag_index, row_index),
-                        part_head * &annot_row.row,
+                        (part_head * &annot_row.row).unwrap(),
                     ));
                 }
             }

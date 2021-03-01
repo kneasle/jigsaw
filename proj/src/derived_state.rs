@@ -1,4 +1,4 @@
-use crate::spec::{AnnotatedRow, Spec};
+use crate::spec::{AnnotatedRow, MethodName, Spec};
 use proj_core::{run_len, Bell, Row, Stage};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -65,7 +65,7 @@ pub struct ExpandedRow {
     #[serde(skip_serializing_if = "Option::is_none")]
     call_str: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    method_str: Option<String>,
+    method_str: Option<MethodName>,
     is_lead_end: bool,
     #[serde(skip_serializing_if = "is_false")]
     is_leftover: bool,
@@ -84,7 +84,7 @@ pub struct ExpandedRow {
     /// 6: 31456782
     /// ```
     /// and the highlights would be:
-    /// ```
+    /// ```ignore
     /// vec![
     ///     vec![],
     ///     vec![1],
@@ -127,7 +127,10 @@ impl ExpandedRow {
     }
 
     pub fn new(row: &AnnotatedRow, part_heads: &[Row], is_leftover: bool) -> Self {
-        let all_rows: Vec<Row> = part_heads.iter().map(|ph| ph * &row.row).collect();
+        let all_rows: Vec<Row> = part_heads
+            .iter()
+            .map(|ph| (ph * &row.row).unwrap())
+            .collect();
         ExpandedRow {
             call_str: row.call_str.clone(),
             method_str: row.method_str.clone(),
@@ -178,7 +181,10 @@ impl DerivedState {
             for (p_ind, part_head) in spec.part_heads.iter().enumerate() {
                 for (f_ind, frag) in spec.frags.iter().enumerate() {
                     for (r_ind, row) in frag.rows[..frag.rows.len() - 1].iter().enumerate() {
-                        all_rows.push((RowOrigin::new(p_ind, f_ind, r_ind), part_head * &row.row));
+                        all_rows.push((
+                            RowOrigin::new(p_ind, f_ind, r_ind),
+                            (part_head * &row.row).unwrap(),
+                        ));
                     }
                 }
             }

@@ -109,7 +109,7 @@ function draw_row(x, y, row) {
         ctx.textAlign = "left";
         ctx.fillStyle = FOREGROUND_COL;
         ctx.fillText(
-            row.method_str,
+            row.method_str.name,
             x + stage * COL_WIDTH + RIGHT_MARGIN_WIDTH,
             text_baseline
         );
