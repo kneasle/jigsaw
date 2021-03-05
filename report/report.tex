@@ -7,17 +7,41 @@
 
 \begin{document}
 
-% Title page
+% Title page & T.o.C.
 \maketitle
+\pagebreak
+\tableofcontents
 \pagebreak
 
 \section{What is Composing?}
 
-\section{What's the Problem?}
+\section{What is my Project Trying to Do?}
+
+The purpose of the project is to build an application which \emph{helps} composers create better
+change ringing compositions with as little change to their workflow as possible.  This aim is
+roughly analogous to what applications like MuseScore and Sibelius do for musical composers --- the
+goal is to create some form of `helpful paper' which allows the composer to experiment more freely
+by providing instant feedback on everything that the composer wants to know about their composition.
+
+Within this overall goal, here are some more specific things that I would expect from such an
+application (most of these come from observations of existing programs, conversations with other
+composers, and knowledge gained from experimenting with prototypes early on in this project):
+
+\begin{itemize}
+    \item \textbf{Ease of Use}: The application should be made so that anyone can install and use
+        it.
+    \item \textbf{Incremental}: The application should allow the user to incrementally build up
+        their composition, in whatever order they want, starting wherever they want to.
+    \item \textbf{Instant}: Feedback on important measures like truth, music content and length
+        should always update instantly whenever the composer changes their composition.
+    \item \textbf{Visual}: The application should display the composition to the user in way that
+        makes it easy for the user to visually understand the composition they are working on.
+    \item \textbf{View-Independent}: The application should allow the user to choose how they view
+        the composition they are working on (and this should be configurable whilst midway through a
+        composition).
+\end{itemize}
 
 \section{What has been done so far?}
-
-\subsection{Inpact}
 
 \subsection{Composition Library}
 
@@ -27,7 +51,7 @@ central library of all the compositions that are known to ringing.  However, it 
 composition editor in order to allow people to add new compositions to the library, and this
 editor has a lot of features useful for experimenting with compositions (despite being designed for
 a different purpose).  In fact, it does well enough that I think it's probably the best composing
-tool out there right now, and I have designed several compositions using only CompLib for computer
+tool out there right now, and I have made several compositions using only CompLib and paper for
 assistance.  More than anything, I think the fact that the best tool right now isn't even designed
 for the purpose highlights how much promise a custom-designed composing tool holds.
 
@@ -77,6 +101,30 @@ for the purpose highlights how much promise a custom-designed composing tool hol
     \item There is no way of showing only part of the composition in a different format --- you have
         to switch entirely between the different views, which usually involves a lot of scrolling to
         find the bit you actually want to see.
+\end{enumerate}
+
+\subsection{Inpact}
+
+Inpact is a program written by Alexander Holroyd to support the workflow of experimenting with
+compositions.  It provides instant feedback on truth and music, but is visually quite clunky and
+doesn't support `partial' compositions.
+
+\subsubsection{Things that Inpact does well}
+
+\begin{enumerate}
+    \item It has a folding interface --- the user can fold away sections of the composition in order
+        to get a higher-level overview of the composition as a whole.
+    \item It doesn't require that your composition is complete before giving feedback about truth or
+        music content.
+    \item It has customisable music scoring --- the user decides what music they care about.
+\end{enumerate}
+
+\subsubsection{Things that Inpact doesn't do well}
+
+\begin{enumerate}
+    \item Doesn't handle `partial' compositions --- compositions have to be a single block starting
+        at rounds, but don't have to come round.
+    \item There isn't a visual way to see the music in the composition.
 \end{enumerate}
 
 \section{What Does My Solution Look Like?}
