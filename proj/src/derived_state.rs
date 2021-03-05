@@ -1,6 +1,6 @@
 use crate::spec::{AnnotatedRow, MethodName, Spec};
 use proj_core::{run_len, Bell, Row, Stage};
-use serde::Serialize;
+use serde::{ser::SerializeSeq, Serialize, Serializer};
 use std::collections::{HashMap, HashSet};
 
 /// A small datatype that represents **where** a given row comes from in the composition.  This is
@@ -53,8 +53,19 @@ impl From<RowOrigin> for RowLocation {
 fn is_false(b: &bool) -> bool {
     !b
 }
+
+// Required so that we can omit `"music_highlights": [[], [], [], ...]` when serialising
 fn is_all_empty(vs: &Vec<Vec<usize>>) -> bool {
     vs.iter().all(Vec::is_empty)
+}
+
+// Custom serialiser to serialise [`Vec<Row>`] into `[[index]]`
+fn ser_rows<S: Serializer>(rows: &Vec<Row>, s: S) -> Result<S::Ok, S::Error> {
+    let mut seq_ser = s.serialize_seq(Some(rows.len()))?;
+    for r in rows {
+        seq_ser.serialize_element(&r.bells().map(Bell::index).collect::<Vec<_>>())?;
+    }
+    seq_ser.end()
 }
 
 /// All the information required for JS to render a single [`Row`] from the [`Spec`].  Note that
@@ -70,7 +81,8 @@ pub struct ExpandedRow {
     #[serde(skip_serializing_if = "is_false")]
     is_leftover: bool,
     /// One [`Row`] for each part of the composition
-    expanded_rows: Vec<Vec<usize>>,
+    #[serde(serialize_with = "ser_rows")]
+    rows: Vec<Row>,
     /// For each bell, shows which parts contain music
     ///
     /// E.g. for `21345678` under part heads `12345678, 18234567, ...` would form rows
@@ -136,10 +148,7 @@ impl ExpandedRow {
             method_str: row.method_str.clone(),
             is_lead_end: row.is_lead_end,
             music_highlights: Self::calculate_music(&all_rows, row.row.stage()),
-            expanded_rows: all_rows
-                .into_iter()
-                .map(|r| r.bells().map(Bell::index).collect())
-                .collect(),
+            rows: all_rows,
             is_leftover,
         }
     }
@@ -170,6 +179,7 @@ pub struct DerivedState {
 
 impl DerivedState {
     pub fn from_spec(spec: &Spec) -> DerivedState {
+        let generated_rows = spec.gen_rows();
         // We use a hashset because if the part heads form a group then any falseness will be the
         // same between all the parts, so will appear lots of times.
         let mut false_rows: HashSet<Vec<RowLocation>> = HashSet::new();
@@ -177,26 +187,24 @@ impl DerivedState {
             // Expand all the rows and their origins from the composition into a `Vec` to be
             // proved, excluding the last Row of each Frag, since that is 'left over' and as such
             // shouldn't be used of proving
-            let mut all_rows: Vec<(RowOrigin, Row)> = Vec::with_capacity(spec.len());
-            for (p_ind, part_head) in spec.part_heads.iter().enumerate() {
-                for (f_ind, frag) in spec.frags.iter().enumerate() {
-                    for (r_ind, row) in frag.rows[..frag.rows.len() - 1].iter().enumerate() {
-                        all_rows.push((
-                            RowOrigin::new(p_ind, f_ind, r_ind),
-                            (part_head * &row.row).unwrap(),
-                        ));
+            let mut flattened_rows: Vec<(RowOrigin, &Row)> = Vec::with_capacity(spec.len());
+            for (frag_index, (proof_rows, _leftover_row)) in generated_rows.iter().enumerate() {
+                for (row_index, expanded_row) in proof_rows.iter().enumerate() {
+                    for (part_index, row) in expanded_row.rows.iter().enumerate() {
+                        flattened_rows
+                            .push((RowOrigin::new(part_index, frag_index, row_index), row));
                     }
                 }
             }
             // Sort all_rows only by their rows, so that false rows are appear next to each other
-            all_rows.sort_by(|(_, r1), (_, r2)| r1.cmp(r2));
+            flattened_rows.sort_by(|(_, r1), (_, r2)| r1.cmp(r2));
             // The origins of the current set of duplicated rows.  Most of the time, we hope that
             // this has length 1, i.e. all rows are unique.
             let mut current_false_row_group: Vec<RowLocation> = Vec::with_capacity(10);
             let mut last_row = None;
             let mut num_false_rows = 0usize;
             // Iterate over all the rows, compiling groups as we go
-            for (o, r) in all_rows {
+            for (o, r) in flattened_rows {
                 if let Some(l_r) = &last_row {
                     if l_r != &r {
                         // If we reach this branch of the code, then it means that we are just
@@ -240,7 +248,7 @@ impl DerivedState {
          * fact that all the `Vec`s in `false_rows` are sorted in increasing order by frag index and
          * then row index (and a unit test checks that). */
         let mut ranges_by_frag: HashMap<usize, Vec<FalseRowRange>> = HashMap::new();
-        {
+        let num_false_groups = {
             /// A cheeky helper function which adds the ranges between two groups of false rows to
             /// the right places in a HashMap (the map will only ever be `row_groups_by_frag`)
             fn add_ranges(
@@ -315,23 +323,23 @@ impl DerivedState {
                     group_id,
                 );
             }
-        }
+            // The final value of group_id is also the number of falseness groups, so return it out
+            // of this block
+            group_id
+        };
         // Compile all of the derived state into one struct
         DerivedState {
-            annot_frags: spec
-                .frags
-                .iter()
+            annot_frags: generated_rows
+                .into_iter()
                 .enumerate()
-                .map(|(i, f)| {
-                    let last_row_ind = f.rows.len() - 1;
+                .map(|(i, (mut rows, leftover_row))| {
+                    // Add the leftover row to the row list, checking that it is indeed marked as
+                    // left over
+                    assert!(leftover_row.is_leftover);
+                    rows.push(leftover_row);
                     AnnotFrag {
                         false_row_ranges: ranges_by_frag.remove(&i).unwrap_or(vec![]),
-                        exp_rows: f
-                            .rows
-                            .iter()
-                            .enumerate()
-                            .map(|(i, r)| ExpandedRow::new(r, &spec.part_heads, i == last_row_ind))
-                            .collect(),
+                        exp_rows: rows,
                     }
                 })
                 .collect(),

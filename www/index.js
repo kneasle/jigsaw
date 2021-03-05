@@ -86,7 +86,7 @@ function draw_row(x, y, row) {
             ctx.fillRect(x + COL_WIDTH * b, y, COL_WIDTH, ROW_HEIGHT);
         }
         // Text
-        const bell_index = row.expanded_rows[current_part][b];
+        const bell_index = row.rows[current_part][b];
         if (!lines[bell_index]) {
             ctx.globalAlpha = row.is_leftover ? LEFTOVER_ROW_OPACITY : 1;
             ctx.fillStyle = FOREGROUND_COL;
@@ -136,7 +136,7 @@ function draw_frag(x, y, frag) {
         const col = lines[l][1];
         ctx.beginPath();
         for (let i = 0; i < frag.exp_rows.length; i++) {
-            const ind = frag.exp_rows[i].expanded_rows[current_part].findIndex((x) => x == l);
+            const ind = frag.exp_rows[i].rows[current_part].findIndex((x) => x == l);
             ctx.lineTo(x + (ind + 0.5) * COL_WIDTH, y + ROW_HEIGHT * (i + 0.5));
         }
         ctx.lineWidth = width;
