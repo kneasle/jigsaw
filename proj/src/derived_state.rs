@@ -170,11 +170,19 @@ pub struct AnnotFrag {
     exp_rows: Vec<ExpandedRow>,
 }
 
+/// General statistics about the composition, to be displayed in the top-left corner of the screen
+#[derive(Serialize, Debug, Clone)]
+pub struct DerivedStats {
+    num_parts: usize,
+    part_len: usize,
+    num_false_rows: usize,
+    num_false_groups: usize,
+}
+
 #[derive(Serialize, Debug, Clone)]
 pub struct DerivedState {
     annot_frags: Vec<AnnotFrag>,
-    num_rows: usize,
-    num_false_rows: usize,
+    stats: DerivedStats,
 }
 
 impl DerivedState {
@@ -343,8 +351,12 @@ impl DerivedState {
                     }
                 })
                 .collect(),
-            num_rows: spec.proof_len(),
-            num_false_rows,
+            stats: DerivedStats {
+                num_parts: spec.part_heads.len(),
+                part_len: spec.part_len(),
+                num_false_groups,
+                num_false_rows,
+            },
         }
     }
 }

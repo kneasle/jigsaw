@@ -33,7 +33,9 @@
                     background: #ffffffee;
                     border-radius: 0 0 5px 0;
                     font-family: monospace;">
-            <p style="margin: 5px;"><span id="row-counter">0</span> rows; <span id="falseness-info">true</span></p>
+            <p style="margin: 5px;"><span id="part-len">0</span> rows * <span
+                id="num-parts">0</span> parts = <span id="num-rows">0</span> rows</p>
+            <p style="margin: 5px;"><span id="falseness-info">true</span></p>
             <p style="margin: 5px;">Viewing Part: <select name="part-head" id="part-head">
                 <!-- The part heads are filled in only when the wasm is loaded, which is far enough
                      after page load to cause jank, so we fill this with a sensible default so that

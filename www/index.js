@@ -241,14 +241,22 @@ function on_part_head_change(evt) {
 }
 
 function update_hud() {
-    document.getElementById("row-counter").innerText = derived_state.num_rows.toString();
+    const stats = derived_state.stats;
+    // Populate row counter
+    const part_len = stats.part_len;
+    const num_parts = stats.num_parts;
+    document.getElementById("part-len").innerText = part_len.toString();
+    document.getElementById("num-parts").innerText = num_parts.toString();
+    document.getElementById("num-rows").innerText = (part_len * num_parts).toString();
+    // Populate the falseness summary
     const falseness_info = document.getElementById("falseness-info");
-    falseness_info.innerText = derived_state.num_false_rows === 0
+    const num_false_rows = stats.num_false_rows;
+    const num_false_groups = stats.num_false_groups;
+    const is_true = num_false_rows === 0;
+    falseness_info.innerText = is_true
         ? "true"
-        : derived_state.num_false_rows.toString() + " false";
-    falseness_info.style.color = derived_state.num_false_rows === 0
-        ? FALSE_COUNT_COL_TRUE
-        : FALSE_COUNT_COL_FALSE;
+        : num_false_rows.toString() + " false rows in " + num_false_groups.toString() + " groups";
+    falseness_info.style.color = is_true ? FALSE_COUNT_COL_TRUE : FALSE_COUNT_COL_FALSE;
 }
 
 function update_part_head_list() {
