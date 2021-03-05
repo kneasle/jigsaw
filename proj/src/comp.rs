@@ -39,7 +39,7 @@ impl Comp {
 
     /// Create an example composition
     pub fn example() -> Comp {
-        Self::from_spec(Spec::example())
+        Self::from_spec(Spec::cyclic_qp())
     }
 
     // Comp-wide getters
