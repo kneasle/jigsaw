@@ -218,12 +218,10 @@ function on_mouse_move(e) {
     if (is_button(e, 0)) {
         viewport.x -= e.offsetX - mouse_coords.x;
         viewport.y -= e.offsetY - mouse_coords.y;
+        request_frame();
     }
-
     mouse_coords.x = e.offsetX;
     mouse_coords.y = e.offsetY;
-
-    request_frame();
 }
 
 function is_button(e, button) {
@@ -282,11 +280,11 @@ function start() {
     derived_state = JSON.parse(comp.derived_state());
 
     // Bind event listeners to all the things we need
+    canv.addEventListener("mousemove", on_mouse_move);
     window.addEventListener("resize", on_window_resize);
-    window.addEventListener("mousemove", on_mouse_move);
     document.getElementById("part-head").addEventListener("change", on_part_head_change);
 
-    // Force a load of updates to make sure that things are initialised
+    // Force a load of updates to initialise the display
     on_window_resize();
     update_part_head_list();
     update_hud();
