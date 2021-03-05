@@ -167,27 +167,24 @@ function draw_frag(x, y, frag) {
 }
 
 function draw() {
-    // Clear then fill the screen and correct for HDPI displays
+    // Clear the screen and correct for HDPI displays
     ctx.save();
-    ctx.clearRect(0, 0, canv.width, canv.height);
     ctx.fillStyle = BACKGROUND_COL;
     ctx.fillRect(0, 0, canv.width, canv.height);
     ctx.scale(dpr, dpr);
     // Move so that the camera's origin is in the centre of the screen
     ctx.translate(Math.round(viewport.w / 2), Math.round(viewport.h / 2));
     ctx.translate(Math.round(-viewport.x), Math.round(-viewport.y));
-
+    // Draw all the fragments
     for (let f = 0; f < derived_state.annot_frags.length; f++) {
         draw_frag(comp.frag_x(f), comp.frag_y(f), derived_state.annot_frags[f]);
     }
-
     // Reset the canvas' transform matrix so that the next frame is rendered correctly
     ctx.restore();
 }
 
 function frame() {
     draw();
-
     // window.requestAnimationFrame(frame);
 }
 
@@ -203,15 +200,15 @@ function on_window_resize() {
     var rect = canv.getBoundingClientRect();
     canv.width = rect.width * dpr;
     canv.height = rect.height * dpr;
-
+    // Update viewport size
     viewport.w = rect.width;
     viewport.h = rect.height;
-
     // Request a frame to be drawn
     request_frame();
 }
 
 function on_mouse_move(e) {
+    // Early return if no change has been made
     if (e.offsetX == 0 && e.offsetY == 0) {
         return;
     }
@@ -273,21 +270,19 @@ function update_part_head_list() {
 /* ===== STARTUP CODE ===== */
 
 function start() {
+    // Set up the canvas variables
     canv = document.getElementById("comp-canvas");
     ctx = canv.getContext("2d");
-
+    // Initialise the composition and read the derived state
     comp = Comp.example();
     derived_state = JSON.parse(comp.derived_state());
-
     // Bind event listeners to all the things we need
     canv.addEventListener("mousemove", on_mouse_move);
     window.addEventListener("resize", on_window_resize);
     document.getElementById("part-head").addEventListener("change", on_part_head_change);
-
     // Force a load of updates to initialise the display
     on_window_resize();
     update_part_head_list();
     update_hud();
-
     request_frame();
 }
