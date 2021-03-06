@@ -27,7 +27,7 @@ Within this overall goal, here are some more specific things that I would expect
 application (most of these come from observations of existing programs, conversations with other
 composers, and knowledge gained from experimenting with prototypes early on in this project):
 
-\begin{itemize}
+\begin{enumerate}
     \item \textbf{Ease of Use}: The application should be made so that anyone can install and use
         it.
     \item \textbf{Incremental}: The application should allow the user to incrementally build up
@@ -39,9 +39,46 @@ composers, and knowledge gained from experimenting with prototypes early on in t
     \item \textbf{View-Independent}: The application should allow the user to choose how they view
         the composition they are working on (and this should be configurable whilst midway through a
         composition).
-\end{itemize}
+\end{enumerate}
+
+\section{Why Would This be Useful?}
+
+There are several reasons why mechanical assistance would be useful for change ringing composers in
+particular.
+
+Firstly, change ringing compositions are at their core simply sequences of permuatations, and are
+therefore extremely ameanable to mathematical and computerised analysis.  Also, nearly all
+compositions are fundamentally designed for human consumption, putting very low upper bounds on the
+potential size of the compositions which computers have to deal with (there aren't any towers with
+more than 16 (ringable) bells and humans can ring about 1,500 rows per hour, so perhaps 99.99\% of
+compositions have at most 16 bells and are shorter than 10,000 rows --- and at least 99\% of these
+have at most 12 bells and not much over 5,000 changes).
+
+Secondly, mathematical properties of change ringing compositions (specifically the `truth' of a
+composition) are very, very important.  For the purposes of this report, a composition is `true' if
+every row contained in the composition is unique, otherwise it is `false'.  Maintaining truth of a
+composition is absolutely vital, since a performance of a false composition is considered invalid
+and therefore is a waste of the ringers' time.  Checking proof is also extremely easy to do with a
+computer (especially due to the bounds on the size of the problem) and as a result, even the
+earliest computers have been used to check compositions for truth (the story goes that one of the
+first programs run on the Manchester Baby was for composition proving, but this is hard to verify).
+With the increasing availability of processing power computers have been used to entirely generate
+compositions with minimal input from a human, but there is still something missing from computer
+generated compositions.
+
+What is currently missing, however, is a program which allows a human composer to combine the
+strengths of computers and humans (computers are incredibly fast and accurate for menial grunt-work
+tasks such as truth checking, whereas a skilled human composer has a good knowledge of what makes a
+`good' composition and what they are trying to achieve in each specific case).  Therefore, I propose
+an application which allows a human composer to get instant feedback (truth, music content, length,
+etc.) about their composition \emph{whilst they are making it}.  This support for `partial'
+compositions (i.e.\ compositions which are simply chunks of rows which will be rung in some
+yet-to-be-defined order) is the primary motivation for building a new program rather than simply
+modifying an existing one.
 
 \section{What has been done so far?}
+
+In this section, I will go through existing tools and review them against the goals set above.
 
 \subsection{Composition Library}
 
@@ -51,30 +88,43 @@ central library of all the compositions that are known to ringing.  However, it 
 composition editor in order to allow people to add new compositions to the library, and this
 editor has a lot of features useful for experimenting with compositions (despite being designed for
 a different purpose).  In fact, it does well enough that I think it's probably the best composing
-tool out there right now, and I have made several compositions using only CompLib and paper for
-assistance.  More than anything, I think the fact that the best tool right now isn't even designed
-for the purpose highlights how much promise a custom-designed composing tool holds.
+tool out there right now, and I have made several compositions using only CompLib, paper and a
+pencil for assistance.  More than anything, I think the fact that the best tool right now isn't even
+designed for the purpose highlights how much promise a custom-designed composing tool holds.
 
-\subsubsection{Things CompLib's editor does well}
+% TODO: Add numbers to these
+
+\paragraph{Ease of use:}  CompLib does really well for this.  It is really easy (in fact trivial) to
+install --- it is simply a website, and therefore has no software dependencies except a browser
+(which will be how most people download software anyway).  It does need an account in order to make
+compositions, but this is not really an issue.
+
+\paragraph{Incremental:}  CompLib can't handle partial compositions at all; compositions must start
+(and preferrably end) in rounds.  If the composition does not come round (as is the case for almost
+all unfinished compositions), then CompLib generates thousands of repeated rows on the end of your
+composition in the hope that the comp will come round, to the detriment of performance and
+usability.
+
+\paragraph{Instant:}  CompLib does reasonably well.  If the composition is a round block, then it
+gives a good visual indication of where the falseness occurs.  However, it isn't perfect.  The main
+problem is that all the row expansion (known as `pricking') is handled server-side, which means that
+any change to the composition has to travel across the internet before the user gets any feedback.
+Also, there is a concurrency bug where making too many changes in quick succession will cause some
+of them to disappear.
+
+\paragraph{Visual \& View-Independence:}  CompLib again does reasonably well (and it is flawed only
+because it is designed for inputting --- or later learning --- already finished compositions).
+CompLib allows the user to choose between a range of several ways of viewing their composition (even
+when it doesn't come round), and all of these are very easy to read.  The blueline view is, however,
+missing music highlighting.  However, if you want to see more detail of one segment of a
+composition, there is no way to `unfold' only part of it --- you have to switch to an entirely new
+view and then find that location again.
 
 \begin{enumerate}
-    \item It is really easy (in fact trivial) to install --- it is simply a website, and therefore
-        has no software dependencies except a browser (which will be how most people download
-        software anyway).
-    \item It gives instant feedback on falseness (provided that the composition is a round block).
-        The feedback is also quite good at telling the user exactly how and where the falseness
-        occurs.
-    \item You can chose how the composition is displayed (table of calls/courses, sequence of leads,
-        or blue-line view).  All of these formats are also very easy to read and digest.
     \item If the composition is complete, CompLib has a really nice music breakdown available to see
         if your goals for the composition has been met.  However, this is only available for
         complete compositions and viewing it requires saving and reopening the composition which is
         not ideal.
-\end{enumerate}
-
-\subsubsection{Things CompLib's editor doesn't do well}
-
-\begin{enumerate}
     \item CompLib's input format is very declarative --- in essence, the user enters the composition
         as a sequence of instructions for how to build the rows and these instructions are read
         in order and used to generate (`prick') the rows of your composition.  These rows are then
@@ -84,23 +134,6 @@ for the purpose highlights how much promise a custom-designed composing tool hol
         composition.  This behaviour makes perfect sense because CompLib's editor is designed for
         inputting a composition which you already know (not for experimentally building up a new
         composition) but is nonetheless makes experimentation frustrating.
-    \item All of the row generation happens server-side.  On the one hand, this means that CompLib
-        will run properly even on really slow machines, but also it means that any edit you make
-        takes two trips across the internet before displaying the updated rows are displayed to you.
-        Also, there are weird concurrency issues where some of your edits will disappear if you make
-        more edits before the changes of the first one return from the server.
-    \item CompLib's doesn't handle `partial' compositions well (to be clear, this is an issue
-        with using a program that is designed for inputting already existing compositions ---
-        this is not a complaint about CompLib as a tool) --- you can't start a composition from
-        anything other than rounds, and if the composition you entered doesn't come round
-        (incomplete compositions are very unlikely to come round) then CompLib will generate
-        thousands of (false) rows at the end, which causes large performance issues as well as
-        making it hard to see when things are actually false.  Also, multipart compositions are only
-        generated in full once an entire part is finished, which means that checking falseness for
-        incomplete multi-part compositions is basically impossible.
-    \item There is no way of showing only part of the composition in a different format --- you have
-        to switch entirely between the different views, which usually involves a lot of scrolling to
-        find the bit you actually want to see.
 \end{enumerate}
 
 \subsection{Inpact}
