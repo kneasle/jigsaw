@@ -49,7 +49,8 @@ impl From<RowOrigin> for RowLocation {
     }
 }
 
-// Required so that we can omit `"is_leftover" = false` when serialising
+// Required so that we can omit `"is_lead_end" = false` and `"is_leftover" = false` when
+// serialising
 fn is_false(b: &bool) -> bool {
     !b
 }
@@ -77,6 +78,7 @@ pub struct ExpandedRow {
     call_str: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     method_str: Option<MethodName>,
+    #[serde(skip_serializing_if = "is_false")]
     is_lead_end: bool,
     #[serde(skip_serializing_if = "is_false")]
     is_leftover: bool,
