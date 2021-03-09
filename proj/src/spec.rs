@@ -169,6 +169,13 @@ impl Spec {
     }
 
     pub fn single_frag(frag: Frag, part_heads: Vec<Row>, stage: Stage) -> Spec {
+        // Check that all the stages are the same
+        for annot_r in frag.rows.iter() {
+            assert_eq!(annot_r.row.stage(), stage);
+        }
+        for p in &part_heads {
+            assert_eq!(p.stage(), stage);
+        }
         Spec {
             frags: vec![Rc::new(frag)],
             part_heads: Rc::new(part_heads),
