@@ -4,7 +4,16 @@
 // real life pixels - so dpr provides that scale-up
 const dpr = window.devicePixelRatio || 1;
 
-// Display config
+// IDs of mouse buttons
+const BTN_LEFT = 0;
+const BTN_RIGHT = 1;
+const BTN_MIDDLE = 2;
+
+// How many pixels off the edge of the screen the viewport culling will happen
+const VIEW_CULLING_EXTRA_SIZE = 20;
+
+/* ===== DISPLAY CONSTANTS ===== */
+
 const COL_WIDTH = 16;
 const ROW_HEIGHT = 22;
 const RIGHT_MARGIN_WIDTH = COL_WIDTH * 1;
@@ -29,27 +38,20 @@ const FALSE_ROW_GROUP_LINE_WIDTH = 3;
 const FALSE_COUNT_COL_FALSE = "red";
 const FALSE_COUNT_COL_TRUE = "green";
 
-// How many pixels off the edge of the screen the viewport culling will happen
-const VIEW_CULLING_EXTRA_SIZE = 20;
-
 /* ===== GLOBAL VARIABLES ===== */
 
 // Variables set in the `start()` function
 let canv, ctx;
-// The comp being edited
-let comp;
-let derived_state;
+// The comp being edited, and the state derived from it
+let comp, derived_state;
 // The part index being viewed
 let current_part = 0;
-
 // Mouse variables that the browser should keep track of but doesn't
 let mouse_coords = {x: 0, y: 0};
-
 // Viewport controls
 let viewport = {x: 0, y: 0, w: 100, h: 100};
-
-// Stuff that shouldn't be glovars but currently are
-let lines = {
+// Things that should be user config but currently are global vars
+let bell_lines = {
     0: [1.5, "red"],
     7: [2.5, "blue"],
 };
@@ -89,7 +91,7 @@ function draw_row(x, y, row) {
         }
         // Text
         const bell_index = row.rows[current_part][b];
-        if (!lines[bell_index]) {
+        if (!bell_lines[bell_index]) {
             ctx.globalAlpha = row.is_leftover ? LEFTOVER_ROW_OPACITY : 1;
             ctx.fillStyle = FOREGROUND_COL;
             ctx.fillText(BELL_NAMES[bell_index], x + COL_WIDTH * (b + 0.5), text_baseline);
@@ -133,9 +135,9 @@ function draw_frag(x, y, frag) {
         draw_row(x, y + ROW_HEIGHT * i, frag.exp_rows[i]);
     }
     // Lines
-    for (let l in lines) {
-        const width = lines[l][0];
-        const col = lines[l][1];
+    for (let l in bell_lines) {
+        const width = bell_lines[l][0];
+        const col = bell_lines[l][1];
         ctx.beginPath();
         for (let i = 0; i < frag.exp_rows.length; i++) {
             const ind = frag.exp_rows[i].rows[current_part].findIndex((x) => x == l);
@@ -239,7 +241,7 @@ function on_mouse_move(e) {
     if (e.offsetX == 0 && e.offsetY == 0) {
         return;
     }
-    if (is_button(e, 2)) {
+    if (is_button_pressed(e, BTN_MIDDLE)) {
         viewport.x -= e.offsetX - mouse_coords.x;
         viewport.y -= e.offsetY - mouse_coords.y;
         request_frame();
@@ -248,7 +250,7 @@ function on_mouse_move(e) {
     mouse_coords.y = e.offsetY;
 }
 
-function is_button(e, button) {
+function is_button_pressed(e, button) {
     // Deal with Safari being ideosyncratic
     const button_mask = (e.buttons === undefined ? e.which : e.buttons);
     return (button_mask & (1 << button)) != 0;
