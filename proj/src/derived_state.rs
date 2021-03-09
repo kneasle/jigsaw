@@ -100,7 +100,7 @@ pub struct ExpandedRow {
     /// vec![
     ///     vec![],
     ///     vec![1],
-    ///     vec![1, 2],
+    ///     vec![0, 1],
     ///     vec![0, 1, 2],
     ///     vec![0, 1, 2, 3],
     ///     vec![0, 1, 2, 3],
