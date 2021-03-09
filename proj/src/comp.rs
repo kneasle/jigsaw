@@ -27,10 +27,17 @@ impl Comp {
 // Stuff required specifically for JS rendering
 #[wasm_bindgen]
 impl Comp {
+    /// Create an example composition
+    pub fn example() -> Comp {
+        Self::from_spec(Spec::cyclic_qp())
+    }
+
     /// Rebuild the cached state, as though the [`Spec`] had changed.
     pub fn rebuild_state(&mut self) {
         self.derived_state = DerivedState::from_spec(&self.spec);
     }
+
+    /* Serialization/Deserialization */
 
     /// Return a JSON serialisation of the derived state
     pub fn ser_derived_state(&self) -> String {
@@ -42,9 +49,8 @@ impl Comp {
         serde_json::to_string(&self.view).unwrap()
     }
 
-    /// Create an example composition
-    pub fn example() -> Comp {
-        Self::from_spec(Spec::cyclic_qp())
+    pub fn set_view_from_json(&mut self, json: String) {
+        self.view = serde_json::de::from_str(&json).unwrap();
     }
 
     // View Setters

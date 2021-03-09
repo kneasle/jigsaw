@@ -9,6 +9,9 @@ const BTN_LEFT = 0;
 const BTN_RIGHT = 1;
 const BTN_MIDDLE = 2;
 
+// Cookie names
+const COOKIE_NAME_VIEW = "view";
+
 // How many pixels off the edge of the screen the viewport culling will happen
 const VIEW_CULLING_EXTRA_SIZE = 20;
 
@@ -240,11 +243,32 @@ function on_mouse_move(e) {
             view.view_x - (e.offsetX - mouse_coords.x),
             view.view_y - (e.offsetY - mouse_coords.y)
         );
-        read_view();
+        sync_view();
         request_frame();
     }
     mouse_coords.x = e.offsetX;
     mouse_coords.y = e.offsetY;
+}
+
+function on_mouse_up(e) {
+    if (get_button(e) == BTN_MIDDLE) {
+        save_view();
+    }
+}
+
+function get_button(e) {
+    // Correct for the fact that `e.button` and `e.buttons` assign the buttons in different orders.
+    // **FACEPALM**
+    switch (e.button) {
+        case 0:
+            return BTN_LEFT;
+        case 1:
+            return BTN_MIDDLE;
+        case 2:
+            return BTN_RIGHT;
+        default:
+            console.warning("Unknown button value ", e.button);
+    }
 }
 
 function is_button_pressed(e, button) {
@@ -259,7 +283,8 @@ function on_part_head_change(evt) {
     // Update which part to display (indirectly so that we avoid divergence between Rust's
     // datastructures and their JS counterparts).
     comp.set_current_part(parseInt(evt.target.value));
-    read_view();
+    save_view();
+    sync_view();
     request_frame();
 }
 
@@ -299,16 +324,27 @@ function update_part_head_list() {
 
 /* ===== STARTUP CODE ===== */
 
+function init_comp() {
+    // Initialise the composition
+    comp = Comp.example();
+    // Read saved values from cookies
+    let view = getCookie(COOKIE_NAME_VIEW);
+    if (view) {
+        comp.set_view_from_json(view);
+    }
+    // Update JS's local copies of the variables
+    sync_derived_state();
+    sync_view();
+}
+
 function start() {
+    init_comp();
     // Set up the canvas variables
     canv = document.getElementById("comp-canvas");
     ctx = canv.getContext("2d");
-    // Initialise the composition and update JS's local copies of the variables
-    comp = Comp.example();
-    read_derived_state();
-    read_view();
     // Bind event listeners to all the things we need
     canv.addEventListener("mousemove", on_mouse_move);
+    canv.addEventListener("mouseup", on_mouse_up);
     window.addEventListener("resize", on_window_resize);
     document.getElementById("part-head").addEventListener("change", on_part_head_change);
     // Force a load of updates to initialise the display
@@ -335,10 +371,14 @@ function view_rect() {
     };
 }
 
-function read_derived_state() {
+function sync_derived_state() {
     derived_state = JSON.parse(comp.ser_derived_state());
 }
 
-function read_view() {
+function save_view() {
+    setCookie(COOKIE_NAME_VIEW, comp.ser_view());
+}
+
+function sync_view() {
     view = JSON.parse(comp.ser_view());
 }
