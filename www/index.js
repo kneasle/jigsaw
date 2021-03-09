@@ -236,14 +236,9 @@ function on_mouse_move(e) {
         return;
     }
     if (is_button_pressed(e, BTN_MIDDLE)) {
-        // Move the camera indirectly by updating Rust's master copy of the view and then forcing
-        // ours to align with that.  This way, the two will not be able to diverge and cause
-        // hard-to-track-down bugs.
-        comp.set_view_loc(
-            view.view_x - (e.offsetX - mouse_coords.x),
-            view.view_y - (e.offsetY - mouse_coords.y)
-        );
-        sync_view();
+        // Move the camera in the JS version
+        view.view_x -= e.offsetX - mouse_coords.x;
+        view.view_y -= e.offsetY - mouse_coords.y;
         request_frame();
     }
     mouse_coords.x = e.offsetX;
@@ -252,7 +247,10 @@ function on_mouse_move(e) {
 
 function on_mouse_up(e) {
     if (get_button(e) == BTN_MIDDLE) {
-        save_view();
+        // Only update the new view and sync when the user releases the button.  This makes sure
+        // that we don't write cookies whenever the user moves their mouse.
+        comp.set_view_loc(view.view_x, view.view_y);
+        sync_view();
     }
 }
 
@@ -283,7 +281,6 @@ function on_part_head_change(evt) {
     // Update which part to display (indirectly so that we avoid divergence between Rust's
     // datastructures and their JS counterparts).
     comp.set_current_part(parseInt(evt.target.value));
-    save_view();
     sync_view();
     request_frame();
 }
@@ -375,10 +372,10 @@ function sync_derived_state() {
     derived_state = JSON.parse(comp.ser_derived_state());
 }
 
-function save_view() {
-    setCookie(COOKIE_NAME_VIEW, comp.ser_view());
-}
-
+// Make sure that both the local copy of `view` and the cookie are syncronised with Rust's view
+// struct (which is regarded as the ground truth).
 function sync_view() {
-    view = JSON.parse(comp.ser_view());
+    const v = comp.ser_view();
+    setCookie(COOKIE_NAME_VIEW, v);
+    view = JSON.parse(v);
 }
