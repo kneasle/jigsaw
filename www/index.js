@@ -10,8 +10,10 @@ const ROW_HEIGHT = 22;
 const RIGHT_MARGIN_WIDTH = COL_WIDTH * 1;
 const LEFT_MARGIN_WIDTH = COL_WIDTH * 1;
 
-const BACKGROUND_COL = "white";
 const FOREGROUND_COL = "black";
+const BACKGROUND_COL = "white";
+const GRID_COL = "#eee";
+const GRID_SIZE = 200;
 
 const ROW_FONT = "20px monospace";
 const BELL_NAMES = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
@@ -166,6 +168,29 @@ function draw_frag(x, y, frag) {
     }
 }
 
+function draw_grid() {
+    // Calculate the local-space boundary of the viewport
+    const view_l = viewport.x - viewport.w / 2;
+    const view_r = viewport.x + viewport.w / 2;
+    const view_t = viewport.y - viewport.h / 2;
+    const view_b = viewport.y + viewport.h / 2;
+    ctx.strokeStyle = GRID_COL;
+    // Vertical bars
+    for (let x = Math.ceil(view_l / GRID_SIZE) * GRID_SIZE; x < view_r; x += GRID_SIZE) {
+        ctx.beginPath();
+        ctx.moveTo(x + 0.5, view_t);
+        ctx.lineTo(x + 0.5, view_b);
+        ctx.stroke();
+    }
+    // Horizontal bars
+    for (let y = Math.ceil(view_t / GRID_SIZE) * GRID_SIZE; y < view_b; y += GRID_SIZE) {
+        ctx.beginPath();
+        ctx.moveTo(view_l, y + 0.5);
+        ctx.lineTo(view_r, y + 0.5);
+        ctx.stroke();
+    }
+}
+
 function draw() {
     // Clear the screen and correct for HDPI displays
     ctx.save();
@@ -175,6 +200,8 @@ function draw() {
     // Move so that the camera's origin is in the centre of the screen
     ctx.translate(Math.round(viewport.w / 2), Math.round(viewport.h / 2));
     ctx.translate(Math.round(-viewport.x), Math.round(-viewport.y));
+    // Draw background grid
+    draw_grid();
     // Draw all the fragments
     for (let f = 0; f < derived_state.annot_frags.length; f++) {
         draw_frag(comp.frag_x(f), comp.frag_y(f), derived_state.annot_frags[f]);
@@ -212,7 +239,7 @@ function on_mouse_move(e) {
     if (e.offsetX == 0 && e.offsetY == 0) {
         return;
     }
-    if (is_button(e, 0)) {
+    if (is_button(e, 2)) {
         viewport.x -= e.offsetX - mouse_coords.x;
         viewport.y -= e.offsetY - mouse_coords.y;
         request_frame();
