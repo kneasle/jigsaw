@@ -42,14 +42,10 @@ const FALSE_COUNT_COL_TRUE = "green";
 
 // Variables set in the `start()` function
 let canv, ctx;
-// The comp being edited, and the state derived from it
-let comp, derived_state;
-// The part index being viewed
-let current_part = 0;
+// Variables which will used to sync with the Rust code
+let comp, derived_state, view;
 // Mouse variables that the browser should keep track of but doesn't
 let mouse_coords = {x: 0, y: 0};
-// Viewport controls
-let viewport = {x: 0, y: 0, w: 100, h: 100};
 // Things that should be user config but currently are global vars
 let bell_lines = {
     0: [1.5, "red"],
@@ -59,9 +55,9 @@ let bell_lines = {
 /* ===== DRAWING CODE ===== */
 
 function draw_row(x, y, row) {
+    const v = view_rect();
     // Don't draw if the row is going to be off the screen
-    if (y < viewport.y - viewport.h / 2 - VIEW_CULLING_EXTRA_SIZE
-        || y > viewport.y + viewport.h / 2 + VIEW_CULLING_EXTRA_SIZE) {
+    if (y < v.min_y - VIEW_CULLING_EXTRA_SIZE || y > v.max_y + VIEW_CULLING_EXTRA_SIZE) {
         return;
     }
     // Calculate some useful values
@@ -83,14 +79,14 @@ function draw_row(x, y, row) {
         if (row.music_highlights && row.music_highlights[b].length > 0) {
             // If some music happened in the part we're currently viewing, then set the alpha to 1,
             // otherwise make an 'onionskinning' effect of the music from other parts
-            ctx.globalAlpha = row.music_highlights[b].includes(current_part)
+            ctx.globalAlpha = row.music_highlights[b].includes(view.current_part)
                 ? 1
                 : 1 - Math.pow(1 - MUSIC_ONIONSKIN_OPACITY, row.music_highlights[b].length);
             ctx.fillStyle = MUSIC_COL;
             ctx.fillRect(x + COL_WIDTH * b, y, COL_WIDTH, ROW_HEIGHT);
         }
         // Text
-        const bell_index = row.rows[current_part][b];
+        const bell_index = row.rows[view.current_part][b];
         if (!bell_lines[bell_index]) {
             ctx.globalAlpha = row.is_leftover ? LEFTOVER_ROW_OPACITY : 1;
             ctx.fillStyle = FOREGROUND_COL;
@@ -140,7 +136,7 @@ function draw_frag(x, y, frag) {
         const col = bell_lines[l][1];
         ctx.beginPath();
         for (let i = 0; i < frag.exp_rows.length; i++) {
-            const ind = frag.exp_rows[i].rows[current_part].findIndex((x) => x == l);
+            const ind = frag.exp_rows[i].rows[view.current_part].findIndex((x) => x == l);
             ctx.lineTo(x + (ind + 0.5) * COL_WIDTH, y + ROW_HEIGHT * (i + 0.5));
         }
         ctx.lineWidth = width;
@@ -171,24 +167,21 @@ function draw_frag(x, y, frag) {
 }
 
 function draw_grid() {
+    const v = view_rect();
     // Calculate the local-space boundary of the viewport
-    const view_l = viewport.x - viewport.w / 2;
-    const view_r = viewport.x + viewport.w / 2;
-    const view_t = viewport.y - viewport.h / 2;
-    const view_b = viewport.y + viewport.h / 2;
     ctx.strokeStyle = GRID_COL;
     // Vertical bars
-    for (let x = Math.ceil(view_l / GRID_SIZE) * GRID_SIZE; x < view_r; x += GRID_SIZE) {
+    for (let x = Math.ceil(v.min_x / GRID_SIZE) * GRID_SIZE; x < v.max_x; x += GRID_SIZE) {
         ctx.beginPath();
-        ctx.moveTo(x + 0.5, view_t);
-        ctx.lineTo(x + 0.5, view_b);
+        ctx.moveTo(x + 0.5, v.min_y);
+        ctx.lineTo(x + 0.5, v.max_y);
         ctx.stroke();
     }
     // Horizontal bars
-    for (let y = Math.ceil(view_t / GRID_SIZE) * GRID_SIZE; y < view_b; y += GRID_SIZE) {
+    for (let y = Math.ceil(v.min_y / GRID_SIZE) * GRID_SIZE; y < v.max_y; y += GRID_SIZE) {
         ctx.beginPath();
-        ctx.moveTo(view_l, y + 0.5);
-        ctx.lineTo(view_r, y + 0.5);
+        ctx.moveTo(v.min_x, y + 0.5);
+        ctx.lineTo(v.max_x, y + 0.5);
         ctx.stroke();
     }
 }
@@ -199,9 +192,10 @@ function draw() {
     ctx.fillStyle = BACKGROUND_COL;
     ctx.fillRect(0, 0, canv.width, canv.height);
     ctx.scale(dpr, dpr);
+    const v = view_rect();
     // Move so that the camera's origin is in the centre of the screen
-    ctx.translate(Math.round(viewport.w / 2), Math.round(viewport.h / 2));
-    ctx.translate(Math.round(-viewport.x), Math.round(-viewport.y));
+    ctx.translate(Math.round(v.w / 2), Math.round(v.h / 2));
+    ctx.translate(Math.round(-v.x), Math.round(-v.y));
     // Draw background grid
     draw_grid();
     // Draw all the fragments
@@ -229,9 +223,6 @@ function on_window_resize() {
     var rect = canv.getBoundingClientRect();
     canv.width = rect.width * dpr;
     canv.height = rect.height * dpr;
-    // Update viewport size
-    viewport.w = rect.width;
-    viewport.h = rect.height;
     // Request a frame to be drawn
     request_frame();
 }
@@ -242,8 +233,14 @@ function on_mouse_move(e) {
         return;
     }
     if (is_button_pressed(e, BTN_MIDDLE)) {
-        viewport.x -= e.offsetX - mouse_coords.x;
-        viewport.y -= e.offsetY - mouse_coords.y;
+        // Move the camera indirectly by updating Rust's master copy of the view and then forcing
+        // ours to align with that.  This way, the two will not be able to diverge and cause
+        // hard-to-track-down bugs.
+        comp.set_view_loc(
+            view.view_x - (e.offsetX - mouse_coords.x),
+            view.view_y - (e.offsetY - mouse_coords.y)
+        );
+        read_view();
         request_frame();
     }
     mouse_coords.x = e.offsetX;
@@ -259,8 +256,10 @@ function is_button_pressed(e, button) {
 /* ===== HUD CODE ===== */
 
 function on_part_head_change(evt) {
-    // Update which part to display, and update the screen
-    current_part = parseInt(evt.target.value);
+    // Update which part to display (indirectly so that we avoid divergence between Rust's
+    // datastructures and their JS counterparts).
+    comp.set_current_part(parseInt(evt.target.value));
+    read_view();
     request_frame();
 }
 
@@ -281,6 +280,8 @@ function update_hud() {
         ? "true"
         : num_false_rows.toString() + " false rows in " + num_false_groups.toString() + " groups";
     falseness_info.style.color = is_true ? FALSE_COUNT_COL_TRUE : FALSE_COUNT_COL_FALSE;
+    // Set the part chooser to the value specified in `view`
+    document.getElementById("part-head").value = view.current_part;
 }
 
 function update_part_head_list() {
@@ -302,9 +303,10 @@ function start() {
     // Set up the canvas variables
     canv = document.getElementById("comp-canvas");
     ctx = canv.getContext("2d");
-    // Initialise the composition and read the derived state
+    // Initialise the composition and update JS's local copies of the variables
     comp = Comp.example();
-    derived_state = JSON.parse(comp.derived_state());
+    read_derived_state();
+    read_view();
     // Bind event listeners to all the things we need
     canv.addEventListener("mousemove", on_mouse_move);
     window.addEventListener("resize", on_window_resize);
@@ -314,4 +316,29 @@ function start() {
     update_part_head_list();
     update_hud();
     request_frame();
+}
+
+/* ===== UTILITY FUNCTIONS/GETTERS ===== */
+
+function view_rect() {
+    const w = canv.width / devicePixelRatio;
+    const h = canv.height / devicePixelRatio;
+    const c_x = view.view_x;
+    const c_y = view.view_y;
+    return {
+        x: c_x, y: c_y,
+        w: w, h: h,
+        min_x: c_x - w / 2,
+        max_x: c_x + w / 2,
+        min_y: c_y - h / 2,
+        max_y: c_y + h / 2,
+    };
+}
+
+function read_derived_state() {
+    derived_state = JSON.parse(comp.ser_derived_state());
+}
+
+function read_view() {
+    view = JSON.parse(comp.ser_view());
 }

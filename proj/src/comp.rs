@@ -1,6 +1,4 @@
-use crate::derived_state::DerivedState;
-use crate::spec::Spec;
-use serde_json::to_string;
+use crate::{derived_state::DerivedState, spec::Spec, view::View};
 use wasm_bindgen::prelude::*;
 
 /// The complete state of a partial composition.  The data-flow is:
@@ -12,6 +10,7 @@ use wasm_bindgen::prelude::*;
 #[derive(Debug, Clone)]
 pub struct Comp {
     spec: Spec,
+    view: View,
     derived_state: DerivedState,
 }
 
@@ -19,6 +18,7 @@ impl Comp {
     pub fn from_spec(spec: Spec) -> Comp {
         Comp {
             derived_state: DerivedState::from_spec(&spec),
+            view: View::default(),
             spec,
         }
     }
@@ -33,8 +33,13 @@ impl Comp {
     }
 
     /// Return a JSON serialisation of the derived state
-    pub fn derived_state(&self) -> String {
-        to_string(&self.derived_state).unwrap()
+    pub fn ser_derived_state(&self) -> String {
+        serde_json::to_string(&self.derived_state).unwrap()
+    }
+
+    /// Return a JSON serialisation of the current view settings
+    pub fn ser_view(&self) -> String {
+        serde_json::to_string(&self.view).unwrap()
     }
 
     /// Create an example composition
@@ -42,7 +47,18 @@ impl Comp {
         Self::from_spec(Spec::cyclic_qp())
     }
 
-    // Comp-wide getters
+    // View Setters
+    pub fn set_current_part(&mut self, new_part: usize) {
+        self.view.current_part = new_part;
+    }
+
+    pub fn set_view_loc(&mut self, new_x: f32, new_y: f32) {
+        self.view.view_x = new_x;
+        self.view.view_y = new_y;
+    }
+
+    /* Comp-wide getters */
+
     pub fn stage(&self) -> usize {
         self.spec.stage.as_usize()
     }
@@ -55,7 +71,8 @@ impl Comp {
         self.spec.part_heads[i].to_string()
     }
 
-    // Fragment getters
+    /* Fragment getters */
+
     pub fn frag_x(&self, i: usize) -> f32 {
         self.spec.frags[i].x
     }
