@@ -2,7 +2,6 @@ use crate::derived_state::ExpandedRow;
 use proj_core::{Row, Stage};
 use serde::Serialize;
 use std::rc::Rc;
-use wasm_bindgen::prelude::*;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AnnotatedRow {
@@ -97,7 +96,6 @@ impl Frag {
 
 /// The _specfication_ for a composition.  This is what the user edits, and it is used to derive
 /// the fully expanded set of rows and their origins.
-#[wasm_bindgen]
 #[derive(Debug, Clone)]
 pub struct Spec {
     pub(crate) frags: Vec<Rc<Frag>>,
