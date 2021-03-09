@@ -29,7 +29,7 @@ impl Comp {
 impl Comp {
     /// Create an example composition
     pub fn example() -> Comp {
-        Self::from_spec(Spec::cyclic_qp())
+        Self::from_spec(Spec::cyclic_max_eld())
     }
 
     /// Rebuild the cached state, as though the [`Spec`] had changed.

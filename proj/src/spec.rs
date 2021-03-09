@@ -42,8 +42,8 @@ pub struct Frag {
 
 impl Frag {
     /// Generates an example fragment (in this case, it's https://complib.org/composition/75822)
-    pub fn example() -> Frag {
-        let mut rows: Vec<_> = include_str!("example-comp")
+    pub fn cyclic_s8() -> Frag {
+        let mut rows: Vec<_> = include_str!("cyclic-s8")
             .lines()
             .map(|x| Row::parse(x).unwrap())
             .map(AnnotatedRow::unannotated)
@@ -81,6 +81,51 @@ impl Frag {
         }
     }
 
+    pub fn cyclic_max_eld() -> Frag {
+        // Parse row and method locations
+        let mut rows: Vec<_> = include_str!("cyclic-max-eld")
+            .lines()
+            .map(|x| Row::parse(x).unwrap())
+            .map(AnnotatedRow::unannotated)
+            .collect();
+
+        // Add method names & ruleoffs to the appropriate rows
+        let methods = [
+            ("Mount Mackenzie Alliance", "Mm", 36),
+            ("Baluan Alliance", "B", 36),
+            ("Ganges Alliance", "Ga", 40),
+            ("Cauldron Dome Little Delight", "Ca", 32),
+            ("Europa Little Treble Place", "Eu", 16),
+            ("Diamond Head Alliance", "D2", 44),
+            ("Callisto Little Alliance", "Ca", 36),
+            ("Darwin Little Alliance", "D", 44),
+            ("Hallasan Alliance", "Ha", 32),
+            ("Asaph Hall Surprise", "As", 48),
+            ("Alcedo Alliance", "A", 40),
+            ("Kilauea Differential", "Li", 14),
+        ];
+        let mut method_start = 0;
+        for (full, short, length) in &methods {
+            rows[method_start].method_str = Some(MethodName {
+                name: full.to_string(),
+                shorthand: short.to_string(),
+            });
+            rows[method_start + length - 1].is_lead_end = true;
+            method_start += length;
+        }
+        assert_eq!(method_start + 1, rows.len());
+
+        // Add calls
+        rows[403].call_str = Some("-".to_owned());
+        rows[417].call_str = Some("-".to_owned());
+
+        Frag {
+            rows: Rc::new(rows),
+            x: -100.0,
+            y: -200.0,
+        }
+    }
+
     /// Get the row at a given index
     #[inline]
     pub fn get_row(&self, index: usize) -> AnnotatedRow {
@@ -105,16 +150,29 @@ pub struct Spec {
 
 impl Spec {
     /// Creates an example Spec
-    pub fn cyclic_qp() -> Spec {
+    pub fn cyclic_s8() -> Spec {
         // Generate all the cyclic part heads, and make sure that we start with rounds
         let mut part_heads = Row::parse("81234567").unwrap().closure();
         let rounds = part_heads.pop().unwrap();
         part_heads.insert(0, rounds);
         // Create a Spec and return
+        Self::single_frag(Frag::cyclic_s8(), part_heads, Stage::MAJOR)
+    }
+
+    pub fn cyclic_max_eld() -> Spec {
+        // Generate all the cyclic part heads, and make sure that we start with rounds
+        let mut part_heads = Row::parse("T1234567890E").unwrap().closure();
+        let rounds = part_heads.pop().unwrap();
+        part_heads.insert(0, rounds);
+        // Create a Spec and return
+        Self::single_frag(Frag::cyclic_max_eld(), part_heads, Stage::MAXIMUS)
+    }
+
+    pub fn single_frag(frag: Frag, part_heads: Vec<Row>, stage: Stage) -> Spec {
         Spec {
-            frags: vec![Rc::new(Frag::example())],
+            frags: vec![Rc::new(frag)],
             part_heads: Rc::new(part_heads),
-            stage: Stage::MAJOR,
+            stage,
         }
     }
 
