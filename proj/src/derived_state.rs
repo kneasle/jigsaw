@@ -170,12 +170,13 @@ pub struct FalseRowRange {
 pub struct AnnotFrag {
     false_row_ranges: Vec<FalseRowRange>,
     exp_rows: Vec<ExpandedRow>,
+    x: f32,
+    y: f32,
 }
 
 /// General statistics about the composition, to be displayed in the top-left corner of the screen
 #[derive(Serialize, Debug, Clone)]
 pub struct DerivedStats {
-    num_parts: usize,
     part_len: usize,
     num_false_rows: usize,
     num_false_groups: usize,
@@ -185,6 +186,9 @@ pub struct DerivedStats {
 pub struct DerivedState {
     annot_frags: Vec<AnnotFrag>,
     stats: DerivedStats,
+    #[serde(serialize_with = "ser_rows")]
+    part_heads: Vec<Row>,
+    stage: usize,
 }
 
 impl DerivedState {
@@ -347,18 +351,22 @@ impl DerivedState {
                     // left over
                     assert!(leftover_row.is_leftover);
                     rows.push(leftover_row);
+                    let (x, y) = spec.frags[i].pos();
                     AnnotFrag {
                         false_row_ranges: ranges_by_frag.remove(&i).unwrap_or(vec![]),
                         exp_rows: rows,
+                        x,
+                        y,
                     }
                 })
                 .collect(),
             stats: DerivedStats {
-                num_parts: spec.part_heads.len(),
                 part_len: spec.part_len(),
                 num_false_groups,
                 num_false_rows,
             },
+            part_heads: spec.part_heads.as_ref().clone(),
+            stage: spec.stage.as_usize(),
         }
     }
 }

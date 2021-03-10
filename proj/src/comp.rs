@@ -62,30 +62,6 @@ impl Comp {
         self.view.view_x = new_x;
         self.view.view_y = new_y;
     }
-
-    /* Comp-wide getters */
-
-    pub fn stage(&self) -> usize {
-        self.spec.stage.as_usize()
-    }
-
-    pub fn num_parts(&self) -> usize {
-        self.spec.part_heads.len()
-    }
-
-    pub fn part_head_str(&self, i: usize) -> String {
-        self.spec.part_heads[i].to_string()
-    }
-
-    /* Fragment getters */
-
-    pub fn frag_x(&self, i: usize) -> f32 {
-        self.spec.frags[i].x
-    }
-
-    pub fn frag_y(&self, i: usize) -> f32 {
-        self.spec.frags[i].y
-    }
 }
 
 #[cfg(test)]

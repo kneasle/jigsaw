@@ -36,8 +36,8 @@ pub struct Frag {
     /// Note that this [`Vec`] stores all the rows that should be displayed in this fragment,
     /// including the leftover row (which has to be displayed, but won't be used for proving).
     rows: Rc<Vec<AnnotatedRow>>,
-    pub x: f32,
-    pub y: f32,
+    x: f32,
+    y: f32,
 }
 
 impl Frag {
@@ -126,10 +126,9 @@ impl Frag {
         }
     }
 
-    /// Get the row at a given index
-    #[inline]
-    pub fn get_row(&self, index: usize) -> AnnotatedRow {
-        self.rows[index].clone()
+    /// Returns the (x, y) coordinates of this `Frag`ment
+    pub fn pos(&self) -> (f32, f32) {
+        (self.x, self.y)
     }
 
     /// The number of rows in this fragment that should be proven
@@ -161,14 +160,14 @@ impl Spec {
 
     pub fn cyclic_max_eld() -> Spec {
         // Generate all the cyclic part heads, and make sure that we start with rounds
-        let mut part_heads = Row::parse("T1234567890E").unwrap().closure();
+        let mut part_heads = Row::parse("890ET1234567").unwrap().closure();
         let rounds = part_heads.pop().unwrap();
         part_heads.insert(0, rounds);
         // Create a Spec and return
         Self::single_frag(Frag::cyclic_max_eld(), part_heads, Stage::MAXIMUS)
     }
 
-    pub fn single_frag(frag: Frag, part_heads: Vec<Row>, stage: Stage) -> Spec {
+    fn single_frag(frag: Frag, part_heads: Vec<Row>, stage: Stage) -> Spec {
         // Check that all the stages are the same
         for annot_r in frag.rows.iter() {
             assert_eq!(annot_r.row.stage(), stage);

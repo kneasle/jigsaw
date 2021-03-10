@@ -64,7 +64,7 @@ function draw_row(x, y, row) {
         return;
     }
     // Calculate some useful values
-    const stage = comp.stage();
+    const stage = derived_state.stage;
     const text_baseline = y + ROW_HEIGHT * 0.75;
     const right = x + COL_WIDTH * stage;
     // Set the font for the entire row
@@ -128,7 +128,9 @@ function draw_falseness_indicator(x, min_y, max_y, notch_width, notch_height) {
     ctx.stroke();
 }
 
-function draw_frag(x, y, frag) {
+function draw_frag(frag) {
+    const x = frag.x;
+    const y = frag.y;
     // Rows
     for (let i = 0; i < frag.exp_rows.length; i++) {
         draw_row(x, y + ROW_HEIGHT * i, frag.exp_rows[i]);
@@ -160,7 +162,7 @@ function draw_frag(x, y, frag) {
             ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT
         );
         draw_falseness_indicator(
-            x + comp.stage() * COL_WIDTH + RIGHT_MARGIN_WIDTH * 0.5,
+            x + derived_state.stage * COL_WIDTH + RIGHT_MARGIN_WIDTH * 0.5,
             y + ROW_HEIGHT * range.start,
             y + ROW_HEIGHT * (range.end + 1),
             -RIGHT_MARGIN_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
@@ -203,7 +205,7 @@ function draw() {
     draw_grid();
     // Draw all the fragments
     for (let f = 0; f < derived_state.annot_frags.length; f++) {
-        draw_frag(comp.frag_x(f), comp.frag_y(f), derived_state.annot_frags[f]);
+        draw_frag(derived_state.annot_frags[f]);
     }
     // Reset the canvas' transform matrix so that the next frame is rendered correctly
     ctx.restore();
@@ -289,7 +291,7 @@ function update_hud() {
     const stats = derived_state.stats;
     // Populate row counter
     const part_len = stats.part_len;
-    const num_parts = stats.num_parts;
+    const num_parts = derived_state.part_heads.length;
     document.getElementById("part-len").innerText = part_len.toString();
     document.getElementById("num-parts").innerText = num_parts.toString();
     document.getElementById("num-rows").innerText = (part_len * num_parts).toString();
@@ -311,10 +313,14 @@ function update_part_head_list() {
     // Clear the existing children
     ph_list.innerHTML = '';
     // Add the new part heads
-    for (var i = 0; i < comp.num_parts(); i++) {
+    for (var i = 0; i < derived_state.part_heads.length; i++) {
         let new_opt = document.createElement("option");
         new_opt.value = i.toString();
-        new_opt.innerText = "#" + (i + 1).toString() + ": " + comp.part_head_str(i);
+        let str = "#" + (i + 1).toString() + ": ";
+        for (const j of derived_state.part_heads[i]) {
+            str += BELL_NAMES[j];
+        }
+        new_opt.innerText = str;
         ph_list.appendChild(new_opt);
     }
 }
