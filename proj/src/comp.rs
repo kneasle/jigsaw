@@ -77,7 +77,7 @@ impl Comp {
         self.view = serde_json::de::from_str(&json).unwrap();
     }
 
-    /* Actions */
+    /* Undo/redo */
 
     pub fn undo(&mut self) {
         if self.history_index > 0 {
@@ -93,6 +93,8 @@ impl Comp {
         }
     }
 
+    /* Actions */
+
     pub fn add_frag(&mut self) {
         self.make_action(|spec: &mut Spec| {
             spec.frags.push(Rc::new(Frag::one_lead_pb_maj(
@@ -100,6 +102,38 @@ impl Comp {
                 spec.frags.len() as f32 * 50.0,
             )));
         });
+    }
+
+    /// Splits a given [`Frag`]ment into two fragments, returning `""` on success and an error
+    /// string on failure. `split_index` refers to the first row of the 2nd fragment (so row
+    /// #`split_index` will also be the new leftover row of the 1st subfragment).
+    pub fn split_frag(&mut self, frag_ind: usize, split_index: usize, new_y: f32) -> String {
+        // Early return with an error message if any of the preconditions aren't met
+        match self.spec().frags.get(frag_ind) {
+            Some(f) => {
+                if split_index == 0 || split_index >= f.len() {
+                    return "Can't create 0-length fragment".to_owned();
+                }
+            }
+            None => {
+                return format!(
+                    "Frag #{} doens't exist; there are only {} frags.",
+                    frag_ind,
+                    self.spec().frags.len(),
+                );
+            }
+        }
+        // Perform the split (this shouldn't be able to panic, since we checked the preconditions
+        // upfront).
+        self.make_action(|spec: &mut Spec| {
+            let (f1, f2) = spec.frags[frag_ind].split(split_index, new_y);
+            // Replace the 1st frag in-place, and append the 2nd (this stops fragments from jumping
+            // to the top of the stack when split).
+            spec.frags[frag_ind] = Rc::new(f1);
+            spec.frags.push(Rc::new(f2));
+        });
+        // Return empty string for success
+        "".to_owned()
     }
 
     /* View Setters */

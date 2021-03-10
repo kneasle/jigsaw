@@ -266,6 +266,33 @@ function on_key_down(e) {
         comp.add_frag();
         on_comp_change();
     }
+    // 's' to [s]plit a fragment into two
+    if (e.key === 's') {
+        const hov_loc = mouse_hover_location();
+        // Only try to split if the user is actually hovering over a fragment
+        if (hov_loc.frag) {
+            const split_index = Math.round(hov_loc.frag.row);
+            // Make sure there's a 10px gap between the BBoxes of the two fragments (the `+ 1` takes
+            // into account the existence of the leftover row)
+            const new_y = derived_state.annot_frags[hov_loc.frag.index].y
+                          + (split_index + 1) * ROW_HEIGHT
+                          + FRAG_BBOX_EXTRA_HEIGHT * 2 + 10;
+
+            // Split the fragment, and store the error
+            const err = comp.split_frag(
+                hov_loc.frag.index,
+                split_index,
+                new_y
+            );
+            // If the split failed, then log the error.  Otherwise, resync the composition with
+            // `on_comp_change`.
+            if (err) {
+                console.error("Error splitting fragment: " + err);
+            } else {
+                on_comp_change();
+            }
+        }
+    }
     // ctrl-z to undo
     if (e.key === 'z' && e.ctrlKey) {
         comp.undo();
@@ -380,6 +407,42 @@ function is_button_pressed(e, button) {
     // Deal with Safari being ideosyncratic
     const button_mask = (e.buttons === undefined ? e.which : e.buttons);
     return (button_mask & (1 << button)) != 0;
+}
+
+// Returns the fragment underneath the cursor, along with a more precise indication of which
+// row/column the mouse is hovering over
+function mouse_hover_location() {
+    // First, transform the mouse coords out of screen space and into world space
+    const world_x = mouse_coords.x - canv.width / 2 + view.view_x;
+    const world_y = mouse_coords.y - canv.height / 2 + view.view_y;
+    // Now, perform a raycast through the fragments to detect any collisions.  We do this in the
+    // opposite order to that which they are rendered, so that in the case of overlap the topmost
+    // frag takes precidence.
+    let hovered_frag = undefined;
+    for (let i = derived_state.annot_frags.length - 1; i >= 0; i--) {
+        const frag = derived_state.annot_frags[i];
+        const bbox = frag_bbox(frag);
+        // Skip this frag if the mouse is outside its bbox
+        if (world_x < bbox.min_x || world_x > bbox.max_x
+         || world_y < bbox.min_y || world_y > bbox.max_y) {
+            continue;
+        }
+        // If we get to this point, this must be the topmost fragment that we are hovering over so
+        // we calculate the row/col coordinate and break the loop so that hovered_frag doesn't get
+        // overwritten.
+        hovered_frag = {
+            index: i,
+            row: (world_y - frag.y) / ROW_HEIGHT,
+            col: (world_x - frag.x) / COL_WIDTH,
+        };
+        break;
+    }
+    // Package the data and return
+    return {
+        world_x: world_x,
+        world_y: world_y,
+        frag: hovered_frag,
+    };
 }
 
 function frag_bbox(f) {

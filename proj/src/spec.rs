@@ -21,6 +21,13 @@ impl AnnotatedRow {
             row,
         }
     }
+
+    /// Mutates this `AnnotatedRow` so that it has no annotations.
+    pub fn clear_annotations(&mut self) {
+        self.method_str = None;
+        self.call_str = None;
+        self.is_lead_end = false;
+    }
 }
 
 /// A convenient data structure of the long and short method names
@@ -41,6 +48,55 @@ pub struct Frag {
 }
 
 impl Frag {
+    /* Getters/setters */
+
+    /// Create a new `Frag` from its parts (creating [`Rc`]s where necessary)
+    fn new(rows: Vec<AnnotatedRow>, x: f32, y: f32) -> Frag {
+        Frag {
+            rows: Rc::new(rows),
+            x,
+            y,
+        }
+    }
+
+    /// Returns the (x, y) coordinates of this `Frag`ment
+    pub fn pos(&self) -> (f32, f32) {
+        (self.x, self.y)
+    }
+
+    /// The number of rows in this fragment that should be proven
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.rows.len() - 1
+    }
+
+    /* Modifications */
+
+    /// Splits this fragment into two pieces so that the first one has length `split_index`.  Both
+    /// `Frag`s will have the same x-coordinate, but the 2nd one will have y-coordinate specified
+    /// by `new_y`.  This panics if `split_index` is out of range of the number of rows.
+    pub fn split(&self, split_index: usize, new_y: f32) -> (Frag, Frag) {
+        // Panic if splitting would create a 0-size fragment
+        if split_index == 0 || split_index >= self.len() {
+            panic!(
+                "Splitting at index {} would create a 0-length Fragment",
+                split_index
+            );
+        }
+        // Generate the rows for each subfragment
+        let mut rows1: Vec<_> = self.rows[..split_index + 1].iter().cloned().collect();
+        let rows2: Vec<_> = self.rows[split_index..].iter().cloned().collect();
+        // Make sure that the leftover row of the 1st subfragment has no annotations
+        rows1.last_mut().unwrap().clear_annotations();
+        // Build new fragments out of the cloned rows
+        (
+            Frag::new(rows1, self.x, self.y),
+            Frag::new(rows2, self.x, new_y),
+        )
+    }
+
+    /* Constructors */
+
     /// Generates an example fragment (in this case, it's https://complib.org/composition/75822)
     pub fn cyclic_s8() -> Frag {
         let mut rows: Vec<_> = include_str!("cyclic-s8")
@@ -145,17 +201,6 @@ impl Frag {
             x,
             y,
         }
-    }
-
-    /// Returns the (x, y) coordinates of this `Frag`ment
-    pub fn pos(&self) -> (f32, f32) {
-        (self.x, self.y)
-    }
-
-    /// The number of rows in this fragment that should be proven
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.rows.len() - 1
     }
 }
 
