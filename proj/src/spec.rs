@@ -126,6 +126,27 @@ impl Frag {
         }
     }
 
+    /// Returns a `Frag` of the first plain lead of Plain Bob Major
+    pub fn one_lead_pb_maj(x: f32, y: f32) -> Frag {
+        let mut rows: Vec<_> = include_str!("pb-8")
+            .lines()
+            .map(|x| Row::parse(x).unwrap())
+            .map(AnnotatedRow::unannotated)
+            .collect();
+
+        rows[0].method_str = Some(MethodName {
+            name: "Plain Bob".to_owned(),
+            shorthand: "P".to_owned(),
+        });
+        rows[15].is_lead_end = true;
+
+        Frag {
+            rows: Rc::new(rows),
+            x,
+            y,
+        }
+    }
+
     /// Returns the (x, y) coordinates of this `Frag`ment
     pub fn pos(&self) -> (f32, f32) {
         (self.x, self.y)

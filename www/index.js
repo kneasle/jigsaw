@@ -256,25 +256,22 @@ function on_mouse_up(e) {
     }
 }
 
-function get_button(e) {
-    // Correct for the fact that `e.button` and `e.buttons` assign the buttons in different orders.
-    // **FACEPALM**
-    switch (e.button) {
-        case 0:
-            return BTN_LEFT;
-        case 1:
-            return BTN_MIDDLE;
-        case 2:
-            return BTN_RIGHT;
-        default:
-            console.warning("Unknown button value ", e.button);
+function on_key_down(e) {
+    // 'a' to add the first lead of Plain Bob as a new fragment to the comp
+    if (e.key === 'a') {
+        comp.add_frag();
+        on_comp_change();
     }
-}
-
-function is_button_pressed(e, button) {
-    // Deal with Safari being ideosyncratic
-    const button_mask = (e.buttons === undefined ? e.which : e.buttons);
-    return (button_mask & (1 << button)) != 0;
+    // ctrl-z to undo
+    if (e.key === 'z' && e.ctrlKey) {
+        comp.undo();
+        on_comp_change();
+    }
+    // shift-ctrl-Z or ctrl-y to redo
+    if ((e.key === 'Z' && e.ctrlKey) || (e.key === 'y' && e.ctrlKey)) {
+        comp.redo();
+        on_comp_change();
+    }
 }
 
 /* ===== HUD CODE ===== */
@@ -348,6 +345,7 @@ function start() {
     // Bind event listeners to all the things we need
     canv.addEventListener("mousemove", on_mouse_move);
     canv.addEventListener("mouseup", on_mouse_up);
+    document.addEventListener("keydown", on_key_down);
     window.addEventListener("resize", on_window_resize);
     document.getElementById("part-head").addEventListener("change", on_part_head_change);
     // Force a load of updates to initialise the display
@@ -358,6 +356,27 @@ function start() {
 }
 
 /* ===== UTILITY FUNCTIONS/GETTERS ===== */
+
+function get_button(e) {
+    // Correct for the fact that `e.button` and `e.buttons` assign the buttons in different orders.
+    // **FACEPALM**
+    switch (e.button) {
+        case 0:
+            return BTN_LEFT;
+        case 1:
+            return BTN_MIDDLE;
+        case 2:
+            return BTN_RIGHT;
+        default:
+            console.warning("Unknown button value ", e.button);
+    }
+}
+
+function is_button_pressed(e, button) {
+    // Deal with Safari being ideosyncratic
+    const button_mask = (e.buttons === undefined ? e.which : e.buttons);
+    return (button_mask & (1 << button)) != 0;
+}
 
 function view_rect() {
     const w = canv.width / devicePixelRatio;
@@ -372,6 +391,14 @@ function view_rect() {
         min_y: c_y - h / 2,
         max_y: c_y + h / 2,
     };
+}
+
+// Called whenever the composition changes, and generates the necessary updates in order to get the
+// user's view in sync with the new composition
+function on_comp_change() {
+    sync_derived_state();
+    update_hud();
+    request_frame();
 }
 
 function sync_derived_state() {
