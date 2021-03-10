@@ -321,6 +321,11 @@ function on_key_down(e) {
             on_comp_change();
         }
     }
+    // 'x' to delete the fragment under the cursor (ye too dangerous I know but good enough for now)
+    if (e.key === 'x' && hov_loc.frag) {
+        comp.delete_frag(hov_loc.frag.index);
+        on_comp_change();
+    }
     // ctrl-z to undo
     if (e.key === 'z' && e.ctrlKey) {
         comp.undo();

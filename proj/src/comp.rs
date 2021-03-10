@@ -117,6 +117,13 @@ impl Comp {
         });
     }
 
+    /// Deletes a [`Frag`]ment by index
+    pub fn delete_frag(&mut self, frag_ind: usize) {
+        self.make_action(|spec: &mut Spec| {
+            spec.frags.remove(frag_ind);
+        });
+    }
+
     /// Splits a given [`Frag`]ment into two fragments, returning `""` on success and an error
     /// string on failure. `split_index` refers to the first row of the 2nd fragment (so row
     /// #`split_index` will also be the new leftover row of the 1st subfragment).
