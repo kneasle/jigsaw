@@ -34,7 +34,6 @@ const MUSIC_COL = "#5b5";
 const LEFTOVER_ROW_OPACITY = 0.4;
 const MUSIC_ONIONSKIN_OPACITY = 0.13;
 
-const FALSE_ROW_GROUP_COLS = ["#f00", "#dd0", "#0b0", "#0bf", "#55f", "#f0f"];
 const FALSE_ROW_GROUP_NOTCH_WIDTH = 0.3;
 const FALSE_ROW_GROUP_NOTCH_HEIGHT = 0.3;
 const FALSE_ROW_GROUP_LINE_WIDTH = 3;
