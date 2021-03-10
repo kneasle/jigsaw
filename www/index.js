@@ -19,8 +19,8 @@ const VIEW_CULLING_EXTRA_SIZE = 20;
 
 const COL_WIDTH = 16;
 const ROW_HEIGHT = 22;
-const RIGHT_MARGIN_WIDTH = COL_WIDTH * 1;
-const LEFT_MARGIN_WIDTH = COL_WIDTH * 1;
+const FALSENESS_BAR_WIDTH = COL_WIDTH * 1;
+const FRAG_BBOX_EXTRA_HEIGHT = FALSENESS_BAR_WIDTH * 0.5;
 
 const FOREGROUND_COL = "black";
 const BACKGROUND_COL = "white";
@@ -44,7 +44,8 @@ const FALSE_COUNT_COL_TRUE = "green";
 
 // Variables set in the `start()` function
 let canv, ctx;
-// Variables which will used to sync with the Rust code
+// Variables which will used to sync with the Rust code (in 90% of the code, these should be treated
+// as immutable).
 let comp, derived_state, view;
 // Mouse variables that the browser should keep track of but doesn't
 let mouse_coords = {x: 0, y: 0};
@@ -72,7 +73,7 @@ function draw_row(x, y, row) {
     if (row.call_str) {
         ctx.textAlign = "right";
         ctx.fillStyle = FOREGROUND_COL;
-        ctx.fillText(row.call_str, x - LEFT_MARGIN_WIDTH, text_baseline);
+        ctx.fillText(row.call_str, x - FALSENESS_BAR_WIDTH, text_baseline);
     }
     // Bells
     ctx.textAlign = "center";
@@ -112,7 +113,7 @@ function draw_row(x, y, row) {
         ctx.fillStyle = FOREGROUND_COL;
         ctx.fillText(
             row.method_str.name,
-            x + stage * COL_WIDTH + RIGHT_MARGIN_WIDTH,
+            x + stage * COL_WIDTH + FALSENESS_BAR_WIDTH,
             text_baseline
         );
     }
@@ -130,6 +131,10 @@ function draw_falseness_indicator(x, min_y, max_y, notch_width, notch_height) {
 function draw_frag(frag) {
     const x = frag.x;
     const y = frag.y;
+    const rect = frag_bbox(frag);
+    // Background box (to overlay over the grid)
+    ctx.fillStyle = BACKGROUND_COL;
+    ctx.fillRect(rect.min_x, rect.min_y, rect.w, rect.h);
     // Rows
     for (let i = 0; i < frag.exp_rows.length; i++) {
         draw_row(x, y + ROW_HEIGHT * i, frag.exp_rows[i]);
@@ -154,17 +159,17 @@ function draw_frag(frag) {
         // Draw the lines
         ctx.strokeStyle = FALSE_ROW_GROUP_COLS[range.group % FALSE_ROW_GROUP_COLS.length];
         draw_falseness_indicator(
-            x + LEFT_MARGIN_WIDTH * -0.5,
+            x + FALSENESS_BAR_WIDTH * -0.5,
             y + ROW_HEIGHT * range.start,
             y + ROW_HEIGHT * (range.end + 1),
-            LEFT_MARGIN_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
+            FALSENESS_BAR_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
             ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT
         );
         draw_falseness_indicator(
-            x + derived_state.stage * COL_WIDTH + RIGHT_MARGIN_WIDTH * 0.5,
+            x + derived_state.stage * COL_WIDTH + FALSENESS_BAR_WIDTH * 0.5,
             y + ROW_HEIGHT * range.start,
             y + ROW_HEIGHT * (range.end + 1),
-            -RIGHT_MARGIN_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
+            -FALSENESS_BAR_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
             ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT
         );
     }
@@ -199,7 +204,7 @@ function draw() {
     const v = view_rect();
     // Move so that the camera's origin is in the centre of the screen
     ctx.translate(Math.round(v.w / 2), Math.round(v.h / 2));
-    ctx.translate(Math.round(-v.x), Math.round(-v.y));
+    ctx.translate(Math.round(-v.c_x), Math.round(-v.c_y));
     // Draw background grid
     draw_grid();
     // Draw all the fragments
@@ -377,18 +382,37 @@ function is_button_pressed(e, button) {
     return (button_mask & (1 << button)) != 0;
 }
 
+function frag_bbox(f) {
+    return new_rect(
+        f.x - FALSENESS_BAR_WIDTH,
+        f.y - FRAG_BBOX_EXTRA_HEIGHT,
+        derived_state.stage * COL_WIDTH + FALSENESS_BAR_WIDTH * 2,
+        f.exp_rows.length * ROW_HEIGHT + FRAG_BBOX_EXTRA_HEIGHT * 2,
+    );
+}
+
 function view_rect() {
-    const w = canv.width / devicePixelRatio;
-    const h = canv.height / devicePixelRatio;
-    const c_x = view.view_x;
-    const c_y = view.view_y;
+    return rect_from_centre(
+        view.view_x,
+        view.view_y,
+        canv.width / devicePixelRatio,
+        canv.height / devicePixelRatio,
+    );
+}
+
+// Rect constructors
+function rect_from_centre(c_x, c_y, w, h) {
+    return new_rect(c_x - w / 2, c_y - h / 2, w, h);
+}
+
+function new_rect(x, y, w, h) {
     return {
-        x: c_x, y: c_y,
+        c_x: x + w / 2, c_y: y + h / 2,
         w: w, h: h,
-        min_x: c_x - w / 2,
-        max_x: c_x + w / 2,
-        min_y: c_y - h / 2,
-        max_y: c_y + h / 2,
+        min_x: x,
+        max_x: x + w,
+        min_y: y,
+        max_y: y + h
     };
 }
 
