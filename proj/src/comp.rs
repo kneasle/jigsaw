@@ -95,12 +95,25 @@ impl Comp {
 
     /* Actions */
 
+    /// Add a new `Frag`ment to the composition.  For the time being, we always create the first
+    /// lead of Plain Bob Major
     pub fn add_frag(&mut self) {
         self.make_action(|spec: &mut Spec| {
             spec.frags.push(Rc::new(Frag::one_lead_pb_maj(
                 spec.frags.len() as f32 * 300.0,
                 spec.frags.len() as f32 * 50.0,
             )));
+        });
+    }
+
+    /// Move a given [`Frag`]ment to a new location, without changing any of the rows.  This
+    /// doesn't clone any rows, because [`Frag`]s store the rows as `Rc<Vec<AnnotatedRow>>`, which
+    /// simply increases the ref count on clone.
+    pub fn move_frag(&mut self, frag_ind: usize, new_x: f32, new_y: f32) {
+        self.make_action(|spec: &mut Spec| {
+            let mut new_frag = spec.frags[frag_ind].as_ref().clone();
+            new_frag.move_to(new_x, new_y);
+            spec.frags[frag_ind] = Rc::new(new_frag);
         });
     }
 

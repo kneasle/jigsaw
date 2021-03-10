@@ -72,6 +72,14 @@ impl Frag {
 
     /* Modifications */
 
+    /// Updates the coordinates of this `Frag` to match the new ones
+    pub fn move_to(&mut self, new_x: f32, new_y: f32) {
+        self.x = new_x;
+        self.y = new_y;
+    }
+
+    /* Non-mutating operations */
+
     /// Splits this fragment into two pieces so that the first one has length `split_index`.  Both
     /// `Frag`s will have the same x-coordinate, but the 2nd one will have y-coordinate specified
     /// by `new_y`.  This panics if `split_index` is out of range of the number of rows.

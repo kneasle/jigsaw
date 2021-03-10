@@ -44,6 +44,8 @@ const FALSE_COUNT_COL_TRUE = "green";
 
 // Variables set in the `start()` function
 let canv, ctx;
+// Global state to do with the UI
+let frag_being_moved = undefined;
 // Variables which will used to sync with the Rust code (in 90% of the code, these should be treated
 // as immutable).
 let comp, derived_state, view;
@@ -237,11 +239,16 @@ function on_window_resize() {
 }
 
 function on_mouse_move(e) {
-    // Early return if no change has been made
-    if (e.offsetX == 0 && e.offsetY == 0) {
-        return;
-    }
-    if (is_button_pressed(e, BTN_MIDDLE)) {
+    // If we clicked on a fragment, then move it
+    if (frag_being_moved !== undefined) {
+        // Note that in this case, we allow `derived_state` to get out of sync with Rust's ground
+        // truth.  We do this for performance reasons; if we didn't, then the whole composition
+        // would be reproved every time the mouse is moved causing horrendous lag.
+        derived_state.annot_frags[frag_being_moved].x += e.offsetX - mouse_coords.x;
+        derived_state.annot_frags[frag_being_moved].y += e.offsetY - mouse_coords.y;
+        // Request a repaint, because something has changed
+        request_frame();
+    } else if (is_button_pressed(e, BTN_MIDDLE)) {
         // Move the camera in the JS version
         view.view_x -= e.offsetX - mouse_coords.x;
         view.view_y -= e.offsetY - mouse_coords.y;
@@ -251,12 +258,34 @@ function on_mouse_move(e) {
     mouse_coords.y = e.offsetY;
 }
 
+function on_mouse_down(e) {
+    const mouse_loc = mouse_hover_location();
+    // Left-clicking a fragment should start us dragging it
+    if (get_button(e) === BTN_LEFT && mouse_loc.frag) {
+        frag_being_moved = mouse_loc.frag.index;
+    }
+}
+
 function on_mouse_up(e) {
-    if (get_button(e) == BTN_MIDDLE) {
-        // Only update the new view and sync when the user releases the button.  This makes sure
-        // that we don't write cookies whenever the user moves their mouse.
-        comp.set_view_loc(view.view_x, view.view_y);
-        sync_view();
+    switch (get_button(e)) {
+        case BTN_LEFT:
+            // If we have just released a fragment, then update Rust's 'ground truth' and force a
+            // resync of JS's local copy of the state.  Also let go of whatever we were dragging.
+            if (frag_being_moved !== undefined) {
+                comp.move_frag(
+                    frag_being_moved,
+                    derived_state.annot_frags[frag_being_moved].x,
+                    derived_state.annot_frags[frag_being_moved].y
+                );
+                frag_being_moved = undefined;
+            }
+            break;
+        case BTN_MIDDLE:
+            // Only update the new view and sync when the user releases the button.  This makes sure
+            // that we don't write cookies whenever the user moves their mouse.
+            comp.set_view_loc(view.view_x, view.view_y);
+            sync_view();
+            break;
     }
 }
 
@@ -375,6 +404,7 @@ function start() {
     ctx = canv.getContext("2d");
     // Bind event listeners to all the things we need
     canv.addEventListener("mousemove", on_mouse_move);
+    canv.addEventListener("mousedown", on_mouse_down);
     canv.addEventListener("mouseup", on_mouse_up);
     document.addEventListener("keydown", on_key_down);
     window.addEventListener("resize", on_window_resize);
