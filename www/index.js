@@ -275,8 +275,8 @@ function on_key_down(e) {
             // Make sure there's a 10px gap between the BBoxes of the two fragments (the `+ 1` takes
             // into account the existence of the leftover row)
             const new_y = derived_state.annot_frags[hov_loc.frag.index].y
-                          + (split_index + 1) * ROW_HEIGHT
-                          + FRAG_BBOX_EXTRA_HEIGHT * 2 + 10;
+                + (split_index + 1) * ROW_HEIGHT
+                + FRAG_BBOX_EXTRA_HEIGHT * 2 + 10;
 
             // Split the fragment, and store the error
             const err = comp.split_frag(
@@ -424,7 +424,7 @@ function mouse_hover_location() {
         const bbox = frag_bbox(frag);
         // Skip this frag if the mouse is outside its bbox
         if (world_x < bbox.min_x || world_x > bbox.max_x
-         || world_y < bbox.min_y || world_y > bbox.max_y) {
+            || world_y < bbox.min_y || world_y > bbox.max_y) {
             continue;
         }
         // If we get to this point, this must be the topmost fragment that we are hovering over so
