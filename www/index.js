@@ -290,36 +290,35 @@ function on_mouse_up(e) {
 }
 
 function on_key_down(e) {
+    // Detect which fragment is under the cursor
+    const hov_loc = mouse_hover_location();
+
     // 'a' to add the first lead of Plain Bob as a new fragment to the comp
     if (e.key === 'a') {
         comp.add_frag();
         on_comp_change();
     }
-    // 's' to [s]plit a fragment into two
-    if (e.key === 's') {
-        const hov_loc = mouse_hover_location();
-        // Only try to split if the user is actually hovering over a fragment
-        if (hov_loc.frag) {
-            const split_index = Math.round(hov_loc.frag.row);
-            // Make sure there's a 10px gap between the BBoxes of the two fragments (the `+ 1` takes
-            // into account the existence of the leftover row)
-            const new_y = derived_state.annot_frags[hov_loc.frag.index].y
-                + (split_index + 1) * ROW_HEIGHT
-                + FRAG_BBOX_EXTRA_HEIGHT * 2 + 10;
+    // 's' to [s]plit a fragment into two at the mouse location
+    if (e.key === 's' && hov_loc.frag) {
+        const split_index = Math.round(hov_loc.frag.row);
+        // Make sure there's a 10px gap between the BBoxes of the two fragments (the `+ 1` takes
+        // into account the existence of the leftover row)
+        const new_y = derived_state.annot_frags[hov_loc.frag.index].y
+            + (split_index + 1) * ROW_HEIGHT
+            + FRAG_BBOX_EXTRA_HEIGHT * 2 + 10;
 
-            // Split the fragment, and store the error
-            const err = comp.split_frag(
-                hov_loc.frag.index,
-                split_index,
-                new_y
-            );
-            // If the split failed, then log the error.  Otherwise, resync the composition with
-            // `on_comp_change`.
-            if (err) {
-                console.error("Error splitting fragment: " + err);
-            } else {
-                on_comp_change();
-            }
+        // Split the fragment, and store the error
+        const err = comp.split_frag(
+            hov_loc.frag.index,
+            split_index,
+            new_y
+        );
+        // If the split failed, then log the error.  Otherwise, resync the composition with
+        // `on_comp_change`.
+        if (err) {
+            console.error("Error splitting fragment: " + err);
+        } else {
+            on_comp_change();
         }
     }
     // ctrl-z to undo

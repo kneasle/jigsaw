@@ -192,155 +192,11 @@ pub struct DerivedState {
 }
 
 impl DerivedState {
+    /// Given a [`Spec`]ification, derive a new `DerivedState` from it.
     pub fn from_spec(spec: &Spec) -> DerivedState {
         let generated_rows = spec.gen_rows();
-        // We use a hashset because if the part heads form a group then any falseness will be the
-        // same between all the parts, so will appear lots of times.
-        let mut false_rows: HashSet<Vec<RowLocation>> = HashSet::new();
-        let num_false_rows = {
-            // Expand all the rows and their origins from the composition into a `Vec` to be
-            // proved, excluding the last Row of each Frag, since that is 'left over' and as such
-            // shouldn't be used of proving
-            let mut flattened_rows: Vec<(RowOrigin, &Row)> = Vec::with_capacity(spec.len());
-            for (frag_index, (proof_rows, _leftover_row)) in generated_rows.iter().enumerate() {
-                for (row_index, expanded_row) in proof_rows.iter().enumerate() {
-                    for (part_index, row) in expanded_row.rows.iter().enumerate() {
-                        flattened_rows
-                            .push((RowOrigin::new(part_index, frag_index, row_index), row));
-                    }
-                }
-            }
-            // Sort all_rows only by their rows, so that false rows are appear next to each other
-            flattened_rows.sort_by(|(_, r1), (_, r2)| r1.cmp(r2));
-            // The origins of the current set of duplicated rows.  Most of the time, we hope that
-            // this has length 1, i.e. all rows are unique.
-            let mut current_false_row_group: Vec<RowLocation> = Vec::with_capacity(10);
-            let mut last_row = None;
-            let mut num_false_rows = 0usize;
-            // Iterate over all the rows, compiling groups as we go
-            for (o, r) in flattened_rows {
-                if let Some(l_r) = &last_row {
-                    if l_r != &r {
-                        // If we reach this branch of the code, then it means that we are just
-                        // starting a new set of rows and we need to check the last group for
-                        // falseness.
-                        if current_false_row_group.len() > 1 {
-                            // Add these rows to the falseness counter
-                            num_false_rows += current_false_row_group.len();
-                            // If we saw more than 1 identical rows, then this counts as falseness
-                            // and so we add this to the set of false rows.  We sort the row
-                            // locations first, to make sure that if the same set of `RowLocation`s
-                            // is found twice they are always added once (regardless of which order
-                            // the rows were discovered).
-                            current_false_row_group.sort();
-                            false_rows.insert(std::mem::take(&mut current_false_row_group));
-                        } else {
-                            current_false_row_group.clear();
-                        }
-                    }
-                }
-                // Make sure that the current row becomes the last row for the next iteration, and
-                // add this location to the current group.
-                last_row = Some(r);
-                current_false_row_group.push(RowLocation::from(o));
-            }
-            // Make sure that we don't miss the last false row group
-            if current_false_row_group.len() > 1 {
-                // Add these rows to the falseness counter
-                num_false_rows += current_false_row_group.len();
-                // If we saw more than 1 identical rows, then this counts as falseness and so we
-                // add this to the set of false rows.  We sort the row locations first, to make
-                // sure that if the same set of `RowLocation`s is found twice they are always added
-                // once (regardless of which order the rows were discovered).
-                current_false_row_group.sort();
-                false_rows.insert(current_false_row_group);
-            }
-            // Return the number of false rows out of the block
-            num_false_rows
-        };
-        /* Combine adjacent false row groups so that we use up fewer colours.  This relies on the
-         * fact that all the `Vec`s in `false_rows` are sorted in increasing order by frag index and
-         * then row index (and a unit test checks that). */
-        let mut ranges_by_frag: HashMap<usize, Vec<FalseRowRange>> = HashMap::new();
-        let num_false_groups = {
-            /// A cheeky helper function which adds the ranges between two groups of false rows to
-            /// the right places in a HashMap (the map will only ever be `row_groups_by_frag`)
-            fn add_ranges(
-                map: &mut HashMap<usize, Vec<FalseRowRange>>,
-                start: &[RowLocation],
-                end: &[RowLocation],
-                group_id: usize,
-            ) {
-                // Check that we aren't losing information by zipping the two groups
-                assert_eq!(start.len(), end.len());
-                // Zip through the locations in each group.  Because of their sortedness, we can
-                // guaruntee that the pairs are joined up correctly
-                for (start_loc, end_loc) in start.iter().zip(end) {
-                    // Check that each both locations belong to the same group.  This should be
-                    // guarunteed by the adjacency test, but we test it anyway.
-                    assert_eq!(start_loc.frag, end_loc.frag);
-                    // Create a FalseRowGroup, making sure that start <= end (because we could have
-                    // sets of rows which are false against each other but in the opposite order)
-                    let false_row_range = FalseRowRange {
-                        start: start_loc.row.min(end_loc.row),
-                        end: start_loc.row.max(end_loc.row),
-                        group: group_id,
-                    };
-                    // Insert the newly created group to the HashMap to make sure it's displayed on
-                    // the correct fragment
-                    map.entry(start_loc.frag)
-                        .or_insert(vec![])
-                        .push(false_row_range);
-                }
-            }
-            // Firstly, convert the existing HashSet into a Vec, and sort it
-            let mut false_rows_vec = false_rows.into_iter().collect::<Vec<_>>();
-            false_rows_vec.sort();
-            // Because `false_rows_vec` itself and all its contents are sorted, we can guaruntee
-            // that the rows making up each false row group are sequential in the listing
-            let mut iter = false_rows_vec.iter();
-            let mut group_id = 0;
-            if let Some(first_group) = iter.next() {
-                let mut last_group = first_group;
-                let mut first_group_in_meta_group = first_group;
-                for group in iter {
-                    // Decide if this group is adjacent to the last one (for two groups to be
-                    // adjacent, they need to have the same length and all the `RowLocation`s must
-                    // also be adjacent).
-                    let is_adjacent_to_last = group.len() == last_group.len()
-                        && group.iter().zip(last_group.iter()).all(|(loc1, loc2)| {
-                            loc1.frag == loc2.frag
-                                && (loc1.row as isize - loc2.row as isize).abs() == 1
-                        });
-                    if !is_adjacent_to_last {
-                        /* If this group is not adjacent to the last one, then we have just
-                         * finished a group.  We therefore need to calculate the ranges for the
-                         * group we finished, adding them to a HashMap (index by fragment) to be
-                         * displayed */
-                        // The next meta-group should start with the group we found
-                        add_ranges(
-                            &mut ranges_by_frag,
-                            first_group_in_meta_group,
-                            last_group,
-                            group_id,
-                        );
-                        first_group_in_meta_group = group;
-                        group_id += 1;
-                    }
-                    last_group = group;
-                }
-                // Make sure that we add the ranges containing the last group
-                add_ranges(
-                    &mut ranges_by_frag,
-                    first_group_in_meta_group,
-                    last_group,
-                    group_id,
-                );
-            }
-            // The final value of group_id is also the number of falseness groups, so return it out
-            // of this block
-            group_id
-        };
+        let (false_rows, num_false_rows) = Self::gen_false_rows(&generated_rows, spec.len());
+        let (mut ranges_by_frag, num_false_groups) = Self::coalesce_false_row_groups(false_rows);
         // Compile all of the derived state into one struct
         DerivedState {
             annot_frags: generated_rows
@@ -367,6 +223,166 @@ impl DerivedState {
             },
             part_heads: spec.part_heads.as_ref().clone(),
             stage: spec.stage.as_usize(),
+        }
+    }
+
+    /// Given the expanded rows of a composition, group the rows on the screen into false groups
+    /// (note that these are groups of individual rows which are the same, rather than the
+    /// 'meta-groups' that the user sees).  `spec_len` is used to make sure that we allocate
+    /// exactly the right amount of space when flattening the rows
+    fn gen_false_rows(
+        generated_rows: &[(Vec<ExpandedRow>, ExpandedRow)],
+        spec_len: usize,
+    ) -> (Vec<Vec<RowLocation>>, usize) {
+        // We use a hashset because if the part heads form a group then any falseness will be the
+        // same between all the parts, so will appear lots of times.
+        let mut false_rows: HashSet<Vec<RowLocation>> = HashSet::new();
+        // Expand all the rows and their origins from the composition into a `Vec` to be
+        // proved, excluding the last Row of each Frag, since that is 'left over' and as such
+        // shouldn't be used of proving
+        let mut flattened_rows: Vec<(RowOrigin, &Row)> = Vec::with_capacity(spec_len);
+        for (frag_index, (proof_rows, _leftover_row)) in generated_rows.iter().enumerate() {
+            for (row_index, expanded_row) in proof_rows.iter().enumerate() {
+                for (part_index, row) in expanded_row.rows.iter().enumerate() {
+                    flattened_rows.push((RowOrigin::new(part_index, frag_index, row_index), row));
+                }
+            }
+        }
+        // Sort all_rows only by their rows, so that false rows are appear next to each other
+        flattened_rows.sort_by(|(_, r1), (_, r2)| r1.cmp(r2));
+        // The origins of the current set of duplicated rows.  Most of the time, we hope that
+        // this has length 1, i.e. all rows are unique.
+        let mut current_false_row_group: Vec<RowLocation> = Vec::with_capacity(10);
+        let mut last_row = None;
+        let mut num_false_rows = 0usize;
+        // Iterate over all the rows, compiling groups as we go
+        for (o, r) in flattened_rows {
+            if let Some(l_r) = &last_row {
+                if l_r != &r {
+                    // If we reach this branch of the code, then it means that we are just
+                    // starting a new set of rows and we need to check the last group for
+                    // falseness.
+                    if current_false_row_group.len() > 1 {
+                        // Add these rows to the falseness counter
+                        num_false_rows += current_false_row_group.len();
+                        // If we saw more than 1 identical rows, then this counts as falseness
+                        // and so we add this to the set of false rows.  We sort the row
+                        // locations first, to make sure that if the same set of `RowLocation`s
+                        // is found twice they are always added once (regardless of which order
+                        // the rows were discovered).
+                        current_false_row_group.sort();
+                        false_rows.insert(std::mem::take(&mut current_false_row_group));
+                    } else {
+                        current_false_row_group.clear();
+                    }
+                }
+            }
+            // Make sure that the current row becomes the last row for the next iteration, and
+            // add this location to the current group.
+            last_row = Some(r);
+            current_false_row_group.push(RowLocation::from(o));
+        }
+        // Make sure that we don't miss the last false row group
+        if current_false_row_group.len() > 1 {
+            // Add these rows to the falseness counter
+            num_false_rows += current_false_row_group.len();
+            // If we saw more than 1 identical rows, then this counts as falseness and so we
+            // add this to the set of false rows.  We sort the row locations first, to make
+            // sure that if the same set of `RowLocation`s is found twice they are always added
+            // once (regardless of which order the rows were discovered).
+            current_false_row_group.sort();
+            false_rows.insert(current_false_row_group);
+        }
+        // Convert the HashMap into a Vec (without cloning), and return it along with the number of
+        // false rows
+        (false_rows.into_iter().collect::<Vec<_>>(), num_false_rows)
+    }
+
+    /// Combine adjacent false row groups so that we use up fewer colours.  This relies on the
+    /// fact that all the `Vec`s in `false_rows` are sorted in increasing order by frag index and
+    /// then row index (and a unit test checks that).
+    fn coalesce_false_row_groups(
+        mut false_rows: Vec<Vec<RowLocation>>,
+    ) -> (HashMap<usize, Vec<FalseRowRange>>, usize) {
+        let mut ranges_by_frag: HashMap<usize, Vec<FalseRowRange>> = HashMap::new();
+        // Firstly, convert the existing HashSet into a Vec, and sort it
+        false_rows.sort();
+        // Because `false_rows_vec` itself and all its contents are sorted, we can guaruntee
+        // that the rows making up each false row group are sequential in the listing
+        let mut iter = false_rows.iter();
+        let mut group_id = 0;
+        if let Some(first_group) = iter.next() {
+            let mut last_group = first_group;
+            let mut first_group_in_meta_group = first_group;
+            for group in iter {
+                // Decide if this group is adjacent to the last one (for two groups to be
+                // adjacent, they need to have the same length and all the `RowLocation`s must
+                // also be adjacent -- we don't worry about the order of each group because
+                // they have all been sorted the same way so a simple zipping check will
+                // suffice).
+                let is_adjacent_to_last = group.len() == last_group.len()
+                    && group.iter().zip(last_group.iter()).all(|(loc1, loc2)| {
+                        loc1.frag == loc2.frag && (loc1.row as isize - loc2.row as isize).abs() == 1
+                    });
+                if !is_adjacent_to_last {
+                    /* If this group is not adjacent to the last one, then we have just
+                     * finished a group.  We therefore need to calculate the ranges for the
+                     * group we finished, adding them to a HashMap (index by fragment) to be
+                     * displayed */
+                    // The next meta-group should start with the group we found
+                    Self::add_ranges(
+                        &mut ranges_by_frag,
+                        first_group_in_meta_group,
+                        last_group,
+                        group_id,
+                    );
+                    first_group_in_meta_group = group;
+                    group_id += 1;
+                }
+                last_group = group;
+            }
+            // Make sure that we add the ranges containing the last group
+            Self::add_ranges(
+                &mut ranges_by_frag,
+                first_group_in_meta_group,
+                last_group,
+                group_id,
+            );
+        }
+        // The final value of group_id is also the number of falseness groups, so return it out
+        // of this block along with the ranges we calculated
+        (ranges_by_frag, group_id + 1)
+    }
+
+    /// A cheeky helper function which adds the ranges between two groups of false rows to
+    /// the right places in a HashMap (the map will only ever be `row_groups_by_frag`)
+    fn add_ranges(
+        ranges_per_frag: &mut HashMap<usize, Vec<FalseRowRange>>,
+        start: &[RowLocation],
+        end: &[RowLocation],
+        group_id: usize,
+    ) {
+        // Check that we aren't losing information by zipping the two groups
+        assert_eq!(start.len(), end.len());
+        // Zip through the locations in each group.  Because of their sortedness, we can
+        // guaruntee that the pairs are joined up correctly
+        for (start_loc, end_loc) in start.iter().zip(end) {
+            // Check that each both locations belong to the same group.  This should be
+            // guarunteed by the adjacency test, but we test it anyway.
+            assert_eq!(start_loc.frag, end_loc.frag);
+            // Create a FalseRowGroup, making sure that start <= end (because we could have
+            // sets of rows which are false against each other but in the opposite order)
+            let false_row_range = FalseRowRange {
+                start: start_loc.row.min(end_loc.row),
+                end: start_loc.row.max(end_loc.row),
+                group: group_id,
+            };
+            // Insert the newly created group to the HashMap to make sure it's displayed on
+            // the correct fragment
+            ranges_per_frag
+                .entry(start_loc.frag)
+                .or_insert(vec![])
+                .push(false_row_range);
         }
     }
 }
