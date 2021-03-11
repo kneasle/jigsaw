@@ -454,9 +454,9 @@ impl Row {
         }
     }
 
-    /// Concatenates the names of the [`Bell`]s in this `Row` to the end of a [`String`].  See also
-    /// [`to_string`](Row::to_string), which returns a new [`String`] rather than concatenating to
-    /// an existing one.
+    /// Concatenates the names of the [`Bell`]s in this `Row` to the end of a [`String`].  Using
+    /// `format!("{}", row)` will behave the same as this but will return an newly allocated
+    /// [`String`].
     ///
     /// # Example
     /// ```

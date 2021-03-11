@@ -3,6 +3,10 @@ use proj_core::{run_len, Bell, Row, Stage};
 use serde::{ser::SerializeSeq, Serialize, Serializer};
 use std::collections::{HashMap, HashSet};
 
+// Imports used only for the doc comments
+#[allow(unused_imports)]
+use crate::spec::Frag;
+
 /// A small datatype that represents **where** a given row comes from in the composition.  This is
 /// useful because the composition contains many fragments, and each row of each fragment could
 /// expand into multiple actual rows (one for each part).
