@@ -169,11 +169,24 @@ pub struct FalseRowRange {
     group: usize,
 }
 
+/// A struct determining which linking groups the top and bottom of a [`Frag`] belongs to.  This
+/// will determine what colour line will be displayed on each end of the [`Frag`], to make round
+/// blocks detectable.
+#[derive(Serialize, Debug, Clone, Default)]
+pub struct FragLinkGroups {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    link_group_top: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    link_group_bottom: Option<usize>,
+}
+
 /// The information required for JS to render a [`Frag`]
 #[derive(Serialize, Debug, Clone)]
 pub struct AnnotFrag {
     false_row_ranges: Vec<FalseRowRange>,
     exp_rows: Vec<ExpandedRow>,
+    #[serde(flatten)]
+    link_groups: FragLinkGroups,
     x: f32,
     y: f32,
 }
@@ -186,9 +199,20 @@ pub struct DerivedStats {
     num_false_groups: usize,
 }
 
+/// A struct that says that [`Frag`] #`to` can be linked onto the end of [`Frag`] #`from`.  This
+/// will be stored in a `Vec`, representing a non-symmetric relation over the [`Frag`]s in the
+/// composition.
+#[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct FragLink {
+    from: usize,
+    to: usize,
+    group: usize,
+}
+
 #[derive(Serialize, Debug, Clone)]
 pub struct DerivedState {
     annot_frags: Vec<AnnotFrag>,
+    frag_links: Vec<FragLink>,
     stats: DerivedStats,
     #[serde(serialize_with = "ser_rows")]
     part_heads: Vec<Row>,
@@ -201,12 +225,15 @@ impl DerivedState {
         let generated_rows = spec.gen_rows();
         let (false_rows, num_false_rows) = Self::gen_false_rows(&generated_rows, spec.len());
         let (mut ranges_by_frag, num_false_groups) = Self::coalesce_false_row_groups(false_rows);
+        let (frag_links, frag_link_groups) = Self::gen_frag_links(&generated_rows);
         // Compile all of the derived state into one struct
         DerivedState {
+            frag_links,
             annot_frags: generated_rows
                 .into_iter()
+                .zip(frag_link_groups.into_iter())
                 .enumerate()
-                .map(|(i, (mut rows, leftover_row))| {
+                .map(|(i, ((mut rows, leftover_row), link_groups))| {
                     // Add the leftover row to the row list, checking that it is indeed marked as
                     // left over
                     assert!(leftover_row.is_leftover);
@@ -215,6 +242,7 @@ impl DerivedState {
                     AnnotFrag {
                         false_row_ranges: ranges_by_frag.remove(&i).unwrap_or(vec![]),
                         exp_rows: rows,
+                        link_groups,
                         x,
                         y,
                     }
@@ -228,6 +256,48 @@ impl DerivedState {
             part_heads: spec.part_heads.as_ref().clone(),
             stage: spec.stage.as_usize(),
         }
+    }
+
+    /// Given the expanded rows from each [`Frag`] of the composition, find which pairs of
+    /// [`Frag`]s should be connected (i.e. [`Frag`]s (x, y) are linked x -> y iff the leftover row
+    /// of x is the same as the first row of y).  This is then used to determine which [`Frag`]s
+    /// can be joined together.  This also calculates which groups the top and bottom of each
+    /// [`Frag`] belongs to
+    fn gen_frag_links(
+        generated_rows: &[(Vec<ExpandedRow>, ExpandedRow)],
+    ) -> (Vec<FragLink>, Vec<FragLinkGroups>) {
+        let num_frags = generated_rows.len();
+        // A map to determine which group ID should be assigned to each Row.  This way,
+        // interconnected groups of links are given the same colours.
+        let mut link_groups: HashMap<&Row, usize> = HashMap::new();
+        let mut frag_links = Vec::new();
+        let mut frag_link_groups = vec![FragLinkGroups::default(); num_frags];
+
+        // Test every pair of frags f -> g ...
+        for (i, f) in generated_rows.iter().enumerate() {
+            for (j, g) in generated_rows.iter().enumerate() {
+                // ... if `g` starts with the leftover row of `f`, then f -> g ...
+                let leftover_row_of_f = &f.1.rows[0];
+                let first_row_of_g = &g.0[0].rows[0];
+                if leftover_row_of_f == first_row_of_g {
+                    // Decide what group this link should be put in (so that all the links of the
+                    // same row get coloured the same colour).
+                    let link_groups_len = link_groups.len();
+                    let group = *link_groups
+                        .entry(leftover_row_of_f)
+                        .or_insert(link_groups_len);
+                    // Add the frag links, and assign the frag tip colours
+                    frag_links.push(FragLink {
+                        from: i,
+                        to: j,
+                        group,
+                    });
+                    frag_link_groups[i].link_group_bottom = Some(group);
+                    frag_link_groups[j].link_group_top = Some(group);
+                }
+            }
+        }
+        (frag_links, frag_link_groups)
     }
 
     /// Given the expanded rows of a composition, group the rows on the screen into false groups

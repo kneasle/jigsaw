@@ -27,6 +27,11 @@ const BACKGROUND_COL = "white";
 const GRID_COL = "#eee";
 const GRID_SIZE = 200;
 
+const DRAW_FRAG_LINK_LINES = true;
+const FRAG_LINK_WIDTH = 2;
+const FRAG_LINK_MIN_OPACITY = 0.15;
+const FRAG_LINK_OPACITY_FALLOFF = 0.001;
+
 const ROW_FONT = "20px monospace";
 const BELL_NAMES = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
 const RULEOFF_LINE_WIDTH = 1;
@@ -159,7 +164,7 @@ function draw_frag(frag) {
     for (let i = 0; i < frag.false_row_ranges.length; i++) {
         const range = frag.false_row_ranges[i];
         // Draw the lines
-        ctx.strokeStyle = FALSE_ROW_GROUP_COLS[range.group % FALSE_ROW_GROUP_COLS.length];
+        ctx.strokeStyle = group_col(range.group);
         draw_falseness_indicator(
             x + FALSENESS_BAR_WIDTH * -0.5,
             y + ROW_HEIGHT * range.start,
@@ -174,6 +179,22 @@ function draw_frag(frag) {
             -FALSENESS_BAR_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
             ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT
         );
+    }
+    // Link group lines
+    ctx.lineWidth = FRAG_LINK_WIDTH;
+    if (frag.link_group_top !== undefined) {
+        ctx.strokeStyle = group_col(frag.link_group_top);
+        ctx.beginPath();
+        ctx.moveTo(rect.min_x, rect.min_y);
+        ctx.lineTo(rect.max_x, rect.min_y);
+        ctx.stroke();
+    }
+    if (frag.link_group_bottom !== undefined) {
+        ctx.strokeStyle = group_col(frag.link_group_bottom);
+        ctx.beginPath();
+        ctx.moveTo(rect.min_x, rect.max_y);
+        ctx.lineTo(rect.max_x, rect.max_y);
+        ctx.stroke();
     }
 }
 
@@ -197,7 +218,41 @@ function draw_grid() {
     }
 }
 
+function draw_link(link) {
+    // Calculate bboxes of the frags we're joining
+    const bbox_from = frag_bbox(derived_state.annot_frags[link.from]);
+    const bbox_to = frag_bbox(derived_state.annot_frags[link.to]);
+    // If the boxes are offset left/right, then join them up using the shortest possible distance
+    if (bbox_from.max_x < bbox_to.min_x) {
+        var from_x = bbox_from.max_x;
+        var to_x = bbox_to.min_x;
+    } else if (bbox_from.min_x > bbox_to.max_x) {
+        var from_x = bbox_from.min_x;
+        var to_x = bbox_to.max_x;
+    } else {
+        var from_x = bbox_from.c_x;
+        var to_x = bbox_to.c_x;
+    }
+    const from_y = bbox_from.max_y;
+    const to_y = bbox_to.min_y;
+    // Calculate the opacity of the line from its length
+    const length = Math.sqrt(Math.pow(to_x - from_x, 2) + Math.pow(to_y - from_y, 2));
+    ctx.globalAlpha = FRAG_LINK_MIN_OPACITY
+        + (1 - FRAG_LINK_MIN_OPACITY) * Math.exp(-length * FRAG_LINK_OPACITY_FALLOFF);
+    // Draw the line
+    ctx.strokeStyle = group_col(link.group);
+    ctx.lineWidth = FRAG_LINK_WIDTH;
+    ctx.beginPath();
+    ctx.moveTo(from_x, from_y);
+    ctx.lineTo(to_x, to_y);
+    ctx.stroke();
+    // Reset global alpha for the next things to render
+    ctx.globalAlpha = 1;
+}
+
 function draw() {
+    /* TRANSFORM CANVAS SO THAT WE CAN USE WORLD SPACE COORDINATES */
+
     // Clear the screen and correct for HDPI displays
     ctx.save();
     ctx.fillStyle = BACKGROUND_COL;
@@ -207,12 +262,22 @@ function draw() {
     // Move so that the camera's origin is in the centre of the screen
     ctx.translate(Math.round(v.w / 2), Math.round(v.h / 2));
     ctx.translate(Math.round(-v.c_x), Math.round(-v.c_y));
+
+    /* DRAW EVERYTHING IN WORLD SPACE */
+
     // Draw background grid
     draw_grid();
+    // Draw all the fragment links
+    for (const link of derived_state.frag_links) {
+        draw_link(link);
+    }
     // Draw all the fragments
     for (let f = 0; f < derived_state.annot_frags.length; f++) {
         draw_frag(derived_state.annot_frags[f]);
     }
+
+    /* RESTORE CANVAS */
+
     // Reset the canvas' transform matrix so that the next frame is rendered correctly
     ctx.restore();
 }

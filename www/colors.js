@@ -1,4 +1,8 @@
-const FALSE_ROW_GROUP_COLS = [
+function group_col(index) {
+    return GROUP_COLS[index % GROUP_COLS.length];
+}
+
+const GROUP_COLS = [
     "#000000",
     "#00FF00",
     "#0000FF",
