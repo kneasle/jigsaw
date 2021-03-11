@@ -124,6 +124,7 @@ impl Comp {
         });
     }
 
+
     /// Splits a given [`Frag`]ment into two fragments, returning `""` on success and an error
     /// string on failure. `split_index` refers to the first row of the 2nd fragment (so row
     /// #`split_index` will also be the new leftover row of the 1st subfragment).
@@ -154,6 +155,11 @@ impl Comp {
         });
         // Return empty string for success
         "".to_owned()
+    }
+
+    /// Resets the composition to the example
+    pub fn reset(&mut self) {
+        self.make_action(|spec: &mut Spec| *spec = Spec::cyclic_s8());
     }
 
     /* View Setters */

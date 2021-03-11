@@ -357,7 +357,6 @@ function on_mouse_up(e) {
 function on_key_down(e) {
     // Detect which fragment is under the cursor
     const hov_loc = mouse_hover_location();
-
     // 'a' to add the first lead of Plain Bob as a new fragment to the comp
     if (e.key === 'a') {
         comp.add_frag();
@@ -385,6 +384,11 @@ function on_key_down(e) {
         } else {
             on_comp_change();
         }
+    }
+    // 'R' to reset the composition (ye too dangerous I know but good enough for now)
+    if (e.key === 'R') {
+        comp.reset();
+        on_comp_change();
     }
     // 'x' to delete the fragment under the cursor (ye too dangerous I know but good enough for now)
     if (e.key === 'x' && hov_loc.frag) {
