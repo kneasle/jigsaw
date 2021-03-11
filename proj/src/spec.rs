@@ -48,16 +48,7 @@ pub struct Frag {
 }
 
 impl Frag {
-    /* Getters/setters */
-
-    /// Create a new `Frag` from its parts (creating [`Rc`]s where necessary)
-    fn new(rows: Vec<AnnotatedRow>, x: f32, y: f32) -> Frag {
-        Frag {
-            rows: Rc::new(rows),
-            x,
-            y,
-        }
-    }
+    /* Getters */
 
     /// Returns the (x, y) coordinates of this `Frag`ment
     pub fn pos(&self) -> (f32, f32) {
@@ -70,7 +61,7 @@ impl Frag {
         self.rows.len() - 1
     }
 
-    /* Modifications */
+    /* Setters */
 
     /// Updates the coordinates of this `Frag` to match the new ones
     pub fn move_to(&mut self, new_x: f32, new_y: f32) {
@@ -104,6 +95,15 @@ impl Frag {
     }
 
     /* Constructors */
+
+    /// Create a new `Frag` from its parts (creating [`Rc`]s where necessary)
+    fn new(rows: Vec<AnnotatedRow>, x: f32, y: f32) -> Frag {
+        Frag {
+            rows: Rc::new(rows),
+            x,
+            y,
+        }
+    }
 
     /// Generates an example fragment (in this case, it's https://complib.org/composition/75822)
     pub fn cyclic_s8() -> Frag {
