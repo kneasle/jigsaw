@@ -9,6 +9,10 @@ const BTN_LEFT = 0;
 const BTN_RIGHT = 1;
 const BTN_MIDDLE = 2;
 
+const SOLOED = "Soloed";
+const MUTED = "Muted";
+const NORMAL = "Normal";
+
 // Cookie names
 const COOKIE_NAME_VIEW = "view";
 
@@ -27,6 +31,9 @@ const BACKGROUND_COL = "white";
 const GRID_COL = "#eee";
 const GRID_SIZE = 200;
 
+const SOLO_FRAG_BACKGROUND_COL = "#f5f5f5";
+const UNPROVEN_ROW_OPACITY = 0.4;
+
 const DRAW_FRAG_LINK_LINES = true;
 const FRAG_LINK_WIDTH = 2;
 const FRAG_LINK_MIN_OPACITY = 0.15;
@@ -36,7 +43,6 @@ const ROW_FONT = "20px monospace";
 const BELL_NAMES = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
 const RULEOFF_LINE_WIDTH = 1;
 const MUSIC_COL = "#5b5";
-const LEFTOVER_ROW_OPACITY = 0.4;
 const MUSIC_ONIONSKIN_OPACITY = 0.13;
 
 const FALSE_ROW_GROUP_NOTCH_WIDTH = 0.3;
@@ -98,7 +104,7 @@ function draw_row(x, y, row) {
         // Text
         const bell_index = row.rows[view.current_part][b];
         if (!bell_lines[bell_index]) {
-            ctx.globalAlpha = row.is_leftover ? LEFTOVER_ROW_OPACITY : 1;
+            ctx.globalAlpha = row.is_proved === true ? 1 : UNPROVEN_ROW_OPACITY;
             ctx.fillStyle = FOREGROUND_COL;
             ctx.fillText(BELL_NAMES[bell_index], x + COL_WIDTH * (b + 0.5), text_baseline);
         }
@@ -140,13 +146,17 @@ function draw_frag(frag) {
     const y = frag.y;
     const rect = frag_bbox(frag);
     // Background box (to overlay over the grid)
-    ctx.fillStyle = BACKGROUND_COL;
+    ctx.fillStyle = frag.state === SOLOED ? SOLO_FRAG_BACKGROUND_COL : BACKGROUND_COL;
     ctx.fillRect(rect.min_x, rect.min_y, rect.w, rect.h);
     // Rows
     for (let i = 0; i < frag.exp_rows.length; i++) {
         draw_row(x, y + ROW_HEIGHT * i, frag.exp_rows[i]);
     }
-    // Lines
+    // Draw Lines
+    // Fade out the lines if this fragment isn't getting proven
+    if (!frag.is_proved) {
+        ctx.globalAlpha = UNPROVEN_ROW_OPACITY;
+    }
     for (let l in bell_lines) {
         const width = bell_lines[l][0];
         const col = bell_lines[l][1];
@@ -159,6 +169,7 @@ function draw_frag(frag) {
         ctx.strokeStyle = col;
         ctx.stroke();
     }
+    ctx.globalAlpha = 1;
     // Falseness
     ctx.lineWidth = FALSE_ROW_GROUP_LINE_WIDTH;
     for (let i = 0; i < frag.false_row_ranges.length; i++) {
@@ -362,8 +373,8 @@ function on_key_down(e) {
         comp.add_frag();
         on_comp_change();
     }
-    // 's' to [s]plit a fragment into two at the mouse location
-    if (e.key === 's' && hov_loc.frag) {
+    // 'x' to 'cut' a fragment into two at the mouse location
+    if (e.key === 'x' && hov_loc.frag) {
         const split_index = Math.round(hov_loc.frag.row);
         // Make sure there's a 10px gap between the BBoxes of the two fragments (the `+ 1` takes
         // into account the existence of the leftover row)
@@ -385,13 +396,23 @@ function on_key_down(e) {
             on_comp_change();
         }
     }
+    // 'q' to mute/unmute a fragment
+    if (e.key === 'm' && hov_loc.frag) {
+        comp.toggle_frag_mute(hov_loc.frag.index);
+        on_comp_change();
+    }
+    // 'w' to solo/unsolo a fragment
+    if (e.key === 's' && hov_loc.frag) {
+        comp.toggle_frag_solo(hov_loc.frag.index);
+        on_comp_change();
+    }
     // 'R' to reset the composition (ye too dangerous I know but good enough for now)
     if (e.key === 'R') {
         comp.reset();
         on_comp_change();
     }
-    // 'x' to delete the fragment under the cursor (ye too dangerous I know but good enough for now)
-    if (e.key === 'x' && hov_loc.frag) {
+    // 'd' to delete the fragment under the cursor (ye too dangerous I know but good enough for now)
+    if (e.key === 'd' && hov_loc.frag) {
         comp.delete_frag(hov_loc.frag.index);
         on_comp_change();
     }

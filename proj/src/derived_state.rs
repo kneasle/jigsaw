@@ -1,4 +1,4 @@
-use crate::spec::{AnnotatedRow, MethodName, Spec};
+use crate::spec::{AnnotatedRow, FragState, MethodName, Spec};
 use proj_core::{run_len, Bell, Row, Stage};
 use serde::{ser::SerializeSeq, Serialize, Serializer};
 use std::collections::{HashMap, HashSet};
@@ -53,9 +53,13 @@ impl From<RowOrigin> for RowLocation {
     }
 }
 
-// Required so that we can omit `"is_lead_end" = false` and `"is_leftover" = false` when
-// serialising
+// Required so that we can omit `"is_lead_end": false` when serialising
 fn is_false(b: &bool) -> bool {
+    !b
+}
+
+// Required so that we can omit `"is_proved": true` when serialising
+fn is_true(b: &bool) -> bool {
     !b
 }
 
@@ -84,8 +88,8 @@ pub struct ExpandedRow {
     method_str: Option<MethodName>,
     #[serde(skip_serializing_if = "is_false")]
     is_lead_end: bool,
-    #[serde(skip_serializing_if = "is_false")]
-    is_leftover: bool,
+    #[serde(skip_serializing_if = "is_true")]
+    is_proved: bool,
     /// One [`Row`] for each part of the composition
     #[serde(serialize_with = "ser_rows")]
     rows: Vec<Row>,
@@ -144,7 +148,7 @@ impl ExpandedRow {
         music
     }
 
-    pub fn new(row: &AnnotatedRow, part_heads: &[Row], is_leftover: bool) -> Self {
+    pub fn new(row: &AnnotatedRow, part_heads: &[Row], is_proved: bool) -> Self {
         let all_rows: Vec<Row> = part_heads
             .iter()
             .map(|ph| (ph * &row.row).unwrap())
@@ -155,7 +159,7 @@ impl ExpandedRow {
             is_lead_end: row.is_lead_end,
             music_highlights: Self::calculate_music(&all_rows, row.row.stage()),
             rows: all_rows,
-            is_leftover,
+            is_proved,
         }
     }
 }
@@ -185,6 +189,8 @@ pub struct FragLinkGroups {
 pub struct AnnotFrag {
     false_row_ranges: Vec<FalseRowRange>,
     exp_rows: Vec<ExpandedRow>,
+    state: FragState,
+    is_proved: bool,
     #[serde(flatten)]
     link_groups: FragLinkGroups,
     x: f32,
@@ -222,9 +228,15 @@ pub struct DerivedState {
 impl DerivedState {
     /// Given a [`Spec`]ification, derive a new `DerivedState` from it.
     pub fn from_spec(spec: &Spec) -> DerivedState {
-        let generated_rows = spec.gen_rows();
-        let (false_rows, num_false_rows) = Self::gen_false_rows(&generated_rows, spec.len());
+        // Fully expand the rows of the comp, and also generate which [`Frag`]s should be proved
+        // (using the solo/mute functionality).
+        let (generated_rows, are_frags_proved) = spec.gen_rows();
+
+        // Truth proving pipeline - each stage relies on the output of the first
+        let (flat_proved_rows, part_len) = Self::flatten_proved_rows(&generated_rows, spec.len());
+        let (false_rows, num_false_rows) = Self::gen_false_row_groups(flat_proved_rows);
         let (mut ranges_by_frag, num_false_groups) = Self::coalesce_false_row_groups(false_rows);
+
         let (frag_links, frag_link_groups) = Self::gen_frag_links(&generated_rows);
         // Compile all of the derived state into one struct
         DerivedState {
@@ -233,15 +245,15 @@ impl DerivedState {
                 .into_iter()
                 .zip(frag_link_groups.into_iter())
                 .enumerate()
-                .map(|(i, ((mut rows, leftover_row), link_groups))| {
-                    // Add the leftover row to the row list, checking that it is indeed marked as
-                    // left over
-                    assert!(leftover_row.is_leftover);
-                    rows.push(leftover_row);
+                .map(|(i, (exp_rows, link_groups))| {
+                    // Sanity check that leftover rows should never be used in the proving
+                    assert!(exp_rows.last().map_or(false, |r| !r.is_proved));
                     let (x, y) = spec.frags[i].pos();
                     AnnotFrag {
                         false_row_ranges: ranges_by_frag.remove(&i).unwrap_or(vec![]),
-                        exp_rows: rows,
+                        state: spec.frags[i].state(),
+                        exp_rows,
+                        is_proved: are_frags_proved[i],
                         link_groups,
                         x,
                         y,
@@ -249,7 +261,7 @@ impl DerivedState {
                 })
                 .collect(),
             stats: DerivedStats {
-                part_len: spec.part_len(),
+                part_len,
                 num_false_groups,
                 num_false_rows,
             },
@@ -263,9 +275,7 @@ impl DerivedState {
     /// of x is the same as the first row of y).  This is then used to determine which [`Frag`]s
     /// can be joined together.  This also calculates which groups the top and bottom of each
     /// [`Frag`] belongs to
-    fn gen_frag_links(
-        generated_rows: &[(Vec<ExpandedRow>, ExpandedRow)],
-    ) -> (Vec<FragLink>, Vec<FragLinkGroups>) {
+    fn gen_frag_links(generated_rows: &[Vec<ExpandedRow>]) -> (Vec<FragLink>, Vec<FragLinkGroups>) {
         let num_frags = generated_rows.len();
         // A map to determine which group ID should be assigned to each Row.  This way,
         // interconnected groups of links are given the same colours.
@@ -277,8 +287,8 @@ impl DerivedState {
         for (i, f) in generated_rows.iter().enumerate() {
             for (j, g) in generated_rows.iter().enumerate() {
                 // ... if `g` starts with the leftover row of `f`, then f -> g ...
-                let leftover_row_of_f = &f.1.rows[0];
-                let first_row_of_g = &g.0[0].rows[0];
+                let leftover_row_of_f = &f.last().unwrap().rows[0];
+                let first_row_of_g = &g[0].rows[0];
                 if leftover_row_of_f == first_row_of_g {
                     // Decide what group this link should be put in (so that all the links of the
                     // same row get coloured the same colour).
@@ -300,37 +310,56 @@ impl DerivedState {
         (frag_links, frag_link_groups)
     }
 
-    /// Given the expanded rows of a composition, group the rows on the screen into false groups
-    /// (note that these are groups of individual rows which are the same, rather than the
-    /// 'meta-groups' that the user sees).  `spec_len` is used to make sure that we allocate
-    /// exactly the right amount of space when flattening the rows
-    fn gen_false_rows(
-        generated_rows: &[(Vec<ExpandedRow>, ExpandedRow)],
+    /// Take a jagged array of `ExpandedRow`s, and return all the [`Row`]s that should be
+    /// proven, along with their origin.  This also returns the number of proven rows from each
+    /// part.  This does **not** sort the flattened rows.
+    fn flatten_proved_rows(
+        generated_rows: &[Vec<ExpandedRow>],
         spec_len: usize,
-    ) -> (Vec<Vec<RowLocation>>, usize) {
-        // We use a hashset because if the part heads form a group then any falseness will be the
-        // same between all the parts, so will appear lots of times.
-        let mut false_rows: HashSet<Vec<RowLocation>> = HashSet::new();
+    ) -> (Vec<(RowOrigin, &Row)>, usize) {
         // Expand all the rows and their origins from the composition into a `Vec` to be
         // proved, excluding the last Row of each Frag, since that is 'left over' and as such
         // shouldn't be used of proving
         let mut flattened_rows: Vec<(RowOrigin, &Row)> = Vec::with_capacity(spec_len);
-        for (frag_index, (proof_rows, _leftover_row)) in generated_rows.iter().enumerate() {
-            for (row_index, expanded_row) in proof_rows.iter().enumerate() {
+        let mut part_len = 0;
+        for (frag_index, rows) in generated_rows.iter().enumerate() {
+            for (row_index, expanded_row) in rows.iter().enumerate() {
+                // Only prove rows if they should be proven
+                if !expanded_row.is_proved {
+                    continue;
+                }
                 for (part_index, row) in expanded_row.rows.iter().enumerate() {
                     flattened_rows.push((RowOrigin::new(part_index, frag_index, row_index), row));
                 }
+                // Count the single ExpandedRow as one row per part (despite it expanding to
+                // several individual Rows)
+                part_len += 1;
             }
         }
-        // Sort all_rows only by their rows, so that false rows are appear next to each other
+        (flattened_rows, part_len)
+    }
+
+    /// Given the flattened rows of a composition, group the rows on the screen into false groups
+    /// (note that these are groups of individual rows which are the same, rather than the
+    /// 'meta-groups' that the user sees).  `spec_len` is used to make sure that we allocate
+    /// exactly the right amount of space when flattening the rows
+    fn gen_false_row_groups(
+        mut flattened_rows: Vec<(RowOrigin, &Row)>,
+    ) -> (Vec<Vec<RowLocation>>, usize) {
+        // Sort all_rows only by their rows, so that false rows are appear next to each other.  The
+        // algorithm won't work unless the input rows are sorted.
         flattened_rows.sort_by(|(_, r1), (_, r2)| r1.cmp(r2));
+
+        // We use a hashset because if the part heads form a group then any falseness will be the
+        // same between all the parts, so will appear lots of times.
+        let mut false_rows: HashSet<Vec<RowLocation>> = HashSet::new();
         // The origins of the current set of duplicated rows.  Most of the time, we hope that
         // this has length 1, i.e. all rows are unique.
         let mut current_false_row_group: Vec<RowLocation> = Vec::with_capacity(10);
         let mut last_row = None;
         let mut num_false_rows = 0usize;
         // Iterate over all the rows, compiling groups as we go
-        for (o, r) in flattened_rows {
+        for (o, r) in flattened_rows.iter() {
             if let Some(l_r) = &last_row {
                 if l_r != &r {
                     // If we reach this branch of the code, then it means that we are just
@@ -354,7 +383,7 @@ impl DerivedState {
             // Make sure that the current row becomes the last row for the next iteration, and
             // add this location to the current group.
             last_row = Some(r);
-            current_false_row_group.push(RowLocation::from(o));
+            current_false_row_group.push(RowLocation::from(*o));
         }
         // Make sure that we don't miss the last false row group
         if current_false_row_group.len() > 1 {

@@ -167,6 +167,24 @@ impl Comp {
         "".to_owned()
     }
 
+    /// Toggle whether or not a given [`Frag`] is muted
+    pub fn toggle_frag_mute(&mut self, frag_ind: usize) {
+        self.make_action(|spec: &mut Spec| {
+            let mut new_frag = spec.frags[frag_ind].as_ref().clone();
+            new_frag.toggle_mute();
+            spec.frags[frag_ind] = Rc::new(new_frag);
+        });
+    }
+
+    /// Toggle whether or not a given [`Frag`] is soloed
+    pub fn toggle_frag_solo(&mut self, frag_ind: usize) {
+        self.make_action(|spec: &mut Spec| {
+            let mut new_frag = spec.frags[frag_ind].as_ref().clone();
+            new_frag.toggle_solo();
+            spec.frags[frag_ind] = Rc::new(new_frag);
+        });
+    }
+
     /// Resets the composition to the example
     pub fn reset(&mut self) {
         self.make_action(|spec: &mut Spec| *spec = Spec::cyclic_s8());
