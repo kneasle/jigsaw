@@ -399,13 +399,13 @@ function on_key_down(e) {
             on_comp_change();
         }
     }
-    // 'q' to mute/unmute a fragment
-    if (e.key === 'm' && hov_loc.frag) {
+    // 't' to mute/unmute a fragment
+    if (e.key === 't' && hov_loc.frag) {
         comp.toggle_frag_mute(hov_loc.frag.index);
         on_comp_change();
     }
-    // 'w' to solo/unsolo a fragment
-    if (e.key === 's' && hov_loc.frag) {
+    // 'T' to solo/unsolo a fragment
+    if (e.key === 'T' && hov_loc.frag) {
         comp.toggle_frag_solo(hov_loc.frag.index);
         on_comp_change();
     }
