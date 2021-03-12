@@ -94,6 +94,34 @@ impl Frag {
         )
     }
 
+    /// Create a new `Frag` of `other` onto the end of `self`, transposing `other` if necessary.
+    /// Both `self` and `other` will be cloned in the process.
+    pub fn joined_with(&self, other: &Frag) -> Frag {
+        // Figure out which rows we're trying to join together
+        let end_row = &self.rows.last().unwrap().row;
+        let start_row = &other.rows[0].row;
+        // Create a Vec with enough space for both Frags, and insert this Frag (minus its leftover
+        // row)
+        let mut rows = Vec::with_capacity(self.len() + other.len() + 1);
+        rows.extend(self.rows[..self.len()].iter().cloned());
+        // If the joining rows are the same then we do a simple clone, otherwise
+        if end_row == start_row {
+            rows.extend(other.rows.iter().cloned());
+        } else {
+            let transposition = end_row.mul_unchecked(&!start_row);
+            rows.extend(other.rows.iter().map(|r| {
+                let mut new_row = r.clone();
+                new_row.row = transposition.mul_unchecked(&r.row);
+                new_row
+            }));
+        }
+        Frag {
+            rows: Rc::new(rows),
+            x: self.x,
+            y: self.y,
+        }
+    }
+
     /* Constructors */
 
     /// Create a new `Frag` from its parts (creating [`Rc`]s where necessary)

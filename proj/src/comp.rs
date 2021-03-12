@@ -124,6 +124,16 @@ impl Comp {
         });
     }
 
+    /// Join the [`Frag`] at `frag_2_ind` onto the end of the [`Frag`] at `frag_1_ind`, transposing
+    /// the latter to match the former if necessary.  The combined [`Frag`] ends up at the index
+    /// and location of `frag_1_ind`, and the [`Frag`] at `frag_2_ind` is removed.
+    pub fn join_frags(&mut self, frag_1_ind: usize, frag_2_ind: usize) {
+        self.make_action(|spec: &mut Spec| {
+            let joined_frag = spec.frags[frag_1_ind].joined_with(&spec.frags[frag_2_ind]);
+            spec.frags[frag_1_ind] = Rc::new(joined_frag);
+            spec.frags.remove(frag_2_ind);
+        });
+    }
 
     /// Splits a given [`Frag`]ment into two fragments, returning `""` on success and an error
     /// string on failure. `split_index` refers to the first row of the 2nd fragment (so row

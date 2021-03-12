@@ -395,6 +395,11 @@ function on_key_down(e) {
         comp.delete_frag(hov_loc.frag.index);
         on_comp_change();
     }
+    // 'j' to join the first frag 1 onto frag 0
+    if (e.key === 'j') {
+        comp.join_frags(0, 1);
+        on_comp_change();
+    }
     // ctrl-z to undo
     if (e.key === 'z' && e.ctrlKey) {
         comp.undo();
