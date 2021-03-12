@@ -32,7 +32,7 @@ const GRID_COL = "#eee";
 const GRID_SIZE = 200;
 
 const SOLO_FRAG_BACKGROUND_COL = "#f5f5f5";
-const UNPROVEN_ROW_OPACITY = 0.4;
+const UNPROVEN_ROW_OPACITY = 0.3;
 
 const DRAW_FRAG_LINK_LINES = true;
 const FRAG_LINK_WIDTH = 2;
@@ -80,6 +80,7 @@ function draw_row(x, y, row) {
     const stage = derived_state.stage;
     const text_baseline = y + ROW_HEIGHT * 0.75;
     const right = x + COL_WIDTH * stage;
+    const opacity = row.is_proved === true ? 1 : UNPROVEN_ROW_OPACITY;
     // Set the font for the entire row
     ctx.font = ROW_FONT;
     // Call string
@@ -95,16 +96,18 @@ function draw_row(x, y, row) {
         if (row.music_highlights && row.music_highlights[b].length > 0) {
             // If some music happened in the part we're currently viewing, then set the alpha to 1,
             // otherwise make an 'onionskinning' effect of the music from other parts
-            ctx.globalAlpha = row.music_highlights[b].includes(view.current_part)
-                ? 1
-                : 1 - Math.pow(1 - MUSIC_ONIONSKIN_OPACITY, row.music_highlights[b].length);
+            ctx.globalAlpha = (
+                row.music_highlights[b].includes(view.current_part)
+                    ? 1
+                    : 1 - Math.pow(1 - MUSIC_ONIONSKIN_OPACITY, row.music_highlights[b].length)
+            ) * opacity;
             ctx.fillStyle = MUSIC_COL;
             ctx.fillRect(x + COL_WIDTH * b, y, COL_WIDTH, ROW_HEIGHT);
         }
         // Text
         const bell_index = row.rows[view.current_part][b];
         if (!bell_lines[bell_index]) {
-            ctx.globalAlpha = row.is_proved === true ? 1 : UNPROVEN_ROW_OPACITY;
+            ctx.globalAlpha = opacity;
             ctx.fillStyle = FOREGROUND_COL;
             ctx.fillText(BELL_NAMES[bell_index], x + COL_WIDTH * (b + 0.5), text_baseline);
         }
