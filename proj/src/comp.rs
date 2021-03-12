@@ -176,13 +176,11 @@ impl Comp {
         });
     }
 
-    /// Toggle whether or not a given [`Frag`] is soloed
+    /// [`Frag`] soloing ala FL Studio; this has two cases:
+    /// 1. `frag_ind` is the only unmuted [`Frag`], in which case we unmute everything
+    /// 2. `frag_ind` isn't the only unmuted [`Frag`], in which case we mute everything except it
     pub fn toggle_frag_solo(&mut self, frag_ind: usize) {
-        self.make_action(|spec: &mut Spec| {
-            let mut new_frag = spec.frags[frag_ind].as_ref().clone();
-            new_frag.toggle_solo();
-            spec.frags[frag_ind] = Rc::new(new_frag);
-        });
+        self.make_action(|spec: &mut Spec| spec.solo_single_frag(frag_ind));
     }
 
     /// Resets the composition to the example

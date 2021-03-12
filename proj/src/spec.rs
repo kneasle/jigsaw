@@ -37,27 +37,13 @@ pub struct MethodName {
     shorthand: String,
 }
 
-/// What state a [`Frag`] is currently in ([`Frag`]s can't be muted and soloed at the same time)
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize)]
-pub enum FragState {
-    Normal,
-    Muted,
-    Soloed,
-}
-
-impl Default for FragState {
-    fn default() -> Self {
-        Self::Normal
-    }
-}
-
 /// A single unexpanded fragment of a composition
 #[derive(Clone, Debug)]
 pub struct Frag {
     /// Note that this [`Vec`] stores all the rows that should be displayed in this fragment,
     /// including the leftover row (which has to be displayed, but won't be used for proving)
     rows: Rc<Vec<AnnotatedRow>>,
-    state: FragState,
+    is_muted: bool,
     x: f32,
     y: f32,
 }
@@ -71,8 +57,8 @@ impl Frag {
     }
 
     /// Returns the mutedness state of this `Frag`
-    pub fn state(&self) -> FragState {
-        self.state
+    pub fn is_muted(&self) -> bool {
+        self.is_muted
     }
 
     /// The number of rows in this `Frag` (**not including the leftover row**)
@@ -91,18 +77,7 @@ impl Frag {
 
     /// Toggles whether or not this [`Frag`] is in state [`FragState::Muted`].
     pub fn toggle_mute(&mut self) {
-        self.state = match self.state {
-            FragState::Muted => FragState::Normal,
-            _ => FragState::Muted,
-        }
-    }
-
-    /// Toggles whether or not this [`Frag`] is in state [`FragState::Muted`].
-    pub fn toggle_solo(&mut self) {
-        self.state = match self.state {
-            FragState::Soloed => FragState::Normal,
-            _ => FragState::Soloed,
-        }
+        self.is_muted = !self.is_muted;
     }
 
     /* Non-mutating operations */
@@ -125,8 +100,8 @@ impl Frag {
         rows1.last_mut().unwrap().clear_annotations();
         // Build new fragments out of the cloned rows
         (
-            Frag::new(rows1, self.x, self.y, self.state),
-            Frag::new(rows2, self.x, new_y, self.state),
+            Frag::new(rows1, self.x, self.y, self.is_muted),
+            Frag::new(rows2, self.x, new_y, self.is_muted),
         )
     }
 
@@ -155,24 +130,24 @@ impl Frag {
             rows: Rc::new(rows),
             x: self.x,
             y: self.y,
-            state: self.state,
+            is_muted: self.is_muted,
         }
     }
 
     /* Constructors */
 
     /// Create a new `Frag` from its parts (creating [`Rc`]s where necessary)
-    fn new(rows: Vec<AnnotatedRow>, x: f32, y: f32, state: FragState) -> Frag {
+    fn new(rows: Vec<AnnotatedRow>, x: f32, y: f32, is_muted: bool) -> Frag {
         Frag {
             rows: Rc::new(rows),
             x,
             y,
-            state,
+            is_muted,
         }
     }
 
     fn from_rows(rows: Vec<AnnotatedRow>) -> Frag {
-        Self::new(rows, 0.0, 0.0, FragState::Normal)
+        Self::new(rows, 0.0, 0.0, false)
     }
 
     /// Generates an example fragment (in this case, it's https://complib.org/composition/75822)
@@ -266,7 +241,7 @@ impl Frag {
         });
         rows[15].is_lead_end = true;
 
-        Self::new(rows, x, y, FragState::Normal)
+        Self::new(rows, x, y, false)
     }
 }
 
@@ -280,6 +255,8 @@ pub struct Spec {
 }
 
 impl Spec {
+    /* Constructors */
+
     /// Creates an example Spec
     pub fn cyclic_s8() -> Spec {
         // Generate all the cyclic part heads, and make sure that we start with rounds
@@ -300,7 +277,7 @@ impl Spec {
     }
 
     fn single_frag(frag: Frag, part_heads: Vec<Row>, stage: Stage) -> Spec {
-        // Check that all the stages are the same
+        // Check that all the stages match
         for annot_r in frag.rows.iter() {
             assert_eq!(annot_r.row.stage(), stage);
         }
@@ -313,6 +290,32 @@ impl Spec {
             stage,
         }
     }
+
+    /* Operations */
+
+    /// [`Frag`] soloing ala FL Studio; this has two cases:
+    /// 1. `frag_ind` is the only unmuted [`Frag`], in which case we unmute everything
+    /// 2. `frag_ind` isn't the only unmuted [`Frag`], in which case we mute everything except it
+    pub fn solo_single_frag(&mut self, frag_ind: usize) {
+        // `is_only_unmuted_frag` is true if:
+        //     \forall frags f: (f is unmuted) <=> (f has index `frag_ind`)
+        let is_only_unmuted_frag = self
+            .frags
+            .iter()
+            .enumerate()
+            .all(|(i, f)| !f.is_muted == (i == frag_ind));
+        // Set state of all frags
+        for (i, f) in self.frags.iter_mut().enumerate() {
+            let should_be_muted = !(i == frag_ind || is_only_unmuted_frag);
+            if f.is_muted != should_be_muted {
+                let mut new_frag = f.as_ref().clone();
+                new_frag.is_muted = should_be_muted;
+                *f = Rc::new(new_frag);
+            }
+        }
+    }
+
+    /* Getters */
 
     /// Gets the number of [`Row`]s that should be proved in the expanded version of this comp,
     /// without expanding anything.
@@ -328,40 +331,17 @@ impl Spec {
     /// Generates all the rows generated by this `Spec`, storing them in the following
     /// datastructure:
     /// ```ignore
-    /// (
-    ///     Vec< // One per Frag
-    ///         (
-    ///             Vec< // One per row in that Frag, including the leftover row
-    ///                 ExpandedRow // Contains one Row per part
-    ///             >,
-    ///             bool // Is the entire [`Frag`] proved?
-    ///         )
-    ///     >,
-    ///     Vec<bool>, // One per Frag, set to true if that Frag should be proved
-    /// )
+    /// Vec< // One per Frag
+    ///     (
+    ///         Vec< // One per row in that Frag, including the leftover row
+    ///             ExpandedRow // Contains one Row per part
+    ///         >,
+    ///         bool // Is the entire [`Frag`] proved?
+    ///     )
+    /// >,
     /// ```
-    pub fn gen_rows(&self) -> (Vec<Vec<ExpandedRow>>, Vec<bool>) {
-        // Check if any frags are soloed to make sure that the frag muting is accurate.  There are
-        // two cases:
-        //  1. No frags are soloed:   Frags are muted iff they are in FragState::Muted
-        //  2. Some frags are soloed: Frags are muted iff they aren't in FragState::Soloed
-        let any_frags_soloed = self
-            .frags
-            .iter()
-            .any(|frag| frag.state == FragState::Soloed);
-        let are_frags_proved: Vec<bool> = self
-            .frags
-            .iter()
-            .map(|f| {
-                if any_frags_soloed {
-                    f.state == FragState::Soloed
-                } else {
-                    f.state != FragState::Muted
-                }
-            })
-            .collect();
-        let expanded_rows = self
-            .frags
+    pub fn gen_rows(&self) -> Vec<Vec<ExpandedRow>> {
+        self.frags
             .iter()
             .enumerate()
             .map(|(frag_ind, f)| {
@@ -373,13 +353,11 @@ impl Spec {
                         ExpandedRow::new(
                             r,
                             &self.part_heads,
-                            row_ind != f.len() && are_frags_proved[frag_ind],
+                            row_ind != f.len() && !self.frags[frag_ind].is_muted,
                         )
                     })
                     .collect()
             })
-            .collect();
-
-        (expanded_rows, are_frags_proved)
+            .collect()
     }
 }

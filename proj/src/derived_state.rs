@@ -1,4 +1,4 @@
-use crate::spec::{AnnotatedRow, FragState, MethodName, Spec};
+use crate::spec::{AnnotatedRow, MethodName, Spec};
 use proj_core::{run_len, Bell, Row, Stage};
 use serde::{ser::SerializeSeq, Serialize, Serializer};
 use std::collections::{HashMap, HashSet};
@@ -189,7 +189,6 @@ pub struct FragLinkGroups {
 pub struct AnnotFrag {
     false_row_ranges: Vec<FalseRowRange>,
     exp_rows: Vec<ExpandedRow>,
-    state: FragState,
     is_proved: bool,
     #[serde(flatten)]
     link_groups: FragLinkGroups,
@@ -230,7 +229,7 @@ impl DerivedState {
     pub fn from_spec(spec: &Spec) -> DerivedState {
         // Fully expand the rows of the comp, and also generate which [`Frag`]s should be proved
         // (using the solo/mute functionality).
-        let (generated_rows, are_frags_proved) = spec.gen_rows();
+        let generated_rows = spec.gen_rows();
 
         // Truth proving pipeline - each stage relies on the output of the first
         let (flat_proved_rows, part_len) = Self::flatten_proved_rows(&generated_rows, spec.len());
@@ -251,9 +250,8 @@ impl DerivedState {
                     let (x, y) = spec.frags[i].pos();
                     AnnotFrag {
                         false_row_ranges: ranges_by_frag.remove(&i).unwrap_or(vec![]),
-                        state: spec.frags[i].state(),
                         exp_rows,
-                        is_proved: are_frags_proved[i],
+                        is_proved: !spec.frags[i].is_muted(),
                         link_groups,
                         x,
                         y,

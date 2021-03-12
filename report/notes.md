@@ -151,3 +151,8 @@ type Block = Chain Block Block | SinglePermutation Perm
     rows are, not their relation
 - I sketched out my ideas for how the program should look, and he generally approved:
   ![A-Holroyd sketch](a-holroyd.png)
+
+## 2021-03-12
+
+- Implemented muting/soloing in the traditional sense of having a mute/solo feature attached to each
+  `Frag`.  But this is confusing, and FL Studio uses a better way.
