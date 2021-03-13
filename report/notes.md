@@ -156,3 +156,5 @@ type Block = Chain Block Block | SinglePermutation Perm
 
 - Implemented muting/soloing in the traditional sense of having a mute/solo feature attached to each
   `Frag`.  But this is confusing, and FL Studio uses a better way.
+- Noted that the architecture is basically client/server (JS/Rust), except that the client is in
+  charge of storing all the data provided by the server (JS writing cookies)

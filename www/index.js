@@ -38,6 +38,8 @@ const DRAW_FRAG_LINK_LINES = true;
 const FRAG_LINK_WIDTH = 2;
 const FRAG_LINK_MIN_OPACITY = 0.15;
 const FRAG_LINK_OPACITY_FALLOFF = 0.001;
+const SELECTED_LINK_WIDTH_MULTIPLIER = 2;
+const FRAG_LINK_SELECTION_DIST = 20;
 
 const ROW_FONT = "20px monospace";
 const BELL_NAMES = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
@@ -57,6 +59,7 @@ const FALSE_COUNT_COL_TRUE = "green";
 let canv, ctx;
 // Global state to do with the UI
 let frag_being_moved = undefined;
+let selected_link = undefined;
 // Variables which will used to sync with the Rust code (in 90% of the code, these should be treated
 // as immutable).
 let comp, derived_state, view;
@@ -83,12 +86,6 @@ function draw_row(x, y, row) {
     const opacity = row.is_proved === true ? 1 : UNPROVEN_ROW_OPACITY;
     // Set the font for the entire row
     ctx.font = ROW_FONT;
-    // Call string
-    if (row.call_str) {
-        ctx.textAlign = "right";
-        ctx.fillStyle = FOREGROUND_COL;
-        ctx.fillText(row.call_str, x - FALSENESS_BAR_WIDTH, text_baseline);
-    }
     // Bells
     ctx.textAlign = "center";
     for (let b = 0; b < stage; b++) {
@@ -112,16 +109,12 @@ function draw_row(x, y, row) {
             ctx.fillText(BELL_NAMES[bell_index], x + COL_WIDTH * (b + 0.5), text_baseline);
         }
     }
-    ctx.globalAlpha = 1;
-    // Ruleoff
-    if (row.is_lead_end) {
-        const ruleoff_y = Math.round(y + ROW_HEIGHT) - 0.5;
-        ctx.beginPath();
-        ctx.moveTo(x, ruleoff_y);
-        ctx.lineTo(right, ruleoff_y);
-        ctx.strokeStyle = FOREGROUND_COL;
-        ctx.lineWidth = RULEOFF_LINE_WIDTH;
-        ctx.stroke();
+    ctx.globalAlpha = opacity;
+    // Call string
+    if (row.call_str) {
+        ctx.textAlign = "right";
+        ctx.fillStyle = FOREGROUND_COL;
+        ctx.fillText(row.call_str, x - FALSENESS_BAR_WIDTH, text_baseline);
     }
     // Method string
     if (row.method_str) {
@@ -132,6 +125,17 @@ function draw_row(x, y, row) {
             x + stage * COL_WIDTH + FALSENESS_BAR_WIDTH,
             text_baseline
         );
+    }
+    ctx.globalAlpha = 1;
+    // Ruleoff
+    if (row.is_lead_end) {
+        const ruleoff_y = Math.round(y + ROW_HEIGHT) - 0.5;
+        ctx.beginPath();
+        ctx.moveTo(x, ruleoff_y);
+        ctx.lineTo(right, ruleoff_y);
+        ctx.strokeStyle = FOREGROUND_COL;
+        ctx.lineWidth = RULEOFF_LINE_WIDTH;
+        ctx.stroke();
     }
 }
 
@@ -232,33 +236,18 @@ function draw_grid() {
     }
 }
 
-function draw_link(link) {
-    // Calculate bboxes of the frags we're joining
-    const bbox_from = frag_bbox(derived_state.annot_frags[link.from]);
-    const bbox_to = frag_bbox(derived_state.annot_frags[link.to]);
-    // If the boxes are offset left/right, then join them up using the shortest possible distance
-    if (bbox_from.max_x < bbox_to.min_x) {
-        var from_x = bbox_from.max_x;
-        var to_x = bbox_to.min_x;
-    } else if (bbox_from.min_x > bbox_to.max_x) {
-        var from_x = bbox_from.min_x;
-        var to_x = bbox_to.max_x;
-    } else {
-        var from_x = bbox_from.c_x;
-        var to_x = bbox_to.c_x;
-    }
-    const from_y = bbox_from.max_y;
-    const to_y = bbox_to.min_y;
+function draw_link(link, is_selected) {
+    const l = frag_link_line(link);
     // Calculate the opacity of the line from its length
-    const length = Math.sqrt(Math.pow(to_x - from_x, 2) + Math.pow(to_y - from_y, 2));
+    const length = Math.sqrt(Math.pow(l.to_x - l.from_x, 2) + Math.pow(l.to_y - l.from_y, 2));
     ctx.globalAlpha = FRAG_LINK_MIN_OPACITY
         + (1 - FRAG_LINK_MIN_OPACITY) * Math.exp(-length * FRAG_LINK_OPACITY_FALLOFF);
     // Draw the line
     ctx.strokeStyle = group_col(link.group);
-    ctx.lineWidth = FRAG_LINK_WIDTH;
+    ctx.lineWidth = FRAG_LINK_WIDTH * (is_selected ? SELECTED_LINK_WIDTH_MULTIPLIER : 1);
     ctx.beginPath();
-    ctx.moveTo(from_x, from_y);
-    ctx.lineTo(to_x, to_y);
+    ctx.moveTo(l.from_x, l.from_y);
+    ctx.lineTo(l.to_x, l.to_y);
     ctx.stroke();
     // Reset global alpha for the next things to render
     ctx.globalAlpha = 1;
@@ -282,8 +271,8 @@ function draw() {
     // Draw background grid
     draw_grid();
     // Draw all the fragment links
-    for (const link of derived_state.frag_links) {
-        draw_link(link);
+    for (let i = 0; i < derived_state.frag_links.length; i++) {
+        draw_link(derived_state.frag_links[i], i === selected_link);
     }
     // Draw all the fragments
     for (let f = 0; f < derived_state.annot_frags.length; f++) {
@@ -318,6 +307,12 @@ function on_window_resize() {
 }
 
 function on_mouse_move(e) {
+    // Repaint the screen if the selected link has changed because we moved the mouse
+    let closest_link = closest_frag_link_to_cursor();
+    if (closest_link !== selected_link) {
+        selected_link = closest_link;
+        request_frame();
+    }
     // If we clicked on a fragment, then move it
     if (frag_being_moved !== undefined) {
         // Note that in this case, we allow `derived_state` to get out of sync with Rust's ground
@@ -338,10 +333,10 @@ function on_mouse_move(e) {
 }
 
 function on_mouse_down(e) {
-    const mouse_loc = mouse_hover_location();
+    const frag = hovered_frag();
     // Left-clicking a fragment should start us dragging it
-    if (get_button(e) === BTN_LEFT && mouse_loc.frag) {
-        frag_being_moved = mouse_loc.frag.index;
+    if (get_button(e) === BTN_LEFT && frag) {
+        frag_being_moved = frag.index;
     }
 }
 
@@ -370,43 +365,42 @@ function on_mouse_up(e) {
 
 function on_key_down(e) {
     // Detect which fragment is under the cursor
-    const hov_loc = mouse_hover_location();
+    const frag = hovered_frag();
     // 'a' to add the first lead of Plain Bob as a new fragment to the comp
     if (e.key === 'a') {
         comp.add_frag();
         on_comp_change();
     }
-    // 'x' to 'cut' a fragment into two at the mouse location
-    if (e.key === 'x' && hov_loc.frag) {
-        const split_index = Math.round(hov_loc.frag.row);
-        // Make sure there's a 10px gap between the BBoxes of the two fragments (the `+ 1` takes
-        // into account the existence of the leftover row)
-        const new_y = derived_state.annot_frags[hov_loc.frag.index].y
+    // 's' to 'cut' a fragment into two at the mouse location
+    if (e.key === 's' && frag) {
+        const split_index = Math.round(frag.row);
+        // Make sure there's a 10px gap between the BBoxes of the two fragments (we add 1 to
+        // `split_index` to take into account the existence of the leftover row)
+        const new_y = derived_state.annot_frags[frag.index].y
             + (split_index + 1) * ROW_HEIGHT
             + FRAG_BBOX_EXTRA_HEIGHT * 2 + 10;
-
-        // Split the fragment, and store the error
+        // Split the fragment, and store the error string
         const err = comp.split_frag(
-            hov_loc.frag.index,
+            frag.index,
             split_index,
             new_y
         );
         // If the split failed, then log the error.  Otherwise, resync the composition with
         // `on_comp_change`.
         if (err) {
-            console.error("Error splitting fragment: " + err);
+            console.warn("Error splitting fragment: " + err);
         } else {
             on_comp_change();
         }
     }
     // 't' to mute/unmute a fragment
-    if (e.key === 't' && hov_loc.frag) {
-        comp.toggle_frag_mute(hov_loc.frag.index);
+    if (e.key === 't' && frag) {
+        comp.toggle_frag_mute(frag.index);
         on_comp_change();
     }
     // 'T' to solo/unsolo a fragment
-    if (e.key === 'T' && hov_loc.frag) {
-        comp.toggle_frag_solo(hov_loc.frag.index);
+    if (e.key === 'T' && frag) {
+        comp.toggle_frag_solo(frag.index);
         on_comp_change();
     }
     // 'R' to reset the composition (ye too dangerous I know but good enough for now)
@@ -415,13 +409,14 @@ function on_key_down(e) {
         on_comp_change();
     }
     // 'd' to delete the fragment under the cursor (ye too dangerous I know but good enough for now)
-    if (e.key === 'd' && hov_loc.frag) {
-        comp.delete_frag(hov_loc.frag.index);
+    if (e.key === 'd' && frag) {
+        comp.delete_frag(frag.index);
         on_comp_change();
     }
-    // 'j' to join the first frag 1 onto frag 0
-    if (e.key === 'j') {
-        comp.join_frags(0, 1);
+    // 'j' to join the first frag 1 onto frag 0, but only if we aren't hovering a fragment
+    if (e.key === 'j' && selected_link !== undefined) {
+        const link_to_join = derived_state.frag_links[selected_link];
+        comp.join_frags(link_to_join.from, link_to_join.to);
         on_comp_change();
     }
     // ctrl-z to undo
@@ -541,40 +536,40 @@ function is_button_pressed(e, button) {
     return (button_mask & (1 << button)) != 0;
 }
 
+function world_space_cursor_pos() {
+    // First, transform the mouse coords out of screen space and into world space
+    return {
+        x: mouse_coords.x - canv.width / 2 + view.view_x,
+        y: mouse_coords.y - canv.height / 2 + view.view_y
+    };
+}
+
 // Returns the fragment underneath the cursor, along with a more precise indication of which
 // row/column the mouse is hovering over
-function mouse_hover_location() {
-    // First, transform the mouse coords out of screen space and into world space
-    const world_x = mouse_coords.x - canv.width / 2 + view.view_x;
-    const world_y = mouse_coords.y - canv.height / 2 + view.view_y;
+function hovered_frag() {
+    let c = world_space_cursor_pos();
     // Now, perform a raycast through the fragments to detect any collisions.  We do this in the
     // opposite order to that which they are rendered, so that in the case of overlap the topmost
     // frag takes precidence.
-    let hovered_frag = undefined;
+    let hov_frag = undefined;
     for (let i = derived_state.annot_frags.length - 1; i >= 0; i--) {
         const frag = derived_state.annot_frags[i];
         const bbox = frag_bbox(frag);
         // Skip this frag if the mouse is outside its bbox
-        if (world_x < bbox.min_x || world_x > bbox.max_x
-            || world_y < bbox.min_y || world_y > bbox.max_y) {
+        if (c.x < bbox.min_x || c.x > bbox.max_x || c.y < bbox.min_y || c.y > bbox.max_y) {
             continue;
         }
         // If we get to this point, this must be the topmost fragment that we are hovering over so
         // we calculate the row/col coordinate and break the loop so that hovered_frag doesn't get
         // overwritten.
-        hovered_frag = {
+        hov_frag = {
             index: i,
-            row: (world_y - frag.y) / ROW_HEIGHT,
-            col: (world_x - frag.x) / COL_WIDTH,
+            row: (c.y - frag.y) / ROW_HEIGHT,
+            col: (c.x - frag.x) / COL_WIDTH,
         };
         break;
     }
-    // Package the data and return
-    return {
-        world_x: world_x,
-        world_y: world_y,
-        frag: hovered_frag,
-    };
+    return hov_frag;
 }
 
 function frag_bbox(f) {
@@ -593,6 +588,78 @@ function view_rect() {
         canv.width / devicePixelRatio,
         canv.height / devicePixelRatio,
     );
+}
+
+function frag_link_line(link) {
+    // Calculate bboxes of the frags we're joining
+    const bbox_from = frag_bbox(derived_state.annot_frags[link.from]);
+    const bbox_to = frag_bbox(derived_state.annot_frags[link.to]);
+    // If the boxes are offset left/right, then join them up using the shortest possible distance
+    if (bbox_from.max_x < bbox_to.min_x) {
+        var from_x = bbox_from.max_x;
+        var to_x = bbox_to.min_x;
+    } else if (bbox_from.min_x > bbox_to.max_x) {
+        var from_x = bbox_from.min_x;
+        var to_x = bbox_to.max_x;
+    } else {
+        var from_x = bbox_from.c_x;
+        var to_x = bbox_to.c_x;
+    }
+    const from_y = bbox_from.max_y;
+    const to_y = bbox_to.min_y;
+    // Return the computed lines
+    return {
+        from_x: from_x,
+        from_y: from_y,
+        to_x: to_x,
+        to_y: to_y,
+    };
+}
+
+function closest_frag_link_to_cursor() {
+    const c = world_space_cursor_pos();
+    // Find nearest link to the cursor
+    let best_distance = Infinity;
+    let closest_link_ind = undefined;
+    for (let i = 0; i < derived_state.frag_links.length; i++) {
+        const link = derived_state.frag_links[i];
+        // If the link goes to and from the same fragment, then reject it because it can't be joined
+        if (link.from == link.to)
+            continue;
+        // Find which points the line will be drawn between
+        const l = frag_link_line(link);
+        // Calculate the direction vector of the line
+        const d = {
+            x: l.to_x - l.from_x,
+            y: l.to_y - l.from_y
+        };
+        // Calculate the square length of the line
+        const square_length = d.x * d.x + d.y * d.y;
+        // Calculate how far along the line the closest point to the cursor should be (as a
+        // proportion where 0 is `(from_x, from_y)` and 1 is `(to_x, to_y)`).
+        //
+        // This formula is equivalent to `((cursor - from) . d) / (d . d)`, where (d . d) is the
+        // square length of `d`
+        let lambda = ((c.x - l.from_x) * d.x + (c.y - l.from_y) * d.y) / square_length;
+        // Clamp to 0 <= lambda <= 1 so that our closest point lies along the line _segment_ not the
+        // entire line
+        lambda = Math.max(0, Math.min(1, lambda));
+        // Calculate the vector of (the point on the line segment represented by lambda) -> cursor
+        let pt_to_cursor = {
+            x: c.x - (l.from_x * (1 - lambda) + l.to_x * lambda),
+            y: c.y - (l.from_y * (1 - lambda) + l.to_y * lambda),
+        };
+        // Calculate the length of pt_to_cursor
+        let dist_from_cursor = Math.sqrt(
+            pt_to_cursor.x * pt_to_cursor.x + pt_to_cursor.y * pt_to_cursor.y
+        );
+        // If we get a closer distance, then set this as the best link (so far)
+        if (dist_from_cursor <= FRAG_LINK_SELECTION_DIST && dist_from_cursor < best_distance) {
+            best_distance = dist_from_cursor;
+            closest_link_ind = i;
+        }
+    }
+    return closest_link_ind;
 }
 
 // Rect constructors
