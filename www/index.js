@@ -367,18 +367,18 @@ function on_key_down(e) {
     // Detect which fragment is under the cursor
     const frag = hovered_frag();
     const cursor_pos = world_space_cursor_pos();
-    // 'a' to add a lead of Plain Bob as a new fragment to the comp
+    // add a lead of Plain Bob as a new fragment to the comp
     if (e.key === 'a') {
         comp.add_frag(cursor_pos.x, cursor_pos.y, "", false);
         on_comp_change();
     }
-    // 'A' to add whole course
+    // add whole course
     if (e.key === 'A') {
         comp.add_frag(cursor_pos.x, cursor_pos.y, "", true);
         on_comp_change();
     }
-    // 's' to 'cut' a fragment into two at the mouse location
-    if (e.key === 's' && frag) {
+    // 'cut' a fragment into two at the mouse location
+    if (e.key === 'x' && frag) {
         const split_index = Math.round(frag.row);
         // Make sure there's a 10px gap between the BBoxes of the two fragments (we add 1 to
         // `split_index` to take into account the existence of the leftover row)
@@ -399,39 +399,43 @@ function on_key_down(e) {
             on_comp_change();
         }
     }
-    // 't' to mute/unmute a fragment
-    if (e.key === 't' && frag) {
+    // mute/unmute a fragment
+    if (e.key === 's' && frag) {
         comp.toggle_frag_mute(frag.index);
         on_comp_change();
     }
-    // 'T' to solo/unsolo a fragment
-    if (e.key === 'T' && frag) {
+    // solo/unsolo a fragment
+    if (e.key === 'S' && frag) {
         comp.toggle_frag_solo(frag.index);
         on_comp_change();
     }
-    // 'R' to reset the composition (ye too dangerous I know but good enough for now)
+    // transpose a fragment
+    if (e.key === 't' && frag) {
+        console.log("Transposing ", frag.index);
+    }
+    // reset the composition (ye too dangerous I know but good enough for now)
     if (e.key === 'R') {
         comp.reset();
         on_comp_change();
     }
-    // 'd' to delete the fragment under the cursor (ye too dangerous I know but good enough for now)
+    // delete the fragment under the cursor (ye too dangerous I know but good enough for now)
     if (e.key === 'd' && frag) {
         comp.delete_frag(frag.index);
         on_comp_change();
     }
-    // 'j' to join the first frag 1 onto frag 0, but only if we aren't hovering a fragment
+    // join the first frag 1 onto frag 0, but only if we aren't hovering a fragment
     if (e.key === 'j' && selected_link !== undefined) {
         const link_to_join = derived_state.frag_links[selected_link];
         comp.join_frags(link_to_join.from, link_to_join.to);
         on_comp_change();
     }
-    // ctrl-z to undo
-    if (e.key === 'z' && e.ctrlKey) {
+    // ctrl-z or simply z to undo (of course)
+    if (e.key === 'z') {
         comp.undo();
         on_comp_change();
     }
     // shift-ctrl-Z or ctrl-y to redo
-    if ((e.key === 'Z' && e.ctrlKey) || (e.key === 'y' && e.ctrlKey)) {
+    if (e.key === 'Z' || (e.key === 'y' && e.ctrlKey)) {
         comp.redo();
         on_comp_change();
     }
