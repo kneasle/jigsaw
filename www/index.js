@@ -149,8 +149,8 @@ function draw_falseness_indicator(x, min_y, max_y, notch_width, notch_height) {
 }
 
 function draw_frag(frag) {
-    const x = frag.x;
-    const y = frag.y;
+    const x = Math.round(frag.x);
+    const y = Math.round(frag.y);
     const rect = frag_bbox(frag);
     // Background box (to overlay over the grid)
     ctx.fillStyle = frag.state === SOLOED ? SOLO_FRAG_BACKGROUND_COL : BACKGROUND_COL;
