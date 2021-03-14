@@ -97,12 +97,14 @@ impl Comp {
 
     /// Add a new `Frag`ment to the composition.  For the time being, we always create the first
     /// lead of Plain Bob Major
-    pub fn add_frag(&mut self) {
+    pub fn add_frag(&mut self, x: f32, y: f32, start_row: String, add_course: bool) {
         self.make_action(|spec: &mut Spec| {
-            spec.frags.push(Rc::new(Frag::one_lead_pb_maj(
-                spec.frags.len() as f32 * 300.0,
-                spec.frags.len() as f32 * 50.0,
-            )));
+            let new_frag = Frag::one_lead_pb_maj(x, y);
+            spec.frags.push(Rc::new(if add_course {
+                new_frag.expand_to_round_block()
+            } else {
+                new_frag
+            }));
         });
     }
 

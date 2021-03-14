@@ -366,9 +366,15 @@ function on_mouse_up(e) {
 function on_key_down(e) {
     // Detect which fragment is under the cursor
     const frag = hovered_frag();
-    // 'a' to add the first lead of Plain Bob as a new fragment to the comp
+    const cursor_pos = world_space_cursor_pos();
+    // 'a' to add a lead of Plain Bob as a new fragment to the comp
     if (e.key === 'a') {
-        comp.add_frag();
+        comp.add_frag(cursor_pos.x, cursor_pos.y, "", false);
+        on_comp_change();
+    }
+    // 'A' to add whole course
+    if (e.key === 'A') {
+        comp.add_frag(cursor_pos.x, cursor_pos.y, "", true);
         on_comp_change();
     }
     // 's' to 'cut' a fragment into two at the mouse location

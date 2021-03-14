@@ -126,6 +126,41 @@ impl Frag {
                 new_row
             }));
         }
+        self.clone_with_new_rows(rows)
+    }
+
+    /// Creates a new `Frag` which contains `self` joined to itself repeatedly until a round block
+    /// is generated.  If `self` is a plain lead, then this will generate a whole course of that
+    /// method.  All other properties (location, mutedness, etc.) are inherited (and cloned) from
+    /// `self`.
+    pub fn expand_to_round_block(&self) -> Frag {
+        let own_start_row = &self.rows[0].row;
+        let mut current_start_row = own_start_row.clone();
+        let mut rows: Vec<AnnotatedRow> = vec![self.rows[0].clone()];
+        // Repeatedly add `self` and permute until we return to the start row
+        loop {
+            // Add a copy of `self` to rows (skipping the first row, since that will be provided as
+            // the leftover row of the last `Frag` we added)
+            rows.extend(self.rows[1..].iter().map(|r| {
+                let mut new_row = r.clone();
+                new_row.row = current_start_row.mul_unchecked(&r.row);
+                new_row
+            }));
+            // Make sure that the next row starts with the last row generated so far (i.e. the
+            // leftover row of the Block we've built so far)
+            current_start_row = rows.last().unwrap().row.clone();
+            // If we've reached the first row again, then return.  This must terminate because the
+            // permutation group over any finite number of objects is always finite, so no element
+            // can have infinite order.
+            if own_start_row == &current_start_row {
+                return self.clone_with_new_rows(rows);
+            }
+        }
+    }
+
+    /// Create a new `Frag` which is identical to `self`, except that it contains different
+    /// [`AnnotatedRow`]s
+    pub fn clone_with_new_rows(&self, rows: Vec<AnnotatedRow>) -> Frag {
         Frag {
             rows: Rc::new(rows),
             x: self.x,
