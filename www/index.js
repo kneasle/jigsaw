@@ -53,6 +53,9 @@ const FALSE_ROW_GROUP_LINE_WIDTH = 3;
 const FALSE_COUNT_COL_FALSE = "red";
 const FALSE_COUNT_COL_TRUE = "green";
 
+// Debug settings
+const PROFILE_SYNC_DER_STATE = false; // profile `sync_derived_state` in `start`?
+
 /* ===== GLOBAL VARIABLES ===== */
 
 // Variables set in the `start()` function
@@ -521,6 +524,15 @@ function start() {
     update_part_head_list();
     update_hud();
     request_frame();
+
+    // Time how long it takes to sync the derived state
+    if (PROFILE_SYNC_DER_STATE) {
+        console.time("Sync derived state");
+        for (let i = 0; i < 1000; i++) {
+            sync_derived_state();
+        }
+        console.timeEnd("Sync derived state");
+    }
 }
 
 /* ===== UTILITY FUNCTIONS/GETTERS ===== */
