@@ -15,10 +15,6 @@ use wasm_bindgen::prelude::*;
 pub enum State {
     /// The UI is idle, and the user is not actively performing an action
     Idle,
-    /// The user is panning the camera.  In this `State`, [`View.view_x`] and [`View.view_y`] are
-    /// allowed to get out of sync in the JS code to avoid unnecessary serialisation and cookie
-    /// writes.
-    Panning,
     /// The user is dragging the [`Frag`] at a given index.  In this `State` the `x`, `y` values of
     /// that particular [`Frag`] are allowed to get out of sync in the JS code to avoid unnecessary
     /// serialisation and undo steps.
@@ -172,33 +168,6 @@ impl Comp {
         }
     }
 
-    /* Panning State */
-
-    /// Returns `true` if the editor is in [`State::Panning`]
-    pub fn is_state_panning(&self) -> bool {
-        match self.state {
-            State::Panning => true,
-            _ => false,
-        }
-    }
-
-    /// Moves the UI into [`State::Dragging`], `panic!`ing if we start in any state other than
-    /// [`State::Idle`]
-    pub fn start_panning(&mut self) {
-        assert!(self.is_state_idle());
-        self.state = State::Panning;
-    }
-
-    /// Called to exit [`State::Panning`].  This moves the viewport to the provided coords, and
-    /// returns the editor to [`State::Idle`].  This `panic!`s if called from any state other than
-    /// [`State::Panning`].
-    pub fn finish_panning(&mut self, new_cam_x: f32, new_cam_y: f32) {
-        assert!(self.is_state_panning());
-        self.view.view_x = new_cam_x;
-        self.view.view_y = new_cam_y;
-        self.state = State::Idle;
-    }
-
     /* Transposing State */
 
     /// Returns `true` if the editor is in [`State::Transposing`]
@@ -348,6 +317,12 @@ impl Comp {
     }
 
     /* View Setters */
+
+    /// Moves the view's camera to a given location
+    pub fn set_view_coords(&mut self, new_cam_x: f32, new_cam_y: f32) {
+        self.view.view_x = new_cam_x;
+        self.view.view_y = new_cam_y;
+    }
 
     pub fn set_current_part(&mut self, new_part: usize) {
         self.view.current_part = new_part;

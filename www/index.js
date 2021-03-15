@@ -327,8 +327,8 @@ function on_mouse_move(e) {
         // Request a repaint because so that the new frag position appears on screen
         request_frame();
     }
-    if (comp.is_state_panning()) {
-        // Move the camera in the JS version
+    // Regardless of state, middle click should pan the camera
+    if (is_button_pressed(e, BTN_MIDDLE)) {
         view.view_x -= e.offsetX - mouse_coords.x;
         view.view_y -= e.offsetY - mouse_coords.y;
         request_frame();
@@ -350,13 +350,6 @@ function on_mouse_down(e) {
                 console.log(`State change: Idle -> Dragging(${frag.index})`);
             }
         }
-        // Middle-clicking should start panning (and prevent the user from doing anything)
-        if (get_button(e) === BTN_MIDDLE) {
-            comp.start_panning();
-            if (DBG_LOG_STATE_TRANSITIONS) {
-                console.log("State change: Idle -> Panning");
-            }
-        }
     }
 }
 
@@ -371,14 +364,9 @@ function on_mouse_up(e) {
             console.log("State change: Dragging -> Idle");
         }
     }
-    // Only update the new view and sync when the user releases the button.  This makes sure
-    // that we don't write cookies whenever the user moves their mouse.
-    if (comp.is_state_panning() && get_button(e) === BTN_MIDDLE) {
-        comp.finish_panning(view.view_x, view.view_y);
+    if (get_button(e) === BTN_MIDDLE) {
+        comp.set_view_coords(view.view_x, view.view_y);
         sync_view();
-        if (DBG_LOG_STATE_TRANSITIONS) {
-            console.log("State change: Panning -> Idle");
-        }
     }
 }
 
@@ -390,8 +378,8 @@ function on_key_down(e) {
             stop_transposing();
         }
     }
-    // Keyboard shortcuts can only be used if the UI is 'idle' - i.e. the user is not panning,
-    // dragging/transposing frags etc.
+    // Keyboard shortcuts can only be used if the UI is 'idle' - i.e. the user is not dragging or
+    // transposing frags etc.
     if (comp.is_state_idle()) {
         // Detect which fragment is under the cursor
         const frag = hovered_frag();
