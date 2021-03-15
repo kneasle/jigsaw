@@ -6,6 +6,24 @@ use crate::{
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
+/// A enum of what states the [`Comp`] editor can be in.  Implementing the UI as a state machine
+/// enforces the constraint that the user can only be performing one action at once.  This prevents
+/// the user causing undefined behaviour by doing things like splitting/deleting a [`Frag`] whilst
+/// dragging it, or changing the part heads whilst doing a transposition.
+#[derive(Debug, Clone)]
+pub enum State {
+    /// The UI is idle, and the user is not actively performing an action
+    Idle,
+    /// The user is panning the camera.  In this `State`, [`View.view_x`] and [`View.view_y`] are
+    /// allowed to get out of sync in the JS code to avoid unnecessary serialisation and cookie
+    /// writes.
+    Panning,
+    /// The user is dragging the [`Frag`] at a given index.  In this `State` the `x`, `y` values of
+    /// that particular [`Frag`] are allowed to get out of sync in the JS code to avoid unnecessary
+    /// serialisation and undo steps.
+    Dragging(usize),
+}
+
 /// The complete state of a partial composition.  The data-flow is:
 /// - User makes some edit, which changes the [`Spec`]ification
 /// - Once we have the new [`Spec`], we expand all the rows, and use these to rebuild the
@@ -18,6 +36,7 @@ pub struct Comp {
     history_index: usize,
     view: View,
     derived_state: DerivedState,
+    state: State,
 }
 
 impl Comp {
@@ -27,6 +46,7 @@ impl Comp {
             view: View::default(),
             undo_history: vec![spec],
             history_index: 0,
+            state: State::Idle,
         }
     }
 
@@ -48,7 +68,7 @@ impl Comp {
     }
 }
 
-// Stuff required specifically for JS rendering
+// Stuff required specifically for JS
 #[wasm_bindgen]
 impl Comp {
     /// Create an example composition
@@ -75,6 +95,88 @@ impl Comp {
 
     pub fn set_view_from_json(&mut self, json: String) {
         self.view = serde_json::de::from_str(&json).unwrap();
+    }
+
+    /* Idle State */
+
+    /// Returns `true` if the editor is in [`State::Idle`]
+    pub fn is_state_idle(&self) -> bool {
+        match self.state {
+            State::Idle => true,
+            _ => false,
+        }
+    }
+
+    /* Dragging State */
+
+    /// Returns `true` if the editor is in [`State::Dragging`]
+    pub fn is_state_dragging(&self) -> bool {
+        match self.state {
+            State::Dragging(_) => true,
+            _ => false,
+        }
+    }
+
+    /// Returns the index of the [`Frag`] being dragged, `panic!`ing if the UI is not in
+    /// [`State::Dragging`].
+    pub fn frag_being_dragged(&self) -> usize {
+        if let State::Dragging(index) = self.state {
+            index
+        } else {
+            unreachable!();
+        }
+    }
+
+    /// Moves the UI into [`State::Dragging`], `panic!`ing if we start in any state other than
+    /// [`State::Idle`]
+    pub fn start_dragging(&mut self, frag_ind: usize) {
+        assert!(self.is_state_idle());
+        self.state = State::Dragging(frag_ind);
+    }
+
+    /// Called to exit [`State::Dragging`].  This moves the [`Frag`] the user was dragging to the
+    /// provided coords (as a new undo step), and returns to [`State::Idle`].  This `panic!`s if
+    /// called from any state other than [`State::Dragging`].
+    pub fn finish_dragging(&mut self, new_x: f32, new_y: f32) {
+        if let State::Dragging(frag_ind) = self.state {
+            // Move the fragment we were dragging
+            self.make_action(|spec: &mut Spec| {
+                let mut new_frag = spec.frags[frag_ind].as_ref().clone();
+                new_frag.move_to(new_x, new_y);
+                spec.frags[frag_ind] = Rc::new(new_frag);
+            });
+            // Return to idle state (to release the UI)
+            self.state = State::Idle;
+        } else {
+            unreachable!();
+        }
+    }
+
+    /* Panning State */
+
+    /// Returns `true` if the editor is in [`State::Panning`]
+    pub fn is_state_panning(&self) -> bool {
+        match self.state {
+            State::Panning => true,
+            _ => false,
+        }
+    }
+
+    /// Moves the UI into [`State::Dragging`], `panic!`ing if we start in any state other than
+    /// [`State::Idle`]
+    pub fn start_panning(&mut self) {
+        assert!(self.is_state_idle());
+        self.state = State::Panning;
+    }
+
+    /// Called to exit [`State::Panning`].  This moves the viewport to the provided coords, and
+    /// returns to [`State::Idle`].  This `panic!`s if called from any state other than
+    /// [`State::Panning`].
+    pub fn finish_panning(&mut self, new_cam_x: f32, new_cam_y: f32) {
+        assert!(self.is_state_panning());
+        self.view.view_x = new_cam_x;
+        self.view.view_y = new_cam_y;
+        self.state = State::Idle;
     }
 
     /* Undo/redo */
@@ -105,17 +207,6 @@ impl Comp {
             } else {
                 new_frag
             }));
-        });
-    }
-
-    /// Move a given [`Frag`]ment to a new location, without changing any of the rows.  This
-    /// doesn't clone any rows, because [`Frag`]s store the rows as `Rc<Vec<AnnotatedRow>>`, which
-    /// simply increases the ref count on clone.
-    pub fn move_frag(&mut self, frag_ind: usize, new_x: f32, new_y: f32) {
-        self.make_action(|spec: &mut Spec| {
-            let mut new_frag = spec.frags[frag_ind].as_ref().clone();
-            new_frag.move_to(new_x, new_y);
-            spec.frags[frag_ind] = Rc::new(new_frag);
         });
     }
 
@@ -194,11 +285,6 @@ impl Comp {
 
     pub fn set_current_part(&mut self, new_part: usize) {
         self.view.current_part = new_part;
-    }
-
-    pub fn set_view_loc(&mut self, new_x: f32, new_y: f32) {
-        self.view.view_x = new_x;
-        self.view.view_y = new_y;
     }
 }
 

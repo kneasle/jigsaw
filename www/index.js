@@ -4,14 +4,12 @@
 // real life pixels - so dpr provides that scale-up
 const dpr = window.devicePixelRatio || 1;
 
+const BELL_NAMES = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
+
 // IDs of mouse buttons
 const BTN_LEFT = 0;
 const BTN_RIGHT = 1;
 const BTN_MIDDLE = 2;
-
-const SOLOED = "Soloed";
-const MUTED = "Muted";
-const NORMAL = "Normal";
 
 // Cookie names
 const COOKIE_NAME_VIEW = "view";
@@ -31,9 +29,6 @@ const BACKGROUND_COL = "white";
 const GRID_COL = "#eee";
 const GRID_SIZE = 200;
 
-const SOLO_FRAG_BACKGROUND_COL = "#f5f5f5";
-const UNPROVEN_ROW_OPACITY = 0.3;
-
 const DRAW_FRAG_LINK_LINES = true;
 const FRAG_LINK_WIDTH = 2;
 const FRAG_LINK_MIN_OPACITY = 0.15;
@@ -42,7 +37,7 @@ const SELECTED_LINK_WIDTH_MULTIPLIER = 2;
 const FRAG_LINK_SELECTION_DIST = 20;
 
 const ROW_FONT = "20px monospace";
-const BELL_NAMES = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
+const UNPROVEN_ROW_OPACITY = 0.3;
 const RULEOFF_LINE_WIDTH = 1;
 const MUSIC_COL = "#5b5";
 const MUSIC_ONIONSKIN_OPACITY = 0.13;
@@ -54,14 +49,15 @@ const FALSE_COUNT_COL_FALSE = "red";
 const FALSE_COUNT_COL_TRUE = "green";
 
 // Debug settings
-const PROFILE_SYNC_DER_STATE = false; // profile `sync_derived_state` in `start`?
+const DBG_PROFILE_SERIALISE_STATE = false; // profile `sync_derived_state` in `start`?
+const DBG_LOG_STATE_TRANSITIONS = true;    // log to console whenever the UI changes state
 
 /* ===== GLOBAL VARIABLES ===== */
 
 // Variables set in the `start()` function
 let canv, ctx;
-// Global state to do with the UI
-let frag_being_moved = undefined;
+// Global variable of the `link` that the user is 'selecting'.  This is recalculated every time the
+// mouse moves, and is then cached and used in rendering and when deciding which fragments to join.
 let selected_link = undefined;
 // Variables which will used to sync with the Rust code (in 90% of the code, these should be treated
 // as immutable).
@@ -156,7 +152,7 @@ function draw_frag(frag) {
     const y = Math.round(frag.y);
     const rect = frag_bbox(frag);
     // Background box (to overlay over the grid)
-    ctx.fillStyle = frag.state === SOLOED ? SOLO_FRAG_BACKGROUND_COL : BACKGROUND_COL;
+    ctx.fillStyle = BACKGROUND_COL;
     ctx.fillRect(rect.min_x, rect.min_y, rect.w, rect.h);
     // Rows
     for (let i = 0; i < frag.exp_rows.length; i++) {
@@ -290,7 +286,6 @@ function draw() {
 
 function frame() {
     draw();
-    // window.requestAnimationFrame(frame);
 }
 
 // Request for a frame to be rendered
@@ -310,63 +305,86 @@ function on_window_resize() {
 }
 
 function on_mouse_move(e) {
-    // Repaint the screen if the selected link has changed because we moved the mouse
-    let closest_link = closest_frag_link_to_cursor();
-    if (closest_link !== selected_link) {
-        selected_link = closest_link;
-        request_frame();
+    if (comp.is_state_idle()) {
+        // Repaint the screen if the selected link has changed because we moved the mouse
+        let closest_link = closest_frag_link_to_cursor();
+        if (closest_link !== selected_link) {
+            selected_link = closest_link;
+            request_frame();
+        }
     }
     // If we clicked on a fragment, then move it
-    if (frag_being_moved !== undefined) {
+    if (comp.is_state_dragging()) {
+        const frag_being_dragged = comp.frag_being_dragged();
         // Note that in this case, we allow `derived_state` to get out of sync with Rust's ground
         // truth.  We do this for performance reasons; if we didn't, then the whole composition
         // would be reproved every time the mouse is moved causing horrendous lag.
-        derived_state.annot_frags[frag_being_moved].x += e.offsetX - mouse_coords.x;
-        derived_state.annot_frags[frag_being_moved].y += e.offsetY - mouse_coords.y;
-        // Request a repaint, because something has changed
+        derived_state.annot_frags[frag_being_dragged].x += e.offsetX - mouse_coords.x;
+        derived_state.annot_frags[frag_being_dragged].y += e.offsetY - mouse_coords.y;
+        // Request a repaint because so that the new frag position appears on screen
         request_frame();
-    } else if (is_button_pressed(e, BTN_MIDDLE)) {
+    }
+    if (comp.is_state_panning()) {
         // Move the camera in the JS version
         view.view_x -= e.offsetX - mouse_coords.x;
         view.view_y -= e.offsetY - mouse_coords.y;
         request_frame();
     }
+    // Update the global variables storing the mouse coords (these will also be used to diff against
+    // next time the mouse moves).
     mouse_coords.x = e.offsetX;
     mouse_coords.y = e.offsetY;
 }
 
 function on_mouse_down(e) {
-    const frag = hovered_frag();
-    // Left-clicking a fragment should start us dragging it
-    if (get_button(e) === BTN_LEFT && frag) {
-        frag_being_moved = frag.index;
+    // Only handle mouse down events if the user is not already performing an action
+    if (comp.is_state_idle()) {
+        const frag = hovered_frag();
+        // Left-clicking a fragment should switch the UI into the dragging state
+        if (get_button(e) === BTN_LEFT && frag) {
+            comp.start_dragging(frag.index);
+            if (DBG_LOG_STATE_TRANSITIONS) {
+                console.log(`State change: Idle -> Dragging(${frag.index})`);
+            }
+        }
+        // Middle-clicking should start panning (and prevent the user from doing anything)
+        if (get_button(e) === BTN_MIDDLE) {
+            comp.start_panning();
+            if (DBG_LOG_STATE_TRANSITIONS) {
+                console.log("State change: Idle -> Panning");
+            }
+        }
     }
 }
 
 function on_mouse_up(e) {
-    switch (get_button(e)) {
-        case BTN_LEFT:
-            // If we have just released a fragment, then update Rust's 'ground truth' and force a
-            // resync of JS's local copy of the state.  Also let go of whatever we were dragging.
-            if (frag_being_moved !== undefined) {
-                comp.move_frag(
-                    frag_being_moved,
-                    derived_state.annot_frags[frag_being_moved].x,
-                    derived_state.annot_frags[frag_being_moved].y
-                );
-                frag_being_moved = undefined;
-            }
-            break;
-        case BTN_MIDDLE:
-            // Only update the new view and sync when the user releases the button.  This makes sure
-            // that we don't write cookies whenever the user moves their mouse.
-            comp.set_view_loc(view.view_x, view.view_y);
-            sync_view();
-            break;
+    // If we have just released a fragment, then update Rust's 'ground truth' and force a resync
+    // of JS's local copy of the state.  Also let go of whatever we were dragging.
+    if (comp.is_state_dragging() && get_button(e) === BTN_LEFT) {
+        const released_frag = derived_state.annot_frags[comp.frag_being_dragged()];
+        comp.finish_dragging(released_frag.x, released_frag.y);
+        on_comp_change();
+        if (DBG_LOG_STATE_TRANSITIONS) {
+            console.log("State change: Dragging -> Idle");
+        }
+    }
+    // Only update the new view and sync when the user releases the button.  This makes sure
+    // that we don't write cookies whenever the user moves their mouse.
+    if (comp.is_state_panning() && get_button(e) === BTN_MIDDLE) {
+        comp.finish_panning(view.view_x, view.view_y);
+        sync_view();
+        if (DBG_LOG_STATE_TRANSITIONS) {
+            console.log("State change: Panning -> Idle");
+        }
     }
 }
 
 function on_key_down(e) {
+    // Keyboard shortcuts can only be used if the UI is 'idle' - i.e. the user is not panning,
+    // dragging/transposing frags etc.
+    if (!comp.is_state_idle()) {
+        return;
+    }
     // Detect which fragment is under the cursor
     const frag = hovered_frag();
     const cursor_pos = world_space_cursor_pos();
@@ -526,7 +544,7 @@ function start() {
     request_frame();
 
     // Time how long it takes to sync the derived state
-    if (PROFILE_SYNC_DER_STATE) {
+    if (DBG_PROFILE_SERIALISE_STATE) {
         console.time("Sync derived state");
         for (let i = 0; i < 1000; i++) {
             sync_derived_state();
