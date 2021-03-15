@@ -4,10 +4,6 @@ use crate::{Bell, Stage};
 use wasm_bindgen::prelude::*;
 
 /// All the possible ways that a [`Row`] could be invalid.
-///
-/// Note that by the Pigeon Hole Principle, we do not need a third entry
-/// (`MissingBell(`[`Bell`]`)`) because in order for a [`Bell`] to be missing, another [`Bell`]
-/// must either be duplicated or out of range.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum InvalidRowError {
     /// A [`Bell`] would appear twice in the new [`Row`] (for example in `113456` or `4152357`)

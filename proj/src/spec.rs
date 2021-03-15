@@ -67,6 +67,21 @@ impl Frag {
         self.rows.len() - 1
     }
 
+    /// Returns the first [`AnnotatedRow`] of this `Frag`.  This does not return an [`Option`]
+    /// because `Frag`s must have length at least 1, meaning that there is always a first
+    /// [`AnnotatedRow`].
+    #[inline]
+    pub fn first_row(&self) -> &AnnotatedRow {
+        &self.rows[0]
+    }
+
+    /// Returns the leftover row of this `Frag` (as an [`AnnotatedRow`]).  This does not return an
+    /// [`Option`] because all `Frag`s must have a leftover row.
+    #[inline]
+    pub fn leftover_row(&self) -> &AnnotatedRow {
+        self.rows.last().unwrap()
+    }
+
     /* Setters/mutating operations */
 
     /// Updates the coordinates of this `Frag` to match the new ones
@@ -109,8 +124,8 @@ impl Frag {
     /// Both `self` and `other` will be cloned in the process.
     pub fn joined_with(&self, other: &Frag) -> Frag {
         // Figure out which rows we're trying to join together
-        let end_row = &self.rows.last().unwrap().row;
-        let start_row = &other.rows[0].row;
+        let end_row = &self.leftover_row().row;
+        let start_row = &other.first_row().row;
         // Create a Vec with enough space for both Frags, and insert this Frag (minus its leftover
         // row)
         let mut rows = Vec::with_capacity(self.len() + other.len() + 1);
@@ -134,7 +149,7 @@ impl Frag {
     /// method.  All other properties (location, mutedness, etc.) are inherited (and cloned) from
     /// `self`.
     pub fn expand_to_round_block(&self) -> Frag {
-        let own_start_row = &self.rows[0].row;
+        let own_start_row = &self.first_row().row;
         let mut current_start_row = own_start_row.clone();
         let mut rows: Vec<AnnotatedRow> = vec![self.rows[0].clone()];
         // Repeatedly add `self` and permute until we return to the start row
@@ -150,8 +165,8 @@ impl Frag {
             // leftover row of the Block we've built so far)
             current_start_row = rows.last().unwrap().row.clone();
             // If we've reached the first row again, then return.  This must terminate because the
-            // permutation group over any finite number of objects is always finite, so no element
-            // can have infinite order.
+            // permutation group over any finite stage is always finite, so no element can have
+            // infinite order.
             if own_start_row == &current_start_row {
                 return self.clone_with_new_rows(rows);
             }

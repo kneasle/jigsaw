@@ -54,6 +54,8 @@ impl Comp {
         &self.undo_history[self.history_index]
     }
 
+    /// Perform an action (some arbitrary function) on the current [`Spec`], maintaining the undo
+    /// history and recalculating the [`DerivedState`].
     fn make_action(&mut self, action: impl Fn(&mut Spec)) {
         // Rollback the history so that `history_index` points to the last edit
         drop(self.undo_history.drain(self.history_index + 1..));
@@ -65,6 +67,16 @@ impl Comp {
         self.history_index += 1;
         // Rebuild the derived state, since the Spec has changed
         self.rebuild_state();
+    }
+
+    /// Perform an action (some arbitrary function) on a single [`Frag`] in the current [`Spec`],
+    /// maintaining the undo history and recalculating the [`DerivedState`].
+    fn make_action_frag(&mut self, frag_ind: usize, action: impl Fn(&mut Frag)) {
+        self.make_action(|spec: &mut Spec| {
+            let mut new_frag = spec.frags[frag_ind].as_ref().clone();
+            action(&mut new_frag);
+            spec.frags[frag_ind] = Rc::new(new_frag);
+        });
     }
 }
 
@@ -140,11 +152,7 @@ impl Comp {
     pub fn finish_dragging(&mut self, new_x: f32, new_y: f32) {
         if let State::Dragging(frag_ind) = self.state {
             // Move the fragment we were dragging
-            self.make_action(|spec: &mut Spec| {
-                let mut new_frag = spec.frags[frag_ind].as_ref().clone();
-                new_frag.move_to(new_x, new_y);
-                spec.frags[frag_ind] = Rc::new(new_frag);
-            });
+            self.make_action_frag(frag_ind, |f| f.move_to(new_x, new_y));
             // Return to idle state (to release the UI)
             self.state = State::Idle;
         } else {
@@ -170,7 +178,7 @@ impl Comp {
     }
 
     /// Called to exit [`State::Panning`].  This moves the viewport to the provided coords, and
-    /// returns to [`State::Idle`].  This `panic!`s if called from any state other than
+    /// returns the editor to [`State::Idle`].  This `panic!`s if called from any state other than
     /// [`State::Panning`].
     pub fn finish_panning(&mut self, new_cam_x: f32, new_cam_y: f32) {
         assert!(self.is_state_panning());
@@ -197,8 +205,8 @@ impl Comp {
 
     /* Actions */
 
-    /// Add a new `Frag`ment to the composition.  For the time being, we always create the first
-    /// lead of Plain Bob Major
+    /// Add a new `Frag`ment to the composition.  For the time being, we always create the plain
+    /// lead or course of Plain Bob Major
     pub fn add_frag(&mut self, x: f32, y: f32, start_row: String, add_course: bool) {
         self.make_action(|spec: &mut Spec| {
             let new_frag = Frag::one_lead_pb_maj(x, y);
@@ -262,11 +270,7 @@ impl Comp {
 
     /// Toggle whether or not a given [`Frag`] is muted
     pub fn toggle_frag_mute(&mut self, frag_ind: usize) {
-        self.make_action(|spec: &mut Spec| {
-            let mut new_frag = spec.frags[frag_ind].as_ref().clone();
-            new_frag.toggle_mute();
-            spec.frags[frag_ind] = Rc::new(new_frag);
-        });
+        self.make_action_frag(frag_ind, Frag::toggle_mute);
     }
 
     /// [`Frag`] soloing ala FL Studio; this has two cases:
