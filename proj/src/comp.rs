@@ -3,6 +3,7 @@ use crate::{
     spec::{Frag, Spec},
     view::View,
 };
+use proj_core::Row;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
@@ -22,6 +23,8 @@ pub enum State {
     /// that particular [`Frag`] are allowed to get out of sync in the JS code to avoid unnecessary
     /// serialisation and undo steps.
     Dragging(usize),
+    /// The user is transposing the [`Frag`] at a given index.
+    Transposing { frag_ind: usize, row_ind: usize },
 }
 
 /// The complete state of a partial composition.  The data-flow is:
@@ -91,6 +94,15 @@ impl Comp {
     /// Rebuild the cached state, as though the [`Spec`] had changed.
     pub fn rebuild_state(&mut self) {
         self.derived_state = DerivedState::from_spec(self.spec());
+    }
+
+    /// Attempt to parse a [`String`] into a [`Row`] of the correct [`Stage`] for this `Comp`.
+    /// This returns `""` on success, and `"{error message}"` on failure.
+    pub fn row_parse_err(&self, row_str: String) -> String {
+        match Row::parse(&row_str) {
+            Err(e) => format!("{}", e),
+            Ok(_row) => "".to_owned(),
+        }
     }
 
     /* Serialization/Deserialization */
@@ -187,6 +199,52 @@ impl Comp {
         self.state = State::Idle;
     }
 
+    /* Transposing State */
+
+    /// Returns `true` if the editor is in [`State::Transposing`]
+    pub fn is_state_transposing(&self) -> bool {
+        match self.state {
+            State::Transposing { .. } => true,
+            _ => false,
+        }
+    }
+
+    /// Moves the editor into [`State::Transposing`] the [`Frag`] at `frag_ind`.  This returns the
+    /// string representation of the first [`Row`] of that [`Frag`], to initialise the
+    /// transposition input box.  This `panic!`s if called from any state other than
+    /// [`State::Idle`].
+    pub fn start_transposing(&mut self, frag_ind: usize, row_ind: usize) -> String {
+        assert!(self.is_state_idle());
+        self.state = State::Transposing { frag_ind, row_ind };
+        format!("{}", self.spec().frags[frag_ind].get_annot_row(row_ind).row)
+    }
+
+    /// Called to exit [`State::Transposing`], saving the changes.  If `row_str` parses to a valid
+    /// [`Row`] then this performs the desired transposition and returns the editor to
+    /// [`State::Idle`] (returning `true`), otherwise no change occurs and this returns `false`.
+    /// This `panic!`s if called from any state other than [`State::Transposing`].
+    pub fn finish_transposing(&mut self, row_str: String) -> bool {
+        if let State::Transposing { frag_ind, row_ind } = self.state {
+            let parsed_row = Row::parse(&row_str);
+            if let Ok(target_row) = &parsed_row {
+                self.make_action_frag(frag_ind, |f: &mut Frag| {
+                    *f = f.transpose_row_to(row_ind, &target_row).unwrap();
+                });
+                self.state = State::Idle;
+            }
+            parsed_row.is_ok()
+        } else {
+            unreachable!();
+        }
+    }
+
+    /// Called to exit [`State::Transposing`], without saving the changes.  This `panic!`s if
+    /// called from any state other than [`State::Transposing`].
+    pub fn exit_transposing(&mut self) {
+        assert!(self.is_state_transposing());
+        self.state = State::Idle;
+    }
+
     /* Undo/redo */
 
     pub fn undo(&mut self) {
@@ -205,9 +263,11 @@ impl Comp {
 
     /* Actions */
 
-    /// Add a new `Frag`ment to the composition.  For the time being, we always create the plain
-    /// lead or course of Plain Bob Major
-    pub fn add_frag(&mut self, x: f32, y: f32, start_row: String, add_course: bool) {
+    /// Add a new [`Frag`] to the composition, returning its index.  For the time being, we always
+    /// create the plain lead or course of Plain Bob Major.  This doesn't directly do any
+    /// transposing but the JS code will immediately enter transposing mode after the frag has been
+    /// added, thus allowing the user to add arbitrary [`Frag`]s with minimal code duplication.
+    pub fn add_frag(&mut self, x: f32, y: f32, add_course: bool) -> usize {
         self.make_action(|spec: &mut Spec| {
             let new_frag = Frag::one_lead_pb_maj(x, y);
             spec.frags.push(Rc::new(if add_course {
@@ -216,6 +276,8 @@ impl Comp {
                 new_frag
             }));
         });
+        // We always push the Frag to the end of the list
+        self.spec().frags.len() - 1
     }
 
     /// Deletes a [`Frag`]ment by index

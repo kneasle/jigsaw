@@ -25,6 +25,8 @@ const FALSENESS_BAR_WIDTH = COL_WIDTH * 1;
 const FRAG_BBOX_EXTRA_HEIGHT = FALSENESS_BAR_WIDTH * 0.5;
 
 const FOREGROUND_COL = "black";
+const ERROR_COL = "red";
+
 const BACKGROUND_COL = "white";
 const GRID_COL = "#eee";
 const GRID_SIZE = 200;
@@ -50,12 +52,13 @@ const FALSE_COUNT_COL_TRUE = "green";
 
 // Debug settings
 const DBG_PROFILE_SERIALISE_STATE = false; // profile `sync_derived_state` in `start`?
-const DBG_LOG_STATE_TRANSITIONS = true;    // log to console whenever the UI changes state
+const DBG_LOG_STATE_TRANSITIONS = false; // log to console whenever the UI changes state
 
 /* ===== GLOBAL VARIABLES ===== */
 
 // Variables set in the `start()` function
 let canv, ctx;
+let transpose_box, transpose_input, transpose_message;
 // Global variable of the `link` that the user is 'selecting'.  This is recalculated every time the
 // mouse moves, and is then cached and used in rendering and when deciding which fragments to join.
 let selected_link = undefined;
@@ -380,86 +383,145 @@ function on_mouse_up(e) {
 }
 
 function on_key_down(e) {
+    if (comp.is_state_transposing()) {
+        // Esc should exit transpose mode
+        if (e.keyCode == 27) {
+            comp.exit_transposing();
+            stop_transposing();
+        }
+    }
     // Keyboard shortcuts can only be used if the UI is 'idle' - i.e. the user is not panning,
     // dragging/transposing frags etc.
-    if (!comp.is_state_idle()) {
-        return;
-    }
-    // Detect which fragment is under the cursor
-    const frag = hovered_frag();
-    const cursor_pos = world_space_cursor_pos();
-    // add a lead of Plain Bob as a new fragment to the comp
-    if (e.key === 'a') {
-        comp.add_frag(cursor_pos.x, cursor_pos.y, "", false);
-        on_comp_change();
-    }
-    // add whole course
-    if (e.key === 'A') {
-        comp.add_frag(cursor_pos.x, cursor_pos.y, "", true);
-        on_comp_change();
-    }
-    // 'cut' a fragment into two at the mouse location
-    if (e.key === 'x' && frag) {
-        const split_index = Math.round(frag.row);
-        // Make sure there's a 10px gap between the BBoxes of the two fragments (we add 1 to
-        // `split_index` to take into account the existence of the leftover row)
-        const new_y = derived_state.annot_frags[frag.index].y
-            + (split_index + 1) * ROW_HEIGHT
-            + FRAG_BBOX_EXTRA_HEIGHT * 2 + 10;
-        // Split the fragment, and store the error string
-        const err = comp.split_frag(
-            frag.index,
-            split_index,
-            new_y
-        );
-        // If the split failed, then log the error.  Otherwise, resync the composition with
-        // `on_comp_change`.
-        if (err) {
-            console.warn("Error splitting fragment: " + err);
-        } else {
+    if (comp.is_state_idle()) {
+        // Detect which fragment is under the cursor
+        const frag = hovered_frag();
+        const cursor_pos = world_space_cursor_pos();
+        // add a lead of Plain Bob as a new fragment to the comp
+        if (e.key === 'a' || e.key === 'A') {
+            const adding_full_course = e.key === 'A';
+            const new_frag_ind = comp.add_frag(cursor_pos.x, cursor_pos.y, adding_full_course);
+            on_comp_change();
+            // Immediately enter transposing mode to let the user specify what course they wanted
+            start_transposition(new_frag_ind, 0);
+            e.preventDefault();
+        }
+        // 'cut' a fragment into two at the mouse location
+        if (e.key === 'x' && frag) {
+            const split_index = Math.round(frag.row);
+            // Make sure there's a 10px gap between the BBoxes of the two fragments (we add 1 to
+            // `split_index` to take into account the existence of the leftover row)
+            const new_y = derived_state.annot_frags[frag.index].y
+                + (split_index + 1) * ROW_HEIGHT
+                + FRAG_BBOX_EXTRA_HEIGHT * 2 + 10;
+            // Split the fragment, and store the error string
+            const err = comp.split_frag(
+                frag.index,
+                split_index,
+                new_y
+            );
+            // If the split failed, then log the error.  Otherwise, resync the composition with
+            // `on_comp_change`.
+            if (err) {
+                console.warn("Error splitting fragment: " + err);
+            } else {
+                on_comp_change();
+            }
+        }
+        // mute/unmute a fragment
+        if (e.key === 's' && frag) {
+            comp.toggle_frag_mute(frag.index);
+            on_comp_change();
+        }
+        // solo/unsolo a fragment
+        if (e.key === 'S' && frag) {
+            comp.toggle_frag_solo(frag.index);
+            on_comp_change();
+        }
+        // transpose a fragment by its start row
+        if (e.key === 't' && frag) {
+            start_transposition(frag.index, 0);
+            // Prevent this event causing the user to type 't' into the newly focussed transposition box
+            e.preventDefault()
+        }
+        // transpose a fragment by the hovered row
+        if (e.key === 'T' && frag) {
+            start_transposition(frag.index, Math.floor(frag.row));
+            // Prevent this event causing the user to type 'T' into the newly focussed transposition box
+            e.preventDefault()
+        }
+        // reset the composition (ye too dangerous I know but good enough for now)
+        if (e.key === 'R') {
+            comp.reset();
+            on_comp_change();
+        }
+        // delete the fragment under the cursor (ye too dangerous I know but good enough for now)
+        if (e.key === 'd' && frag) {
+            comp.delete_frag(frag.index);
+            on_comp_change();
+        }
+        // join the first frag 1 onto frag 0, but only if we aren't hovering a fragment
+        if (e.key === 'j' && selected_link !== undefined) {
+            const link_to_join = derived_state.frag_links[selected_link];
+            comp.join_frags(link_to_join.from, link_to_join.to);
+            on_comp_change();
+        }
+        // ctrl-z or simply z to undo (of course)
+        if (e.key === 'z') {
+            comp.undo();
+            on_comp_change();
+        }
+        // shift-ctrl-Z or ctrl-y to redo
+        if (e.key === 'Z' || (e.key === 'y' && e.ctrlKey)) {
+            comp.redo();
             on_comp_change();
         }
     }
-    // mute/unmute a fragment
-    if (e.key === 's' && frag) {
-        comp.toggle_frag_mute(frag.index);
-        on_comp_change();
+}
+
+/* ===== TRANSPOSE MODE ===== */
+
+function start_transposition(frag_index, row_index) {
+    // Switch to the transposing state
+    const current_first_row = comp.start_transposing(frag_index, row_index);
+    if (DBG_LOG_STATE_TRANSITIONS) {
+        console.log(`State change: Idle -> Transposing(${frag_index}:${row_index})`);
     }
-    // solo/unsolo a fragment
-    if (e.key === 'S' && frag) {
-        comp.toggle_frag_solo(frag.index);
-        on_comp_change();
+    // Initialise the transpose box
+    transpose_box.style.display = "block";
+    transpose_box.style.left = mouse_coords.x.toString() + "px";
+    transpose_box.style.top = mouse_coords.y.toString() + "px";
+    transpose_input.value = current_first_row;
+    transpose_input.focus();
+    // Initialise the error message
+    on_transpose_box_change();
+}
+
+function on_transpose_box_change() {
+    const row_err = comp.row_parse_err(transpose_input.value);
+    const success = row_err === "";
+    transpose_message.style.color = success ? FOREGROUND_COL : ERROR_COL;
+    transpose_message.innerText = success
+        ? "Press 'enter' to transpose."
+        : row_err;
+}
+
+function on_transpose_box_key_down(e) {
+    // Early return if the user pressed anything other than enter
+    if (e.keyCode != 13) {
+        return;
     }
-    // transpose a fragment
-    if (e.key === 't' && frag) {
-        console.log("Transposing ", frag.index);
+    if (comp.is_state_transposing() && comp.finish_transposing(transpose_input.value)) {
+        if (DBG_LOG_STATE_TRANSITIONS) {
+            console.log(`State change: Transposing -> Idle`);
+        }
+        stop_transposing();
     }
-    // reset the composition (ye too dangerous I know but good enough for now)
-    if (e.key === 'R') {
-        comp.reset();
-        on_comp_change();
-    }
-    // delete the fragment under the cursor (ye too dangerous I know but good enough for now)
-    if (e.key === 'd' && frag) {
-        comp.delete_frag(frag.index);
-        on_comp_change();
-    }
-    // join the first frag 1 onto frag 0, but only if we aren't hovering a fragment
-    if (e.key === 'j' && selected_link !== undefined) {
-        const link_to_join = derived_state.frag_links[selected_link];
-        comp.join_frags(link_to_join.from, link_to_join.to);
-        on_comp_change();
-    }
-    // ctrl-z or simply z to undo (of course)
-    if (e.key === 'z') {
-        comp.undo();
-        on_comp_change();
-    }
-    // shift-ctrl-Z or ctrl-y to redo
-    if (e.key === 'Z' || (e.key === 'y' && e.ctrlKey)) {
-        comp.redo();
-        on_comp_change();
-    }
+}
+
+function stop_transposing() {
+    // Update the display to handle the changes
+    transpose_box.style.display = "none";
+    on_comp_change();
 }
 
 /* ===== HUD CODE ===== */
@@ -530,6 +592,10 @@ function start() {
     // Set up the canvas variables
     canv = document.getElementById("comp-canvas");
     ctx = canv.getContext("2d");
+    // Grab HTML elements we'll use a lot
+    transpose_box = document.getElementById("transpose-box");
+    transpose_input = document.getElementById("transpose-input");
+    transpose_message = document.getElementById("transpose-message");
     // Bind event listeners to all the things we need
     canv.addEventListener("mousemove", on_mouse_move);
     canv.addEventListener("mousedown", on_mouse_down);
@@ -537,6 +603,8 @@ function start() {
     document.addEventListener("keydown", on_key_down);
     window.addEventListener("resize", on_window_resize);
     document.getElementById("part-head").addEventListener("change", on_part_head_change);
+    transpose_input.addEventListener("keyup", on_transpose_box_change);
+    transpose_input.addEventListener("keydown", on_transpose_box_key_down);
     // Force a load of updates to initialise the display
     on_window_resize();
     update_part_head_list();

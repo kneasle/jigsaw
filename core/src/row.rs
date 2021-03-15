@@ -17,10 +17,10 @@ impl std::fmt::Display for InvalidRowError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             InvalidRowError::DuplicateBell(bell) => {
-                write!(f, "Bell {} would appear twice.", bell)
+                write!(f, "Bell '{}' appears twice.", bell)
             }
             InvalidRowError::BellOutOfStage(bell, stage) => {
-                write!(f, "Bell {} is not within the stage {}", bell, stage)
+                write!(f, "Bell '{}' is not within the stage {}", bell, stage)
             }
         }
     }

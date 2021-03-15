@@ -1,5 +1,5 @@
 use crate::derived_state::ExpandedRow;
-use proj_core::{Row, Stage};
+use proj_core::{IncompatibleStages, Row, Stage};
 use serde::Serialize;
 use std::rc::Rc;
 
@@ -51,6 +51,11 @@ pub struct Frag {
 impl Frag {
     /* Getters */
 
+    /// Returns the [`Stage`] of this `Frag`
+    pub fn stage(&self) -> Stage {
+        self.first_row().row.stage()
+    }
+
     /// Returns the (x, y) coordinates of this `Frag`ment
     pub fn pos(&self) -> (f32, f32) {
         (self.x, self.y)
@@ -65,6 +70,12 @@ impl Frag {
     #[inline]
     pub fn len(&self) -> usize {
         self.rows.len() - 1
+    }
+
+    /// Gets the [`AnnotatedRow`] of this [`Frag`] at a given index
+    #[inline]
+    pub fn get_annot_row(&self, index: usize) -> &AnnotatedRow {
+        &self.rows[index]
     }
 
     /// Returns the first [`AnnotatedRow`] of this `Frag`.  This does not return an [`Option`]
@@ -171,6 +182,31 @@ impl Frag {
                 return self.clone_with_new_rows(rows);
             }
         }
+    }
+
+    /// Returns a transposed copy of `self`, where the `row_ind`th [`Row`] is a given [`Row`]
+    pub fn transpose_row_to(
+        &self,
+        row_ind: usize,
+        target_row: &Row,
+    ) -> Result<Frag, IncompatibleStages> {
+        self.transposed(&(target_row * &!&self.rows[row_ind].row).unwrap())
+    }
+
+    /// Returns a copy of `self` in which all the rows are (pre)mulitplied by some other [`Row`].
+    pub fn transposed(&self, transposition: &Row) -> Result<Frag, IncompatibleStages> {
+        // Do the stage check once, rather than every time a row gets permuted
+        IncompatibleStages::test_err(transposition.stage(), self.stage())?;
+        Ok(self.clone_with_new_rows(
+            self.rows
+                .iter()
+                .map(|r| {
+                    let mut new_row = r.clone();
+                    new_row.row = transposition.mul_unchecked(&r.row);
+                    new_row
+                })
+                .collect(),
+        ))
     }
 
     /// Create a new `Frag` which is identical to `self`, except that it contains different
