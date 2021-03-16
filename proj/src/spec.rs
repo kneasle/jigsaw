@@ -101,7 +101,7 @@ impl Frag {
         self.y = new_y;
     }
 
-    /// Toggles whether or not this [`Frag`] is in state [`FragState::Muted`].
+    /// Toggles whether or not this [`Frag`] is is muted
     pub fn toggle_mute(&mut self) {
         self.is_muted = !self.is_muted;
     }

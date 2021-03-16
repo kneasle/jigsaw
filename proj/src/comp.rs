@@ -7,6 +7,10 @@ use proj_core::Row;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
+// Imports used solely for doc comments
+#[allow(unused_imports)]
+use proj_core::Stage;
+
 /// A enum of what states the [`Comp`] editor can be in.  Implementing the UI as a state machine
 /// enforces the constraint that the user can only be performing one action at once.  This prevents
 /// the user causing undefined behaviour by doing things like splitting/deleting a [`Frag`] whilst
