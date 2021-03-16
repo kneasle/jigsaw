@@ -5,23 +5,6 @@ use wasm_bindgen::prelude::*;
 /// A lookup string of the bell names
 const BELL_NAMES: &str = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
 
-/// A [`Bell`] representing the 'treble' on any stage.  Equivalent to
-/// `Bell::from_name('1').unwrap()`.
-///
-/// # Example
-/// ```
-/// use proj_core::{Bell, TREBLE};
-///
-/// // `TREBLE` should be the bell with name '1'
-/// assert_eq!(Bell::from_name('1'), Some(TREBLE));
-/// // The `TREBLE` has index 0, and its number is 1
-/// assert_eq!(TREBLE.index(), 0);
-/// assert_eq!(TREBLE.number(), 1);
-/// // The treble should display as `"1"`
-/// assert_eq!(TREBLE.name(), "1");
-/// ```
-pub const TREBLE: Bell = Bell { index: 0 };
-
 /// A type-safe representation of a 'bell', which adds things like conversions to and from
 /// commonly-used bell names.
 #[wasm_bindgen]
@@ -93,6 +76,23 @@ impl Bell {
     pub fn from_number(number: usize) -> Option<Bell> {
         number.checked_sub(1).map(Bell::from_index)
     }
+
+    /// A [`Bell`] representing the 'treble' on any stage.  Equivalent to
+    /// `Bell::from_name('1').unwrap()`.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::Bell;
+    ///
+    /// // `TREBLE` should be the bell with name '1'
+    /// assert_eq!(Bell::from_name('1'), Some(Bell::TREBLE));
+    /// // The `TREBLE` has index 0, and its number is 1
+    /// assert_eq!(Bell::TREBLE.index(), 0);
+    /// assert_eq!(Bell::TREBLE.number(), 1);
+    /// // The treble should display as `"1"`
+    /// assert_eq!(Bell::TREBLE.name(), "1");
+    /// ```
+    pub const TREBLE: Bell = Bell { index: 0 };
 
     /// Converts this `Bell` into the [`char`] that it should be displayed as.  If the `Bell` is
     /// too big to have a corresponding name, then [`None`] is returned.

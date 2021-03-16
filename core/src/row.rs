@@ -85,7 +85,8 @@ impl std::error::Error for IncompatibleStages {}
 ///
 /// // Parse a generic (valid) change from a string.  Note how invalid
 /// // `char`s are skipped.  This could fail if the resulting `Row` is
-/// // invalid, so we use ? to handle that possibility.
+/// // invalid, so we use ? to propogate that error out of the current
+/// // function.
 /// let queens = Row::parse("13579 | 24680")?;
 /// assert_eq!(queens.stage(), Stage::ROYAL);
 /// assert_eq!(queens.to_string(), "1357924680");
@@ -102,7 +103,9 @@ impl std::error::Error for IncompatibleStages {}
 #[wasm_bindgen]
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Row {
-    /// The underlying [`Vec`] of [`Bell`]s
+    /// The [`Bell`]s in the order that they would be rung.  Because of the 'valid row' invariant,
+    /// this can't contain duplicate [`Bell`]s or any [`Bell`]s with number greater than the
+    /// [`Stage`] of this [`Row`].
     bells: Vec<Bell>,
 }
 
@@ -204,12 +207,12 @@ impl Row {
     /// ```
     /// use proj_core::{Bell, Row, Stage, InvalidRowError};
     ///
-    /// // Parsing a valid Row gives back `Ok(Row)`
+    /// // Parsing a valid Row is fine
     /// assert_eq!(Row::parse("12543")?.to_string(), "12543");
-    /// // Parsing valid rows with invalid characters gives back `Ok(Row)`
+    /// // Parsing valid rows with invalid characters is also fine
     /// assert_eq!(Row::parse("4321\t[65 78]")?.to_string(), "43216578");
     /// assert_eq!(Row::parse("3|2|1  6|5|4  9|8|7")?.to_string(), "321654987");
-    /// // Parsing an invalid `Row` causes an error describing the problem
+    /// // Parsing an invalid `Row` returns an error describing the problem
     /// assert_eq!(
     ///     Row::parse("112345"),
     ///     Err(InvalidRowError::DuplicateBell(Bell::from_number(1).unwrap()))
@@ -224,7 +227,7 @@ impl Row {
     /// # Ok::<(), InvalidRowError>(())
     /// ```
     pub fn parse(s: &str) -> RowResult {
-        Row::from_iter_checked(s.chars().filter_map(Bell::from_name))
+        Self::from_iter_checked(s.chars().filter_map(Bell::from_name))
     }
 
     /// Utility function that creates a `Row` from an iterator of [`Bell`]s, performing the
@@ -255,10 +258,7 @@ impl Row {
     where
         I: Iterator<Item = Bell>,
     {
-        Row {
-            bells: iter.collect(),
-        }
-        .check_validity()
+        Self::from_vec(iter.collect())
     }
 
     /// Creates a `Row` from a [`Vec`] of [`Bell`]s, checking that the the resulting `Row` is valid.
@@ -329,12 +329,15 @@ impl Row {
     }
 
     /// Checks the validity of a potential `Row`, returning it if valid and returning an
-    /// [`InvalidRowError`] otherwise (consuming the potential `Row`).
+    /// [`InvalidRowError`] otherwise (consuming the potential `Row` so it can't be used).
     fn check_validity(self) -> RowResult {
         // We check validity by keeping a checklist of which `Bell`s we've seen, and checking off
         // each bell as we go.
         let mut checklist = vec![false; self.stage().as_usize()];
-        // Loop over all the bells to check them off in the checklist
+        // Loop over all the bells to check them off in the checklist.  We do not need to check for
+        // empty spaces in the checklist once we've done because (by the Pigeon Hole Principle),
+        // fitting `n` bells into `n` slots with some gaps will always require that a bell is
+        // either out of range or two bells share a slot.
         for b in &self.bells {
             match checklist.get_mut(b.index()) {
                 // If the `Bell` is out of range of the checklist, it can't belong within the `Stage`
@@ -558,7 +561,8 @@ impl std::ops::Not for &Row {
     type Output = Row;
 
     /// Find the inverse of a [`Row`].  If `X` is the input [`Row`], and `Y = !X`, then
-    /// `XY = YX = I` where `I` is the identity on the same stage as `X` (i.e. rounds).
+    /// `XY = YX = I` where `I` is the identity on the same stage as `X` (i.e. rounds).  This
+    /// operation cannot fail, since valid [`Row`]s are guaruteed to have an inverse.
     ///
     /// # Example
     /// ```

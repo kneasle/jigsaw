@@ -6,7 +6,7 @@ mod row;
 mod stage;
 mod utils;
 
-pub use bell::{Bell, TREBLE};
+pub use bell::Bell;
 pub use block::Block;
 pub use row::{IncompatibleStages, InvalidRowError, Row, RowResult};
 pub use stage::Stage;
