@@ -11,6 +11,10 @@ pub enum InvalidRowError {
     /// A [`Bell`] is not within the range of the [`Stage`] of the new [`Row`] (for example `7` in
     /// `12745` or `5` in `5432`).
     BellOutOfStage(Bell, Stage),
+    /// A given Bell would be missing from the [`Row`].  Note that this is only generated if we
+    /// already know the [`Stage`] of the new [`Row`], otherwise the other two variants are
+    /// sufficient for every case.
+    MissingBell(Bell),
 }
 
 impl std::fmt::Display for InvalidRowError {
@@ -21,6 +25,9 @@ impl std::fmt::Display for InvalidRowError {
             }
             InvalidRowError::BellOutOfStage(bell, stage) => {
                 write!(f, "Bell '{}' is not within the stage {}", bell, stage)
+            }
+            InvalidRowError::MissingBell(bell) => {
+                write!(f, "Bell '{}' is missing", bell)
             }
         }
     }
@@ -230,6 +237,41 @@ impl Row {
         Self::from_iter_checked(s.chars().filter_map(Bell::from_name))
     }
 
+    /// Parse a string into a `Row`, extending to the given [`Stage`] if required and skipping any
+    /// [`char`]s that aren't valid bell names.  This returns `Err(`[`InvalidRowError`]`)` if the
+    /// `Row` would be invalid, and this will produce better error messages than [`Row::parse`]
+    /// because of the extra information provided by the [`Stage`].
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Bell, Row, Stage, InvalidRowError};
+    ///
+    /// // Parsing a valid Row is fine
+    /// assert_eq!(Row::parse("12543")?.to_string(), "12543");
+    /// // Parsing valid rows with invalid characters is also fine
+    /// assert_eq!(Row::parse("4321\t[65 78]")?.to_string(), "43216578");
+    /// assert_eq!(Row::parse("3|2|1  6|5|4  9|8|7")?.to_string(), "321654987");
+    /// // Parsing an invalid `Row` returns an error describing the problem
+    /// assert_eq!(
+    ///     Row::parse("112345"),
+    ///     Err(InvalidRowError::DuplicateBell(Bell::from_number(1).unwrap()))
+    /// );
+    /// assert_eq!(
+    ///     Row::parse("12745"),
+    ///     Err(InvalidRowError::BellOutOfStage(
+    ///         Bell::from_number(7).unwrap(),
+    ///         Stage::DOUBLES
+    ///     ))
+    /// );
+    /// # Ok::<(), InvalidRowError>(())
+    /// ```
+    pub fn parse_with_stage(s: &str, stage: Stage) -> RowResult {
+        Row {
+            bells: s.chars().filter_map(Bell::from_name).collect(),
+        }
+        .check_validity_with_stage(stage)
+    }
+
     /// Utility function that creates a `Row` from an iterator of [`Bell`]s, performing the
     /// validity check.
     ///
@@ -350,6 +392,54 @@ impl Row {
             }
         }
         // If none of the `Bell`s caused errors, the row must be valid
+        Ok(self)
+    }
+
+    /// Checks the validity of a potential `Row`, extending it to the given [`Stage`] if valid and
+    /// returning an [`InvalidRowError`] otherwise (consuming the potential `Row` so it can't be
+    /// used).  This will provide nicer errors than [`Row::check_validity`] since this has extra
+    /// information about the desired [`Stage`] of the potential `Row`.
+    fn check_validity_with_stage(mut self, stage: Stage) -> RowResult {
+        // We check validity by keeping a checklist of which `Bell`s we've seen, and checking off
+        // each bell as we go.
+        let mut checklist = vec![false; stage.as_usize()];
+        // It's OK to initialise this with the `TREBLE` (and not handle the case where there are no
+        // bells),
+        let mut biggest_bell_found = Bell::TREBLE;
+        // Loop over all the bells to check them off in the checklist
+        for b in &self.bells {
+            match checklist.get_mut(b.index()) {
+                // If the `Bell` is out of range of the checklist, it can't belong within the `Stage`
+                // of this `Row`
+                None => return Err(InvalidRowError::BellOutOfStage(*b, stage)),
+                // If the `Bell` has already been seen before, then it must be a duplicate
+                Some(&mut true) => return Err(InvalidRowError::DuplicateBell(*b)),
+                // If the `Bell` has not been seen before, check off the checklist entry and continue
+                Some(x) => *x = true,
+            }
+            biggest_bell_found = (*b).max(biggest_bell_found);
+        }
+        // The Pigeon Hole Principle argument from `check_validity` doesn't apply here, because
+        // there could be fewer `Bell`s than the `stage` specified.  However, this does allow us to
+        // accurately say when bells are missing so we do another pass over the `checklist` to
+        // check for missing bells.  If this check also passes, then `self` must be a valid `Row`
+        // of some stage <= `stage`.
+        //
+        // The iterator chain runs a linear search the first instance of `false` up to
+        // `biggest_bell_found`, which is the index of our missing bell.  There looks like there is
+        // an off-by-one error here since we skip checking `biggest_bell_found` which is
+        // technically within the specified range, but this is OK because (by definition) we know
+        // that a bell of `biggest_bell_found` has been found, so it cannot be missing.
+        if let Some((index, _)) = checklist[..biggest_bell_found.index()]
+            .into_iter()
+            .enumerate()
+            .find(|(_i, x)| !**x)
+        {
+            return Err(InvalidRowError::MissingBell(Bell::from_index(index)));
+        }
+        // If no errors were generated so far, then extend the row and return
+        self.bells
+            .extend((self.bells.len()..stage.as_usize()).map(Bell::from_index));
         Ok(self)
     }
 
@@ -584,5 +674,72 @@ impl std::ops::Not for &Row {
         }
         // If `self` is a valid row, so will its inverse.  So we elide the validity check
         Row::from_vec_unchecked(inv_bells)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Bell, InvalidRowError, Row, Stage};
+
+    #[test]
+    fn parse_with_stage_ok() {
+        for (inp_str, stage, exp_row) in &[
+            ("321", Stage::SINGLES, "321"),
+            ("321", Stage::MINOR, "321456"),
+            ("1342", Stage::MAJOR, "13425678"),
+            ("123564", Stage::ROYAL, "1235647890"),
+            ("21", Stage::DOUBLES, "21345"),
+            ("", Stage::MINIMUS, "1234"),
+        ] {
+            assert_eq!(
+                Row::parse_with_stage(inp_str, *stage).unwrap(),
+                Row::parse(exp_row).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn parse_with_stage_err() {
+        // Input rows with duplicated bells
+        for (inp_str, stage, dup_bell) in &[
+            ("322", Stage::SINGLES, '2'),
+            ("11", Stage::MAXIMUS, '1'),
+            ("512435", Stage::MINOR, '5'),
+            ("331212", Stage::MINOR, '3'),
+        ] {
+            assert_eq!(
+                Row::parse_with_stage(inp_str, *stage),
+                Err(InvalidRowError::DuplicateBell(
+                    Bell::from_name(*dup_bell).unwrap()
+                ))
+            );
+        }
+        // Input rows which contain bells that don't fit into the specified stage
+        for (inp_str, stage, bell_out_of_range) in &[
+            ("0", Stage::SINGLES, '0'),
+            ("3218", Stage::MINOR, '8'),
+            ("12345678", Stage::SINGLES, '4'),
+        ] {
+            assert_eq!(
+                Row::parse_with_stage(inp_str, *stage),
+                Err(InvalidRowError::BellOutOfStage(
+                    Bell::from_name(*bell_out_of_range).unwrap(),
+                    *stage
+                ))
+            );
+        }
+        // Input rows with missing bells
+        for (inp_str, stage, missing_bell) in &[
+            ("13", Stage::SINGLES, '2'),
+            ("14", Stage::MINOR, '2'),
+            ("14567892", Stage::CATERS, '3'),
+        ] {
+            assert_eq!(
+                Row::parse_with_stage(inp_str, *stage),
+                Err(InvalidRowError::MissingBell(
+                    Bell::from_name(*missing_bell).unwrap(),
+                ))
+            );
+        }
     }
 }

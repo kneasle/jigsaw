@@ -95,7 +95,7 @@ impl Comp {
     /// Attempt to parse a [`String`] into a [`Row`] of the correct [`Stage`] for this `Comp`.
     /// This returns `""` on success, and `"{error message}"` on failure.
     pub fn row_parse_err(&self, row_str: String) -> String {
-        match Row::parse(&row_str) {
+        match Row::parse_with_stage(&row_str, self.spec().stage) {
             Err(e) => format!("{}", e),
             Ok(_row) => "".to_owned(),
         }
@@ -194,7 +194,7 @@ impl Comp {
     /// This `panic!`s if called from any state other than [`State::Transposing`].
     pub fn finish_transposing(&mut self, row_str: String) -> bool {
         if let State::Transposing { frag_ind, row_ind } = self.state {
-            let parsed_row = Row::parse(&row_str);
+            let parsed_row = Row::parse_with_stage(&row_str, self.spec().stage);
             if let Ok(target_row) = &parsed_row {
                 self.make_action_frag(frag_ind, |f: &mut Frag| {
                     *f = f.transpose_row_to(row_ind, &target_row).unwrap();
