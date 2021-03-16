@@ -2,6 +2,18 @@
 
 This repository contains source code & report for my 3rd year project.
 
+## Overview
+
+The goal of this project is to design and build a visual application which will _aid_ composers of
+pieces of [Change Ringing](https://en.wikipedia.org/wiki/Change_ringing) in their work, whilst
+requiring as little change to their existing workflow as possible.  The main advantages provided
+over pen/paper is that this program gives instant and correct feedback on loads of useful
+information such as music, length and falseness (and other less important statistics like
+'all-the-work-ness' which are still tedious to calculate manually).  This is very much still a
+W.I.P. prototype, but here's a screenshot:
+
+![Project screenshot](https://github.com/kneasle/3rd-yr-proj/blob/master/report/screenshot.png)
+
 ## Build Instruction
 
 This project is mostly written in Rust, but runs a web GUI using JS (communicating with Rust through
