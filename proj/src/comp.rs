@@ -20,7 +20,11 @@ pub enum State {
     /// serialisation and undo steps.
     Dragging(usize),
     /// The user is transposing the [`Frag`] at a given index.
-    Transposing { frag_ind: usize, row_ind: usize },
+    Transposing {
+        frag_ind: usize,
+        row_ind: usize,
+        part_ind: usize,
+    },
 }
 
 /// The complete state of a partial composition.  The data-flow is:
@@ -184,8 +188,17 @@ impl Comp {
     /// [`State::Idle`].
     pub fn start_transposing(&mut self, frag_ind: usize, row_ind: usize) -> String {
         assert!(self.is_state_idle());
-        self.state = State::Transposing { frag_ind, row_ind };
-        format!("{}", self.spec().frags[frag_ind].get_annot_row(row_ind).row)
+        let part_ind = self.view.current_part;
+        self.state = State::Transposing {
+            frag_ind,
+            row_ind,
+            part_ind,
+        };
+        let unpermuted_row = &self.spec().frags[frag_ind].get_annot_row(row_ind).row;
+        format!(
+            "{}",
+            (&self.spec().part_heads[part_ind] * unpermuted_row).unwrap()
+        )
     }
 
     /// Called to exit [`State::Transposing`], saving the changes.  If `row_str` parses to a valid
@@ -193,9 +206,16 @@ impl Comp {
     /// [`State::Idle`] (returning `true`), otherwise no change occurs and this returns `false`.
     /// This `panic!`s if called from any state other than [`State::Transposing`].
     pub fn finish_transposing(&mut self, row_str: String) -> bool {
-        if let State::Transposing { frag_ind, row_ind } = self.state {
+        if let State::Transposing {
+            frag_ind,
+            row_ind,
+            part_ind,
+        } = self.state
+        {
             let parsed_row = Row::parse_with_stage(&row_str, self.spec().stage);
-            if let Ok(target_row) = &parsed_row {
+            if let Ok(unpermuted_target_row) = &parsed_row {
+                let target_row =
+                    ((&!&self.spec().part_heads[part_ind]) * unpermuted_target_row).unwrap();
                 self.make_action_frag(frag_ind, |f: &mut Frag| {
                     *f = f.transpose_row_to(row_ind, &target_row).unwrap();
                 });
