@@ -482,9 +482,38 @@ impl Row {
         self.bells().enumerate().all(|(i, b)| b.index() == i)
     }
 
+    /// Multiply two `Row`s (i.e. use the RHS to permute the LHS), checking that the [`Stage`]s are
+    /// compatible.  This is like using [`*`](<Row as Mul>::mul), except that this returns a
+    /// [`Result`] instead of [`panic!`]ing.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::Row;
+    ///
+    /// // Multiplying two Rows of the same Stage is fine
+    /// assert_eq!(
+    ///     Row::parse("13425678")?.mul(&Row::parse("43217568")?),
+    ///     Ok(Row::parse("24317568")?)
+    /// );
+    /// // Multiplying two Rows of different Stages causes an error but no
+    /// // undefined behaviour
+    /// assert_eq!(
+    ///     &Row::parse("13425678")?
+    ///         .mul(&Row::parse("4321")?)
+    ///         .unwrap_err()
+    ///         .to_string(),
+    ///     "Incompatible stages: Major (lhs), Minimus (rhs)"
+    /// );
+    /// # Ok::<(), proj_core::InvalidRowError>(())
+    /// ```
+    pub fn mul(&self, rhs: &Row) -> Result<Row, IncompatibleStages> {
+        IncompatibleStages::test_err(self.stage(), rhs.stage())?;
+        Ok(self.mul_unchecked(rhs))
+    }
+
     /// Multiply two `Row`s (i.e. use the RHS to permute the LHS), but without checking that the
-    /// [`Stage`]s are compatible.  This is slighlty faster than using `*`, but the output is not
-    /// guaruteed to be valid unless both inputs have the same [`Stage`].
+    /// [`Stage`]s are compatible.  This is slighlty faster than using `*` or [`Row::mul`], but the
+    /// output is not guaruteed to be valid unless both inputs have the same [`Stage`].
     ///
     /// # Example
     /// ```
@@ -597,7 +626,7 @@ impl std::ops::Index<usize> for Row {
 }
 
 impl std::ops::Mul for Row {
-    type Output = Result<Row, IncompatibleStages>;
+    type Output = Row;
 
     /// See [`&Row * &Row`](<&Row as std::ops::Mul>::mul) for docs.
     fn mul(self, rhs: Row) -> Self::Output {
@@ -607,32 +636,33 @@ impl std::ops::Mul for Row {
 }
 
 impl std::ops::Mul for &Row {
-    type Output = Result<Row, IncompatibleStages>;
+    type Output = Row;
 
     /// Uses the RHS to permute the LHS without consuming either argument.
     ///
     /// # Example
     /// ```
-    /// use proj_core::{Row, Stage, IncompatibleStages};
+    /// use proj_core::Row;
     ///
-    /// // Multiplying two Rows of the same Stage is fine
+    /// // Multiplying two Rows of the same Stage just returns a new Row
     /// assert_eq!(
     ///     &Row::parse("13425678")? * &Row::parse("43217568")?,
-    ///     Ok(Row::parse("24317568")?)
-    /// );
-    /// // Multiplying two Rows of different Stages causes an error but no
-    /// // undefined behaviour
-    /// assert_eq!(
-    ///     (&Row::parse("13425678")? * &Row::parse("4321")?)
-    ///         .unwrap_err()
-    ///         .to_string(),
-    ///     "Incompatible stages: Major (lhs), Minimus (rhs)"
+    ///     Row::parse("24317568")?
     /// );
     /// # Ok::<(), proj_core::InvalidRowError>(())
     /// ```
+    ///
+    /// ```should_panic
+    /// use proj_core::Row;
+    ///
+    /// // Multiplying two Rows of different Stages panics rather than
+    /// // producing undefined behaviour
+    /// let _unrow = &Row::parse("13425678")? * &Row::parse("4321")?;
+    /// # Ok::<(), proj_core::InvalidRowError>(())
+    /// ```
     fn mul(self, rhs: &Row) -> Self::Output {
-        IncompatibleStages::test_err(self.stage(), rhs.stage())?;
-        Ok(self.mul_unchecked(rhs))
+        assert_eq!(self.stage(), rhs.stage());
+        self.mul_unchecked(rhs)
     }
 }
 

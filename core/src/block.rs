@@ -55,7 +55,7 @@ impl Block {
         // We store the _inverse_ of the first Row, because for each row R we are solving the
         // equation `FX = R` where F is the first Row.  The solution to this is `X = F^-1 * R`, so
         // it makes sense to invert F once and then use that in all subsequent calculations.
-        let mut first_row_inverse = None;
+        let mut first_row_inverse: Option<Row> = None;
         let mut rows = Vec::new();
         for (i, l) in s.lines().enumerate() {
             // Parse the line into a Row, and track which line of the string has the offending Row
@@ -63,11 +63,13 @@ impl Block {
                 Row::parse(l).map_err(|err| ParseError::InvalidRow { line: i, err })?;
             if let Some(f_inv) = &first_row_inverse {
                 rows.push(
-                    (f_inv * &parsed_row).map_err(|s| ParseError::IncompatibleStages {
-                        line: i,
-                        first_stage: s.lhs_stage,
-                        different_stage: s.rhs_stage,
-                    })?,
+                    f_inv
+                        .mul(&parsed_row)
+                        .map_err(|s| ParseError::IncompatibleStages {
+                            line: i,
+                            first_stage: s.lhs_stage,
+                            different_stage: s.rhs_stage,
+                        })?,
                 );
             } else {
                 first_row_inverse = Some(!parsed_row);

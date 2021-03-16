@@ -149,10 +149,7 @@ impl ExpandedRow {
     }
 
     pub fn new(row: &AnnotatedRow, part_heads: &[Row], is_proved: bool) -> Self {
-        let all_rows: Vec<Row> = part_heads
-            .iter()
-            .map(|ph| (ph * &row.row).unwrap())
-            .collect();
+        let all_rows: Vec<Row> = part_heads.iter().map(|ph| ph * &row.row).collect();
         ExpandedRow {
             call_str: row.call_str.clone(),
             method_str: row.method_str.clone(),

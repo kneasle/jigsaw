@@ -190,7 +190,7 @@ impl Frag {
         row_ind: usize,
         target_row: &Row,
     ) -> Result<Frag, IncompatibleStages> {
-        self.transposed(&(target_row * &!&self.rows[row_ind].row).unwrap())
+        self.transposed(&(target_row * &!&self.rows[row_ind].row))
     }
 
     /// Returns a copy of `self` in which all the rows are (pre)mulitplied by some other [`Row`].

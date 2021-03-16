@@ -195,10 +195,7 @@ impl Comp {
             part_ind,
         };
         let unpermuted_row = &self.spec().frags[frag_ind].get_annot_row(row_ind).row;
-        format!(
-            "{}",
-            (&self.spec().part_heads[part_ind] * unpermuted_row).unwrap()
-        )
+        format!("{}", &self.spec().part_heads[part_ind] * unpermuted_row)
     }
 
     /// Called to exit [`State::Transposing`], saving the changes.  If `row_str` parses to a valid
@@ -214,8 +211,7 @@ impl Comp {
         {
             let parsed_row = Row::parse_with_stage(&row_str, self.spec().stage);
             if let Ok(unpermuted_target_row) = &parsed_row {
-                let target_row =
-                    ((&!&self.spec().part_heads[part_ind]) * unpermuted_target_row).unwrap();
+                let target_row = (&!&self.spec().part_heads[part_ind]) * unpermuted_target_row;
                 self.make_action_frag(frag_ind, |f: &mut Frag| {
                     *f = f.transpose_row_to(row_ind, &target_row).unwrap();
                 });
