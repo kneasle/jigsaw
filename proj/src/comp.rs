@@ -4,7 +4,6 @@ use crate::{
     view::View,
 };
 use proj_core::Row;
-use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 // Imports used solely for doc comments
@@ -27,7 +26,11 @@ pub enum State {
     Transposing {
         frag_ind: usize,
         row_ind: usize,
-        part_ind: usize,
+        /// The inverse of the part head visible when transposing started.  This is the [`Row`]
+        /// that is used as a transposition to 'undo' the effect of the part head (so that the user
+        /// can edit the [`Row`] they see on-screen, despite the fact that the underlying [`Row`]
+        /// being edited is different to what they see.
+        inv_part_head: Row,
     },
 }
 
@@ -61,29 +64,48 @@ impl Comp {
         &self.undo_history[self.history_index]
     }
 
-    /// Perform an action (some arbitrary function) on the current [`Spec`], maintaining the undo
-    /// history and recalculating the [`DerivedState`].
-    fn make_action(&mut self, action: impl Fn(&mut Spec)) {
+    /// Perform an fallible action (some arbitrary function which returns a `Result<Spec>`) on the
+    /// current [`Spec`].  If this returns `Ok` then follow through with the edit - maintaining the
+    /// undo history, recalculating the [`DerivedState`] and returning `Ok(())`.  If the action
+    /// returns `Err` then that error is also returned from `make_fallible_action`.
+    fn make_fallible_action<E>(
+        &mut self,
+        action: impl FnOnce(&Spec) -> Result<Spec, E>,
+    ) -> Result<(), E> {
+        // Make sure that we try the action **before** deleting the redo history -- if the user
+        // performs an action which fails, we want them to not lose their redo history
+        let new_spec = action(&mut self.undo_history[self.history_index])?;
         // Rollback the history so that `history_index` points to the last edit
         drop(self.undo_history.drain(self.history_index + 1..));
-        // Perform the required action on a clone of the Spec being displayed
-        let mut new_spec = self.undo_history[self.history_index].clone();
-        action(&mut new_spec);
         // Add this modified Spec to the undo history, and make it the current one
         self.undo_history.push(new_spec);
         self.history_index += 1;
         // Rebuild the derived state, since the Spec has changed
         self.rebuild_state();
+        Ok(())
+    }
+
+    /// Perform an action (some arbitrary function) on the current [`Spec`], maintaining the undo
+    /// history and recalculating the [`DerivedState`].  This returns the value returned from the
+    /// call of `action`.
+    fn make_action<T>(&mut self, action: impl FnOnce(&mut Spec) -> T) -> T {
+        // Rollback the history so that `history_index` points to the last edit
+        drop(self.undo_history.drain(self.history_index + 1..));
+        // Perform the required action on a clone of the Spec being displayed
+        let mut new_spec = self.undo_history[self.history_index].clone();
+        let result = action(&mut new_spec);
+        // Add this modified Spec to the undo history, and make it the current one
+        self.undo_history.push(new_spec);
+        self.history_index += 1;
+        // Rebuild the derived state, since the Spec has changed
+        self.rebuild_state();
+        result
     }
 
     /// Perform an action (some arbitrary function) on a single [`Frag`] in the current [`Spec`],
     /// maintaining the undo history and recalculating the [`DerivedState`].
     fn make_action_frag(&mut self, frag_ind: usize, action: impl Fn(&mut Frag)) {
-        self.make_action(|spec: &mut Spec| {
-            let mut new_frag = spec.frags[frag_ind].as_ref().clone();
-            action(&mut new_frag);
-            spec.frags[frag_ind] = Rc::new(new_frag);
-        });
+        self.make_action(|spec| spec.make_action_frag(frag_ind, action));
     }
 }
 
@@ -103,7 +125,7 @@ impl Comp {
     /// Attempt to parse a [`String`] into a [`Row`] of the correct [`Stage`] for this `Comp`.
     /// This returns `""` on success, and `"{error message}"` on failure.
     pub fn row_parse_err(&self, row_str: String) -> String {
-        match Row::parse_with_stage(&row_str, self.spec().stage) {
+        match Row::parse_with_stage(&row_str, self.spec().stage()) {
             Err(e) => format!("{}", e),
             Ok(_row) => "".to_owned(),
         }
@@ -196,10 +218,12 @@ impl Comp {
         self.state = State::Transposing {
             frag_ind,
             row_ind,
-            part_ind,
+            inv_part_head: !self.derived_state.get_part_head(part_ind).unwrap(),
         };
-        let unpermuted_row = &self.spec().frags[frag_ind].get_annot_row(row_ind).row;
-        format!("{}", &self.spec().part_heads[part_ind] * unpermuted_row)
+        self.derived_state
+            .get_row(part_ind, frag_ind, row_ind)
+            .unwrap()
+            .to_string()
     }
 
     /// Called to exit [`State::Transposing`], saving the changes.  If `row_str` parses to a valid
@@ -207,23 +231,23 @@ impl Comp {
     /// [`State::Idle`] (returning `true`), otherwise no change occurs and this returns `false`.
     /// This `panic!`s if called from any state other than [`State::Transposing`].
     pub fn finish_transposing(&mut self, row_str: String) -> bool {
-        if let State::Transposing {
-            frag_ind,
-            row_ind,
-            part_ind,
-        } = self.state
-        {
-            let parsed_row = Row::parse_with_stage(&row_str, self.spec().stage);
-            if let Ok(unpermuted_target_row) = &parsed_row {
-                let target_row = (&!&self.spec().part_heads[part_ind]) * unpermuted_target_row;
-                self.make_action_frag(frag_ind, |f: &mut Frag| {
-                    *f = f.transpose_row_to(row_ind, &target_row).unwrap();
-                });
-                self.state = State::Idle;
+        // Switch the state to `State::Idle`, whilst also matching over the (moved) old state
+        match std::mem::replace(&mut self.state, State::Idle) {
+            State::Transposing {
+                frag_ind,
+                row_ind,
+                inv_part_head,
+            } => {
+                let parsed_row = Row::parse_with_stage(&row_str, self.spec().stage());
+                if let Ok(unpermuted_target_row) = &parsed_row {
+                    let target_row = &inv_part_head * unpermuted_target_row;
+                    self.make_action_frag(frag_ind, |f: &mut Frag| {
+                        *f = f.transpose_row_to(row_ind, &target_row).unwrap();
+                    });
+                }
+                parsed_row.is_ok()
             }
-            parsed_row.is_ok()
-        } else {
-            unreachable!();
+            _ => unreachable!(),
         }
     }
 
@@ -252,71 +276,30 @@ impl Comp {
 
     /* Actions */
 
-    /// Add a new [`Frag`] to the composition, returning its index.  For the time being, we always
-    /// create the plain lead or course of Plain Bob Major.  This doesn't directly do any
-    /// transposing but the JS code will immediately enter transposing mode after the frag has been
-    /// added, thus allowing the user to add arbitrary [`Frag`]s with minimal code duplication.
+    /// See [`Spec::add_frag`] for docs
     pub fn add_frag(&mut self, x: f32, y: f32, add_course: bool) -> usize {
-        self.make_action(|spec: &mut Spec| {
-            let new_frag = Frag::one_lead_pb_maj(x, y);
-            spec.frags.push(Rc::new(if add_course {
-                new_frag.expand_to_round_block()
-            } else {
-                new_frag
-            }));
-        });
-        // We always push the Frag to the end of the list
-        self.spec().frags.len() - 1
+        // `self.make_action` bubbles through the return value from `Spec::add_frag`, which will
+        // make sure we return the index of the newly added Frag
+        self.make_action(|spec| spec.add_frag(x, y, add_course))
     }
 
-    /// Deletes a [`Frag`]ment by index
+    /// Deletes a [`Frag`]ment by index.
     pub fn delete_frag(&mut self, frag_ind: usize) {
-        self.make_action(|spec: &mut Spec| {
-            spec.frags.remove(frag_ind);
-        });
+        self.make_action(|spec| spec.delete_frag(frag_ind));
     }
 
-    /// Join the [`Frag`] at `frag_2_ind` onto the end of the [`Frag`] at `frag_1_ind`, transposing
-    /// the latter to match the former if necessary.  The combined [`Frag`] ends up at the index
-    /// and location of `frag_1_ind`, and the [`Frag`] at `frag_2_ind` is removed.
+    /// See [`Spec::join_frags`] for docs.
     pub fn join_frags(&mut self, frag_1_ind: usize, frag_2_ind: usize) {
-        self.make_action(|spec: &mut Spec| {
-            let joined_frag = spec.frags[frag_1_ind].joined_with(&spec.frags[frag_2_ind]);
-            spec.frags[frag_1_ind] = Rc::new(joined_frag);
-            spec.frags.remove(frag_2_ind);
-        });
+        self.make_action(|spec| spec.join_frags(frag_1_ind, frag_2_ind));
     }
 
     /// Splits a given [`Frag`]ment into two fragments, returning `""` on success and an error
     /// string on failure. `split_index` refers to the first row of the 2nd fragment (so row
     /// #`split_index` will also be the new leftover row of the 1st subfragment).
     pub fn split_frag(&mut self, frag_ind: usize, split_index: usize, new_y: f32) -> String {
-        // Early return with an error message if any of the preconditions aren't met
-        match self.spec().frags.get(frag_ind) {
-            Some(f) => {
-                if split_index == 0 || split_index >= f.len() {
-                    return "Can't create 0-length fragment".to_owned();
-                }
-            }
-            None => {
-                return format!(
-                    "Frag #{} doens't exist; there are only {} frags.",
-                    frag_ind,
-                    self.spec().frags.len(),
-                );
-            }
-        }
-        // Perform the split (this shouldn't be able to panic, since we checked the preconditions
-        // upfront).
-        self.make_action(|spec: &mut Spec| {
-            let (f1, f2) = spec.frags[frag_ind].split(split_index, new_y);
-            // Replace the 1st frag in-place, and append the 2nd (this stops fragments from jumping
-            // to the top of the stack when split).
-            spec.frags[frag_ind] = Rc::new(f1);
-            spec.frags.push(Rc::new(f2));
-        });
-        // Return empty string for success
-        "".to_owned()
+        self.make_fallible_action(|spec| spec.split_frag(frag_ind, split_index, new_y))
+            .err()
+            .map_or(String::new(), |e| e.to_string())
     }
 
     /// Toggle whether or not a given [`Frag`] is muted

@@ -1,14 +1,21 @@
 use crate::derived_state::ExpandedRow;
 use proj_core::{IncompatibleStages, Row, Stage};
 use serde::Serialize;
-use std::rc::Rc;
+use std::{
+    fmt::{Display, Formatter},
+    rc::Rc,
+};
+
+// Imports used solely by doc comments
+#[allow(unused_imports)]
+use crate::derived_state::DerivedState;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct AnnotatedRow {
-    pub(crate) is_lead_end: bool,
-    pub(crate) method_str: Option<MethodName>,
-    pub(crate) call_str: Option<String>,
-    pub(crate) row: Row,
+struct AnnotatedRow {
+    is_lead_end: bool,
+    method_str: Option<MethodName>,
+    call_str: Option<String>,
+    row: Row,
 }
 
 impl AnnotatedRow {
@@ -37,6 +44,30 @@ pub struct MethodName {
     shorthand: String,
 }
 
+/// The possible ways splitting a [`Frag`] could fail
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum FragSplitError {
+    /// Splitting the [`Frag`] would have produced a [`Frag`] with no rows
+    ZeroLengthFrag,
+    /// The index we were given by JS points outside the bounds of the [`Frag`] array
+    IndexOutOfRange { index: usize, num_frags: usize },
+}
+
+impl Display for FragSplitError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FragSplitError::ZeroLengthFrag => write!(f, "Can't create a 0-length Frag"),
+            FragSplitError::IndexOutOfRange { index, num_frags } => {
+                write!(
+                    f,
+                    "Frag #{} out of range of slice with len {}",
+                    index, num_frags
+                )
+            }
+        }
+    }
+}
+
 /// A single unexpanded fragment of a composition
 #[derive(Clone, Debug)]
 pub struct Frag {
@@ -56,14 +87,9 @@ impl Frag {
         self.first_row().row.stage()
     }
 
-    /// Returns the (x, y) coordinates of this `Frag`ment
+    /// Returns the (x, y) coordinates of this `Frag`
     pub fn pos(&self) -> (f32, f32) {
         (self.x, self.y)
-    }
-
-    /// Returns the mutedness state of this `Frag`
-    pub fn is_muted(&self) -> bool {
-        self.is_muted
     }
 
     /// The number of rows in this `Frag` (**not including the leftover row**)
@@ -72,24 +98,18 @@ impl Frag {
         self.rows.len() - 1
     }
 
-    /// Gets the [`AnnotatedRow`] of this [`Frag`] at a given index
-    #[inline]
-    pub fn get_annot_row(&self, index: usize) -> &AnnotatedRow {
-        &self.rows[index]
-    }
-
     /// Returns the first [`AnnotatedRow`] of this `Frag`.  This does not return an [`Option`]
     /// because `Frag`s must have length at least 1, meaning that there is always a first
     /// [`AnnotatedRow`].
     #[inline]
-    pub fn first_row(&self) -> &AnnotatedRow {
+    fn first_row(&self) -> &AnnotatedRow {
         &self.rows[0]
     }
 
     /// Returns the leftover row of this `Frag` (as an [`AnnotatedRow`]).  This does not return an
     /// [`Option`] because all `Frag`s must have a leftover row.
     #[inline]
-    pub fn leftover_row(&self) -> &AnnotatedRow {
+    fn leftover_row(&self) -> &AnnotatedRow {
         self.rows.last().unwrap()
     }
 
@@ -109,15 +129,12 @@ impl Frag {
     /* Non-mutating operations */
 
     /// Splits this fragment into two pieces so that the first one has length `split_index`.  Both
-    /// `Frag`s will have the same x-coordinate, but the 2nd one will have y-coordinate specified
-    /// by `new_y`.  This panics if `split_index` is out of range of the number of rows.
-    pub fn split(&self, split_index: usize, new_y: f32) -> (Frag, Frag) {
+    /// `Frag`s will inherit all values from `self`, except that the 2nd one will have y-coordinate
+    /// specified by `new_y`.
+    pub fn split(&self, split_index: usize, new_y: f32) -> Result<(Frag, Frag), FragSplitError> {
         // Panic if splitting would create a 0-size fragment
         if split_index == 0 || split_index >= self.len() {
-            panic!(
-                "Splitting at index {} would create a 0-length Fragment",
-                split_index
-            );
+            return Err(FragSplitError::ZeroLengthFrag);
         }
         // Generate the rows for each subfragment
         let mut rows1: Vec<_> = self.rows[..split_index + 1].iter().cloned().collect();
@@ -125,10 +142,10 @@ impl Frag {
         // Make sure that the leftover row of the 1st subfragment has no annotations
         rows1.last_mut().unwrap().clear_annotations();
         // Build new fragments out of the cloned rows
-        (
+        Ok((
             Frag::new(rows1, self.x, self.y, self.is_muted),
             Frag::new(rows2, self.x, new_y, self.is_muted),
-        )
+        ))
     }
 
     /// Create a new `Frag` of `other` onto the end of `self`, transposing `other` if necessary.
@@ -211,7 +228,7 @@ impl Frag {
 
     /// Create a new `Frag` which is identical to `self`, except that it contains different
     /// [`AnnotatedRow`]s
-    pub fn clone_with_new_rows(&self, rows: Vec<AnnotatedRow>) -> Frag {
+    fn clone_with_new_rows(&self, rows: Vec<AnnotatedRow>) -> Frag {
         Frag {
             rows: Rc::new(rows),
             x: self.x,
@@ -331,13 +348,16 @@ impl Frag {
     }
 }
 
-/// The _specfication_ for a composition.  This is what the user edits, and it is used to derive
-/// the fully expanded set of rows and their origins.
+/// The _specification_ for a composition, and corresponds to roughly the least information
+/// required to unambiguously represent the the state of a partial composition.  This on its own is
+/// not a particularly useful representation so [`DerivedState`] is used to represent an
+/// 'expanded' representation of a `Spec`, which is essentially all the data that is required to
+/// render a composition to the screen.
 #[derive(Debug, Clone)]
 pub struct Spec {
-    pub(crate) frags: Vec<Rc<Frag>>,
-    pub(crate) part_heads: Rc<Vec<Row>>,
-    pub(crate) stage: Stage,
+    frags: Vec<Rc<Frag>>,
+    part_heads: Rc<Vec<Row>>,
+    stage: Stage,
 }
 
 impl Spec {
@@ -379,6 +399,70 @@ impl Spec {
 
     /* Operations */
 
+    /// Perform some `action` on a clone of a specific [`Frag`] in this `Spec`.  This has the
+    /// effect of performing the action whilst preserving the original `Spec` (to be used in the
+    /// undo history).
+    pub fn make_action_frag(&mut self, frag_ind: usize, action: impl Fn(&mut Frag)) {
+        let mut new_frag = self.frags[frag_ind].as_ref().clone();
+        action(&mut new_frag);
+        self.frags[frag_ind] = Rc::new(new_frag);
+    }
+
+    /// Add a new [`Frag`] to the composition, returning its index.  For the time being, we always
+    /// create the plain lead or course of Plain Bob Major.  This doesn't directly do any
+    /// transposing but the JS code will immediately enter transposing mode after the frag has been
+    /// added, thus allowing the user to add arbitrary [`Frag`]s with minimal code duplication.
+    pub fn add_frag(&mut self, x: f32, y: f32, add_course: bool) -> usize {
+        let new_frag = Frag::one_lead_pb_maj(x, y);
+        self.frags.push(Rc::new(if add_course {
+            new_frag.expand_to_round_block()
+        } else {
+            new_frag
+        }));
+        // We always push the Frag to the end of the list, so its index is `self.frags.len()`
+        self.frags.len() - 1
+    }
+
+    /// Deletes a [`Frag`]ment by index
+    pub fn delete_frag(&mut self, frag_ind: usize) {
+        self.frags.remove(frag_ind);
+    }
+
+    /// Join the [`Frag`] at `frag_2_ind` onto the end of the [`Frag`] at `frag_1_ind`, transposing
+    /// the latter to match the former if necessary.  The combined [`Frag`] ends up at the index
+    /// and location of `frag_1_ind`, and the [`Frag`] at `frag_2_ind` is removed.  All properties
+    /// of the resulting [`Frag`] are inherited from the `frag_1_ind`.
+    pub fn join_frags(&mut self, frag_1_ind: usize, frag_2_ind: usize) {
+        let joined_frag = self.frags[frag_1_ind].joined_with(&self.frags[frag_2_ind]);
+        self.frags[frag_1_ind] = Rc::new(joined_frag);
+        self.frags.remove(frag_2_ind);
+    }
+
+    pub fn split_frag(
+        &self,
+        frag_ind: usize,
+        split_index: usize,
+        new_y: f32,
+    ) -> Result<Self, FragSplitError> {
+        // Perform the split **before** cloning `self`, short-circuiting the function if the
+        // splitting fails
+        let (f1, f2) = self
+            .frags
+            .get(frag_ind)
+            .ok_or_else(|| FragSplitError::IndexOutOfRange {
+                index: frag_ind,
+                num_frags: self.frags.len(),
+            })?
+            .split(split_index, new_y)?;
+        // Replace the 1st frag in-place, and append the 2nd (this stops fragments from jumping
+        // to the top of the stack when split).
+        let mut new_self = self.clone();
+        new_self.frags[frag_ind] = Rc::new(f1);
+        new_self.frags.push(Rc::new(f2));
+        // Return empty string for success
+        Ok(new_self)
+    }
+
     /// [`Frag`] soloing ala FL Studio; this has two cases:
     /// 1. `frag_ind` is the only unmuted [`Frag`], in which case we unmute everything
     /// 2. `frag_ind` isn't the only unmuted [`Frag`], in which case we mute everything except it
@@ -414,36 +498,61 @@ impl Spec {
         self.frags.iter().map(|f| f.len()).sum::<usize>()
     }
 
+    /// Gets the [`Stage`] of this [`Spec`]
+    #[inline]
+    pub fn stage(&self) -> Stage {
+        self.stage
+    }
+
+    /// Returns the position of the [`Frag`] at a given index, returning `None` if that [`Frag`]
+    /// doens't exist.
+    pub fn frag_pos(&self, frag_ind: usize) -> Option<(f32, f32)> {
+        Some(self.frags.get(frag_ind)?.pos())
+    }
+
+    /// Returns the mutedness state of the [`Frag`] at a given index, returning `None` if that
+    /// [`Frag`] doesn't exist.
+    pub fn is_frag_muted(&self, frag_ind: usize) -> Option<bool> {
+        Some(self.frags.get(frag_ind)?.is_muted)
+    }
+
     /// Generates all the rows generated by this `Spec`, storing them in the following
     /// datastructure:
     /// ```ignore
-    /// Vec< // One per Frag
-    ///     (
+    /// (
+    ///     Vec< // One per Frag
     ///         Vec< // One per row in that Frag, including the leftover row
     ///             ExpandedRow // Contains one Row per part
     ///         >,
-    ///         bool // Is the entire [`Frag`] proved?
-    ///     )
-    /// >,
+    ///     >,
+    ///     Vec<Row>, // Part heads; one per part
+    /// )
     /// ```
-    pub fn gen_rows(&self) -> Vec<Vec<ExpandedRow>> {
-        self.frags
+    pub fn expand(&self) -> (Vec<Vec<ExpandedRow>>, Vec<Row>) {
+        let part_heads = self.part_heads.as_ref().clone();
+        let expanded_rows = self
+            .frags
             .iter()
             .enumerate()
             .map(|(frag_ind, f)| {
-                // Figure out if this frag should be proved
                 f.rows
                     .iter()
                     .enumerate()
                     .map(|(row_ind, r)| {
                         ExpandedRow::new(
-                            r,
-                            &self.part_heads,
+                            &r.row,
+                            r.call_str.clone(),
+                            r.method_str.clone(),
+                            r.is_lead_end,
+                            &part_heads,
+                            // Figure out if this frag should be proved
                             row_ind != f.len() && !self.frags[frag_ind].is_muted,
                         )
                     })
                     .collect()
             })
-            .collect()
+            .collect();
+
+        (expanded_rows, part_heads)
     }
 }

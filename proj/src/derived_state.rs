@@ -1,4 +1,4 @@
-use crate::spec::{AnnotatedRow, MethodName, Spec};
+use crate::spec::{MethodName, Spec};
 use proj_core::{run_len, Bell, Row, Stage};
 use serde::{ser::SerializeSeq, Serialize, Serializer};
 use std::collections::{HashMap, HashSet};
@@ -148,13 +148,20 @@ impl ExpandedRow {
         music
     }
 
-    pub fn new(row: &AnnotatedRow, part_heads: &[Row], is_proved: bool) -> Self {
-        let all_rows: Vec<Row> = part_heads.iter().map(|ph| ph * &row.row).collect();
+    pub fn new(
+        row: &Row,
+        call_str: Option<String>,
+        method_str: Option<MethodName>,
+        is_lead_end: bool,
+        part_heads: &[Row],
+        is_proved: bool,
+    ) -> Self {
+        let all_rows: Vec<Row> = part_heads.iter().map(|ph| ph * &row).collect();
         ExpandedRow {
-            call_str: row.call_str.clone(),
-            method_str: row.method_str.clone(),
-            is_lead_end: row.is_lead_end,
-            music_highlights: Self::calculate_music(&all_rows, row.row.stage()),
+            call_str,
+            method_str,
+            is_lead_end,
+            music_highlights: Self::calculate_music(&all_rows, row.stage()),
             rows: all_rows,
             is_proved,
         }
@@ -222,11 +229,30 @@ pub struct DerivedState {
 }
 
 impl DerivedState {
+    /// Gets the [`Row`] at a given location in this `DerivedState`, returning `None` if the
+    /// location doesn't correspond to a [`Row`].
+    pub fn get_row(&self, part_ind: usize, frag_ind: usize, row_ind: usize) -> Option<&Row> {
+        Some(
+            self.annot_frags
+                .get(frag_ind)?
+                .exp_rows
+                .get(row_ind)?
+                .rows
+                .get(part_ind)?,
+        )
+    }
+
+    /// Gets the part head at a given index, or returning `None` if the index is bigger than the
+    /// number of parts.
+    #[inline]
+    pub fn get_part_head(&self, part_ind: usize) -> Option<&Row> {
+        self.part_heads.get(part_ind)
+    }
+
     /// Given a [`Spec`]ification, derive a new `DerivedState` from it.
     pub fn from_spec(spec: &Spec) -> DerivedState {
-        // Fully expand the rows of the comp, and also generate which [`Frag`]s should be proved
-        // (using the solo/mute functionality).
-        let generated_rows = spec.gen_rows();
+        // Fully expand the comp from the [`Spec`]
+        let (generated_rows, part_heads) = spec.expand();
 
         // Truth proving pipeline - each stage relies on the output of the first
         let (flat_proved_rows, part_len) = Self::flatten_proved_rows(&generated_rows, spec.len());
@@ -237,6 +263,7 @@ impl DerivedState {
         // Compile all of the derived state into one struct
         DerivedState {
             frag_links,
+            part_heads,
             annot_frags: generated_rows
                 .into_iter()
                 .zip(frag_link_groups.into_iter())
@@ -244,11 +271,11 @@ impl DerivedState {
                 .map(|(i, (exp_rows, link_groups))| {
                     // Sanity check that leftover rows should never be used in the proving
                     assert!(exp_rows.last().map_or(false, |r| !r.is_proved));
-                    let (x, y) = spec.frags[i].pos();
+                    let (x, y) = spec.frag_pos(i).unwrap();
                     AnnotFrag {
                         false_row_ranges: ranges_by_frag.remove(&i).unwrap_or(vec![]),
                         exp_rows,
-                        is_proved: !spec.frags[i].is_muted(),
+                        is_proved: !spec.is_frag_muted(i).unwrap(),
                         link_groups,
                         x,
                         y,
@@ -260,8 +287,7 @@ impl DerivedState {
                 num_false_groups,
                 num_false_rows,
             },
-            part_heads: spec.part_heads.as_ref().clone(),
-            stage: spec.stage.as_usize(),
+            stage: spec.stage().as_usize(),
         }
     }
 
