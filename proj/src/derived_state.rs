@@ -146,6 +146,7 @@ impl ExpandedRow {
         music
     }
 
+    /// Create a new `ExpandedRow` from its constituent parts
     pub fn new(
         row: &Row,
         call_str: Option<String>,

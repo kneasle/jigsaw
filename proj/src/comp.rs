@@ -34,11 +34,20 @@ pub enum State {
     },
 }
 
-/// The complete state of a partial composition.  The data-flow is:
-/// - User makes some edit, which changes the [`Spec`]ification
-/// - Once we have the new [`Spec`], we expand all the rows, and use these to rebuild the
-///   `derived_state` so that the JS code doesn't recalculate this state every time the screen is
-///   rendered.
+/// The complete state of the composition editor, complete with undo history and UI/view state.
+///
+/// The general data-flow is:
+/// - User generates some input (keypress, mouse click, etc.)
+/// - JS reads this input and calls one of the `#[wasm_bindgen]` methods on `Comp`
+/// - These call a `Comp::make_*action*` function which handles the undo history and makes a new
+///   [`Spec`] to represent the edit, and updates the `history_index` to point to the [`Spec`] we
+///   just created.
+/// - Because the [`Spec`] has changed, we rebuild the [`DerivedState`] from this new [`Spec`].
+///   This is necessary because JS can't access the [`Spec`] directly.
+/// - After every edit, JS will call [`Comp::ser_derived_state`] which passes a JSON serialisation
+///   of [`DerivedState`] to JS, which is parsed and used to overwrite the current `derived_state`
+///   variable.
+/// - A repaint is requested, so that the updated [`DerivedState`] gets rendered to the screen.
 #[wasm_bindgen]
 #[derive(Debug, Clone)]
 pub struct Comp {
