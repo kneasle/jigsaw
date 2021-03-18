@@ -1,6 +1,6 @@
 use crate::spec::{MethodName, Spec};
-use proj_core::{run_len, Bell, Row, Stage};
-use serde::{ser::SerializeSeq, Serialize, Serializer};
+use proj_core::{run_len, Row, Stage};
+use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 
 // Imports used only for the doc comments
@@ -53,30 +53,6 @@ impl From<RowOrigin> for RowLocation {
     }
 }
 
-// Required so that we can omit `"is_lead_end": false` when serialising
-fn is_false(b: &bool) -> bool {
-    !b
-}
-
-// Required so that we can omit `"is_proved": true` when serialising
-fn is_true(b: &bool) -> bool {
-    !b
-}
-
-// Required so that we can omit `"music_highlights": [[], [], [], ...]` when serialising
-fn is_all_empty(vs: &[Vec<usize>]) -> bool {
-    vs.iter().all(Vec::is_empty)
-}
-
-// Custom serialiser to serialise [`Vec<Row>`] into `[[index]]`
-fn ser_rows<S: Serializer>(rows: &[Row], s: S) -> Result<S::Ok, S::Error> {
-    let mut seq_ser = s.serialize_seq(Some(rows.len()))?;
-    for r in rows {
-        seq_ser.serialize_element(&r.bells().map(Bell::index).collect::<Vec<_>>())?;
-    }
-    seq_ser.end()
-}
-
 /// All the information required for JS to render a single [`Row`] from the [`Spec`].  Note that
 /// because of multipart expansion, this single on-screen [`Row`] actually represents many expanded
 /// [`Row`]s, and this datatype reflects that.
@@ -86,12 +62,12 @@ pub struct ExpandedRow {
     call_str: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     method_str: Option<MethodName>,
-    #[serde(skip_serializing_if = "is_false")]
+    #[serde(skip_serializing_if = "crate::ser_utils::is_false")]
     is_lead_end: bool,
-    #[serde(skip_serializing_if = "is_true")]
+    #[serde(skip_serializing_if = "crate::ser_utils::is_true")]
     is_proved: bool,
     /// One [`Row`] for each part of the composition
-    #[serde(serialize_with = "ser_rows")]
+    #[serde(serialize_with = "crate::ser_utils::ser_rows")]
     rows: Vec<Row>,
     /// For each bell, shows which parts contain music
     ///
@@ -118,7 +94,7 @@ pub struct ExpandedRow {
     ///     vec![0, 1, 2, 3]
     /// ]
     /// ```
-    #[serde(skip_serializing_if = "is_all_empty")]
+    #[serde(skip_serializing_if = "crate::ser_utils::is_all_empty")]
     music_highlights: Vec<Vec<usize>>,
 }
 
@@ -222,7 +198,7 @@ pub struct DerivedState {
     annot_frags: Vec<AnnotFrag>,
     frag_links: Vec<FragLink>,
     stats: DerivedStats,
-    #[serde(serialize_with = "ser_rows")]
+    #[serde(serialize_with = "crate::ser_utils::ser_rows")]
     part_heads: Vec<Row>,
     stage: usize,
 }
