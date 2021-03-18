@@ -66,7 +66,7 @@ let selected_link = undefined;
 // as immutable).
 let comp, derived_state, view;
 // Mouse variables that the browser should keep track of but doesn't
-let mouse_coords = {x: 0, y: 0};
+let mouse_coords = { x: 0, y: 0 };
 // Things that should be user config but currently are global vars
 let bell_lines = {
     0: [1.5, "red"],
@@ -95,11 +95,11 @@ function draw_row(x, y, row) {
         if (row.music_highlights && row.music_highlights[b].length > 0) {
             // If some music happened in the part we're currently viewing, then set the alpha to 1,
             // otherwise make an 'onionskinning' effect of the music from other parts
-            ctx.globalAlpha = (
-                row.music_highlights[b].includes(view.current_part)
+            ctx.globalAlpha =
+                (row.music_highlights[b].includes(view.current_part)
                     ? 1
-                    : 1 - Math.pow(1 - MUSIC_ONIONSKIN_OPACITY, row.music_highlights[b].length)
-            ) * opacity;
+                    : 1 - Math.pow(1 - MUSIC_ONIONSKIN_OPACITY, row.music_highlights[b].length)) *
+                opacity;
             ctx.fillStyle = MUSIC_COL;
             ctx.fillRect(x + COL_WIDTH * b, y, COL_WIDTH, ROW_HEIGHT);
         }
@@ -242,8 +242,9 @@ function draw_link(link, is_selected) {
     const l = frag_link_line(link);
     // Calculate the opacity of the line from its length
     const length = Math.sqrt(Math.pow(l.to_x - l.from_x, 2) + Math.pow(l.to_y - l.from_y, 2));
-    ctx.globalAlpha = FRAG_LINK_MIN_OPACITY
-        + (1 - FRAG_LINK_MIN_OPACITY) * Math.exp(-length * FRAG_LINK_OPACITY_FALLOFF);
+    ctx.globalAlpha =
+        FRAG_LINK_MIN_OPACITY +
+        (1 - FRAG_LINK_MIN_OPACITY) * Math.exp(-length * FRAG_LINK_OPACITY_FALLOFF);
     // Draw the line
     ctx.strokeStyle = group_col(link.group);
     ctx.lineWidth = FRAG_LINK_WIDTH * (is_selected ? SELECTED_LINK_WIDTH_MULTIPLIER : 1);
@@ -385,8 +386,8 @@ function on_key_down(e) {
         const frag = hovered_frag();
         const cursor_pos = world_space_cursor_pos();
         // add a lead of Plain Bob as a new fragment to the comp
-        if (e.key === 'a' || e.key === 'A') {
-            const adding_full_course = e.key === 'A';
+        if (e.key === "a" || e.key === "A") {
+            const adding_full_course = e.key === "A";
             const new_frag_ind = comp.add_frag(cursor_pos.x, cursor_pos.y, adding_full_course);
             on_comp_change();
             // Immediately enter transposing mode to let the user specify what course they wanted
@@ -394,19 +395,17 @@ function on_key_down(e) {
             e.preventDefault();
         }
         // 'cut' a fragment into two at the mouse location
-        if (e.key === 'x' && frag) {
+        if (e.key === "x" && frag) {
             const split_index = Math.round(frag.row);
             // Make sure there's a 10px gap between the BBoxes of the two fragments (we add 1 to
             // `split_index` to take into account the existence of the leftover row)
-            const new_y = derived_state.annot_frags[frag.index].y
-                + (split_index + 1) * ROW_HEIGHT
-                + FRAG_BBOX_EXTRA_HEIGHT * 2 + 10;
+            const new_y =
+                derived_state.annot_frags[frag.index].y +
+                (split_index + 1) * ROW_HEIGHT +
+                FRAG_BBOX_EXTRA_HEIGHT * 2 +
+                10;
             // Split the fragment, and store the error string
-            const err = comp.split_frag(
-                frag.index,
-                split_index,
-                new_y
-            );
+            const err = comp.split_frag(frag.index, split_index, new_y);
             // If the split failed, then log the error.  Otherwise, resync the composition with
             // `on_comp_change`.
             if (err) {
@@ -416,50 +415,50 @@ function on_key_down(e) {
             }
         }
         // mute/unmute a fragment
-        if (e.key === 's' && frag) {
+        if (e.key === "s" && frag) {
             comp.toggle_frag_mute(frag.index);
             on_comp_change();
         }
         // solo/unsolo a fragment
-        if (e.key === 'S' && frag) {
+        if (e.key === "S" && frag) {
             comp.toggle_frag_solo(frag.index);
             on_comp_change();
         }
         // transpose a fragment by its start row
-        if (e.key === 't' && frag) {
+        if (e.key === "t" && frag) {
             start_transposition(frag.index, 0);
             // Prevent this event causing the user to type 't' into the newly focussed transposition box
-            e.preventDefault()
+            e.preventDefault();
         }
         // transpose a fragment by the hovered row
-        if (e.key === 'T' && frag) {
+        if (e.key === "T" && frag) {
             start_transposition(frag.index, Math.floor(frag.row));
             // Prevent this event causing the user to type 'T' into the newly focussed transposition box
-            e.preventDefault()
+            e.preventDefault();
         }
         // reset the composition (ye too dangerous I know but good enough for now)
-        if (e.key === 'R') {
+        if (e.key === "R") {
             comp.reset();
             on_comp_change();
         }
         // delete the fragment under the cursor (ye too dangerous I know but good enough for now)
-        if (e.key === 'd' && frag) {
+        if (e.key === "d" && frag) {
             comp.delete_frag(frag.index);
             on_comp_change();
         }
         // join the first frag 1 onto frag 0, but only if we aren't hovering a fragment
-        if (e.key === 'j' && selected_link !== undefined) {
+        if (e.key === "j" && selected_link !== undefined) {
             const link_to_join = derived_state.frag_links[selected_link];
             comp.join_frags(link_to_join.from, link_to_join.to);
             on_comp_change();
         }
         // ctrl-z or simply z to undo (of course)
-        if (e.key === 'z') {
+        if (e.key === "z") {
             comp.undo();
             on_comp_change();
         }
         // shift-ctrl-Z or ctrl-y to redo
-        if (e.key === 'Z' || (e.key === 'y' && e.ctrlKey)) {
+        if (e.key === "Z" || (e.key === "y" && e.ctrlKey)) {
             comp.redo();
             on_comp_change();
         }
@@ -488,9 +487,7 @@ function on_transpose_box_change() {
     const row_err = comp.row_parse_err(transpose_input.value);
     const success = row_err === "";
     transpose_message.style.color = success ? FOREGROUND_COL : ERROR_COL;
-    transpose_message.innerText = success
-        ? "Press 'enter' to transpose."
-        : row_err;
+    transpose_message.innerText = success ? "Press 'enter' to transpose." : row_err;
 }
 
 function on_transpose_box_key_down(e) {
@@ -546,7 +543,7 @@ function update_hud() {
 function update_part_head_list() {
     let ph_list = document.getElementById("part-head");
     // Clear the existing children
-    ph_list.innerHTML = '';
+    ph_list.innerHTML = "";
     // Add the new part heads
     for (var i = 0; i < derived_state.part_heads.length; i++) {
         let new_opt = document.createElement("option");
@@ -628,7 +625,7 @@ function get_button(e) {
 
 function is_button_pressed(e, button) {
     // Deal with Safari being ideosyncratic
-    const button_mask = (e.buttons === undefined ? e.which : e.buttons);
+    const button_mask = e.buttons === undefined ? e.which : e.buttons;
     return (button_mask & (1 << button)) != 0;
 }
 
@@ -636,7 +633,7 @@ function world_space_cursor_pos() {
     // First, transform the mouse coords out of screen space and into world space
     return {
         x: mouse_coords.x - canv.width / 2 + view.view_x,
-        y: mouse_coords.y - canv.height / 2 + view.view_y
+        y: mouse_coords.y - canv.height / 2 + view.view_y,
     };
 }
 
@@ -673,7 +670,7 @@ function frag_bbox(f) {
         f.x - FALSENESS_BAR_WIDTH,
         f.y - FRAG_BBOX_EXTRA_HEIGHT,
         derived_state.stage * COL_WIDTH + FALSENESS_BAR_WIDTH * 2,
-        f.exp_rows.length * ROW_HEIGHT + FRAG_BBOX_EXTRA_HEIGHT * 2,
+        f.exp_rows.length * ROW_HEIGHT + FRAG_BBOX_EXTRA_HEIGHT * 2
     );
 }
 
@@ -682,7 +679,7 @@ function view_rect() {
         view.view_x,
         view.view_y,
         canv.width / devicePixelRatio,
-        canv.height / devicePixelRatio,
+        canv.height / devicePixelRatio
     );
 }
 
@@ -720,14 +717,13 @@ function closest_frag_link_to_cursor() {
     for (let i = 0; i < derived_state.frag_links.length; i++) {
         const link = derived_state.frag_links[i];
         // If the link goes to and from the same fragment, then reject it because it can't be joined
-        if (link.from == link.to)
-            continue;
+        if (link.from == link.to) continue;
         // Find which points the line will be drawn between
         const l = frag_link_line(link);
         // Calculate the direction vector of the line
         const d = {
             x: l.to_x - l.from_x,
-            y: l.to_y - l.from_y
+            y: l.to_y - l.from_y,
         };
         // Calculate the square length of the line
         const square_length = d.x * d.x + d.y * d.y;
@@ -765,12 +761,14 @@ function rect_from_centre(c_x, c_y, w, h) {
 
 function new_rect(x, y, w, h) {
     return {
-        c_x: x + w / 2, c_y: y + h / 2,
-        w: w, h: h,
+        c_x: x + w / 2,
+        c_y: y + h / 2,
+        w: w,
+        h: h,
         min_x: x,
         max_x: x + w,
         min_y: y,
-        max_y: y + h
+        max_y: y + h,
     };
 }
 
