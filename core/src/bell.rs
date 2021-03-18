@@ -1,13 +1,10 @@
 //! A type-safe representation of a bell.
 
-use wasm_bindgen::prelude::*;
-
 /// A lookup string of the bell names
 const BELL_NAMES: &str = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
 
 /// A type-safe representation of a 'bell', which adds things like conversions to and from
 /// commonly-used bell names.
-#[wasm_bindgen]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Bell {
     /// A zero-indexed number representing the `Bell`.  I.e the treble is always
@@ -112,10 +109,7 @@ impl Bell {
     pub fn to_char(&self) -> Option<char> {
         BELL_NAMES.as_bytes().get(self.index).map(|x| *x as char)
     }
-}
 
-#[wasm_bindgen]
-impl Bell {
     /// Returns the 0-indexed representation of this `Bell`.
     ///
     /// # Example

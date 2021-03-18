@@ -1,7 +1,6 @@
 //! A heap-allocated row of [`Bell`]s.  This is also used as a permutation.
 
 use crate::{Bell, Stage};
-use wasm_bindgen::prelude::*;
 
 /// All the possible ways that a [`Row`] could be invalid.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -107,7 +106,6 @@ impl std::error::Error for IncompatibleStages {}
 /// #
 /// # Ok::<(), InvalidRowError>(())
 /// ```
-#[wasm_bindgen]
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct Row {
     /// The [`Bell`]s in the order that they would be rung.  Because of the 'valid row' invariant,
@@ -116,7 +114,6 @@ pub struct Row {
     bells: Vec<Bell>,
 }
 
-#[wasm_bindgen]
 impl Row {
     /// Creates rounds on a given [`Stage`].
     ///
@@ -204,9 +201,7 @@ impl Row {
         }
         accum
     }
-}
 
-impl Row {
     /// Parse a string into a `Row`, skipping any [`char`]s that aren't valid bell names.  This
     /// returns `Err(`[`InvalidRowError`]`)` if the `Row` would be invalid.
     ///

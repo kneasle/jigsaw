@@ -6,5 +6,4 @@ edition = "2018"
 description = "A core set of basic composing utils used by my 3rd year project."
 
 [dependencies]
-wasm-bindgen = "0.2.45"
 itertools = "0.10.0"
