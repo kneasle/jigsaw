@@ -431,7 +431,7 @@ impl Row {
         // technically within the specified range, but this is OK because (by definition) we know
         // that a bell of `biggest_bell_found` has been found, so it cannot be missing.
         if let Some((index, _)) = checklist[..biggest_bell_found.index()]
-            .into_iter()
+            .iter()
             .enumerate()
             .find(|(_i, x)| !**x)
         {

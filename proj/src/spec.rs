@@ -79,6 +79,8 @@ pub struct Frag {
     y: f32,
 }
 
+// Frags cannot have length 0, so an `is_empty` method would always return `false`
+#[allow(clippy::len_without_is_empty)]
 impl Frag {
     /* Getters */
 
@@ -137,8 +139,8 @@ impl Frag {
             return Err(FragSplitError::ZeroLengthFrag);
         }
         // Generate the rows for each subfragment
-        let mut rows1: Vec<_> = self.rows[..split_index + 1].iter().cloned().collect();
-        let rows2: Vec<_> = self.rows[split_index..].iter().cloned().collect();
+        let mut rows1 = self.rows[..split_index + 1].to_vec();
+        let rows2 = self.rows[split_index..].to_vec();
         // Make sure that the leftover row of the 1st subfragment has no annotations
         rows1.last_mut().unwrap().clear_annotations();
         // Build new fragments out of the cloned rows
@@ -467,13 +469,13 @@ impl Spec {
     /// 1. `frag_ind` is the only unmuted [`Frag`], in which case we unmute everything
     /// 2. `frag_ind` isn't the only unmuted [`Frag`], in which case we mute everything except it
     pub fn solo_single_frag(&mut self, frag_ind: usize) {
-        // `is_only_unmuted_frag` is true if:
+        // `is_only_unmuted_frag` is true if and only if:
         //     \forall frags f: (f is unmuted) <=> (f has index `frag_ind`)
         let is_only_unmuted_frag = self
             .frags
             .iter()
             .enumerate()
-            .all(|(i, f)| !f.is_muted == (i == frag_ind));
+            .all(|(i, f)| f.is_muted != (i == frag_ind));
         // Set state of all frags
         for (i, f) in self.frags.iter_mut().enumerate() {
             let should_be_muted = !(i == frag_ind || is_only_unmuted_frag);
@@ -486,6 +488,13 @@ impl Spec {
     }
 
     /* Getters */
+
+    /// Returns `true` if this `Spec` contains any rows
+    pub fn is_empty(&self) -> bool {
+        // self.frags.is_empty() is a necessary condition for this `Spec` containing no rows,
+        // because `Frag`s must have non-zero length, and `Spec`s cannot have no parts
+        self.frags.is_empty()
+    }
 
     /// Gets the number of [`Row`]s that should be proved in the expanded version of this comp,
     /// without expanding anything.

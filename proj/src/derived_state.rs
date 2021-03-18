@@ -64,12 +64,12 @@ fn is_true(b: &bool) -> bool {
 }
 
 // Required so that we can omit `"music_highlights": [[], [], [], ...]` when serialising
-fn is_all_empty(vs: &Vec<Vec<usize>>) -> bool {
+fn is_all_empty(vs: &[Vec<usize>]) -> bool {
     vs.iter().all(Vec::is_empty)
 }
 
 // Custom serialiser to serialise [`Vec<Row>`] into `[[index]]`
-fn ser_rows<S: Serializer>(rows: &Vec<Row>, s: S) -> Result<S::Ok, S::Error> {
+fn ser_rows<S: Serializer>(rows: &[Row], s: S) -> Result<S::Ok, S::Error> {
     let mut seq_ser = s.serialize_seq(Some(rows.len()))?;
     for r in rows {
         seq_ser.serialize_element(&r.bells().map(Bell::index).collect::<Vec<_>>())?;
@@ -131,18 +131,16 @@ impl ExpandedRow {
             // Highlight runs of >=4 bells of the **front**
             let run_len_f = run_len(r.bells());
             if run_len_f >= 4 {
-                for i in 0..run_len_f {
-                    music[i].push(part);
-                }
+                music[..run_len_f].iter_mut().for_each(|m| m.push(part));
             }
             // Highlight runs of >=4 bells of the **back**
             let run_len_b = run_len(r.bells().rev());
             if run_len_b >= 4 {
                 // The 'max' prevents the two ranges from overlapping and causing music in multiple
-                // parts from being counted twice
-                for i in (stage.as_usize() - run_len_b).max(run_len_f)..stage.as_usize() {
-                    music[i].push(part);
-                }
+                // runs from being counted twice
+                music[(stage.as_usize() - run_len_b).max(run_len_f)..]
+                    .iter_mut()
+                    .for_each(|m| m.push(part));
             }
         }
         music
@@ -156,7 +154,7 @@ impl ExpandedRow {
         part_heads: &[Row],
         is_proved: bool,
     ) -> Self {
-        let all_rows: Vec<Row> = part_heads.iter().map(|ph| ph * &row).collect();
+        let all_rows: Vec<Row> = part_heads.iter().map(|ph| ph * row).collect();
         ExpandedRow {
             call_str,
             method_str,
@@ -273,7 +271,7 @@ impl DerivedState {
                     assert!(exp_rows.last().map_or(false, |r| !r.is_proved));
                     let (x, y) = spec.frag_pos(i).unwrap();
                     AnnotFrag {
-                        false_row_ranges: ranges_by_frag.remove(&i).unwrap_or(vec![]),
+                        false_row_ranges: ranges_by_frag.remove(&i).unwrap_or_default(),
                         exp_rows,
                         is_proved: !spec.is_frag_muted(i).unwrap(),
                         link_groups,
@@ -505,7 +503,7 @@ impl DerivedState {
             // the correct fragment
             ranges_per_frag
                 .entry(start_loc.frag)
-                .or_insert(vec![])
+                .or_insert_with(|| Vec::with_capacity(0))
                 .push(false_row_range);
         }
     }

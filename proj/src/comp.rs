@@ -151,20 +151,14 @@ impl Comp {
 
     /// Returns `true` if the editor is in [`State::Idle`]
     pub fn is_state_idle(&self) -> bool {
-        match self.state {
-            State::Idle => true,
-            _ => false,
-        }
+        matches!(self.state, State::Idle)
     }
 
     /* Dragging State */
 
     /// Returns `true` if the editor is in [`State::Dragging`]
     pub fn is_state_dragging(&self) -> bool {
-        match self.state {
-            State::Dragging(_) => true,
-            _ => false,
-        }
+        matches!(self.state, State::Dragging(_))
     }
 
     /// Returns the index of the [`Frag`] being dragged, `panic!`ing if the UI is not in
@@ -202,10 +196,7 @@ impl Comp {
 
     /// Returns `true` if the editor is in [`State::Transposing`]
     pub fn is_state_transposing(&self) -> bool {
-        match self.state {
-            State::Transposing { .. } => true,
-            _ => false,
-        }
+        matches!(self.state, State::Transposing { .. })
     }
 
     /// Moves the editor into [`State::Transposing`] the [`Frag`] at `frag_ind`.  This returns the
