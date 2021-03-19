@@ -4,6 +4,25 @@
 // real life pixels - so dpr provides that scale-up
 const dpr = window.devicePixelRatio || 1;
 
+/* === Commonly used HTML elements === */
+
+// Transpose box
+const elem_transpose_box = document.getElementById("transpose-box");
+const elem_transpose_input = document.getElementById("transpose-input");
+const elem_transpose_message = document.getElementById("transpose-message");
+// Stats
+const elem_part_len = document.getElementById("part-len");
+const elem_num_parts = document.getElementById("num-parts");
+const elem_num_rows = document.getElementById("num-rows");
+const elem_falseness_info = document.getElementById("falseness-info");
+// Part heads
+const elem_part_head_input = document.getElementById("part-head-input");
+const elem_part_head_list = document.getElementById("part-head");
+const elem_part_head_message = document.getElementById("part-head-message");
+// Variables set in the `start()` function
+const canv = document.getElementById("comp-canvas");
+const ctx = canv.getContext("2d");
+
 const BELL_NAMES = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
 
 // IDs of mouse buttons
@@ -56,9 +75,6 @@ const DBG_LOG_STATE_TRANSITIONS = false; // log to console whenever the UI chang
 
 /* ===== GLOBAL VARIABLES ===== */
 
-// Variables set in the `start()` function
-let canv, ctx;
-let transpose_box, transpose_input, transpose_message;
 // Global variable of the `link` that the user is 'selecting'.  This is recalculated every time the
 // mouse moves, and is then cached and used in rendering and when deciding which fragments to join.
 let selected_link = undefined;
@@ -475,20 +491,20 @@ function start_transposition(frag_index, row_index) {
         console.log(`State change: Idle -> Transposing(${frag_index}:${row_index})`);
     }
     // Initialise the transpose box
-    transpose_box.style.display = "block";
-    transpose_box.style.left = mouse_coords.x.toString() + "px";
-    transpose_box.style.top = mouse_coords.y.toString() + "px";
-    transpose_input.value = current_first_row;
-    transpose_input.focus();
+    elem_transpose_box.style.display = "block";
+    elem_transpose_box.style.left = mouse_coords.x.toString() + "px";
+    elem_transpose_box.style.top = mouse_coords.y.toString() + "px";
+    elem_transpose_input.value = current_first_row;
+    elem_transpose_input.focus();
     // Initialise the error message
     on_transpose_box_change();
 }
 
 function on_transpose_box_change() {
-    const row_err = comp.row_parse_err(transpose_input.value);
+    const row_err = comp.row_parse_err(elem_transpose_input.value);
     const success = row_err === "";
-    transpose_message.style.color = success ? FOREGROUND_COL : ERROR_COL;
-    transpose_message.innerText = success ? "Press 'enter' to transpose." : row_err;
+    elem_transpose_message.style.color = success ? FOREGROUND_COL : ERROR_COL;
+    elem_transpose_message.innerText = success ? "Press 'enter' to transpose." : row_err;
 }
 
 function on_transpose_box_key_down(e) {
@@ -496,7 +512,7 @@ function on_transpose_box_key_down(e) {
     if (e.keyCode != 13) {
         return;
     }
-    if (comp.is_state_transposing() && comp.finish_transposing(transpose_input.value)) {
+    if (comp.is_state_transposing() && comp.finish_transposing(elem_transpose_input.value)) {
         if (DBG_LOG_STATE_TRANSITIONS) {
             console.log(`State change: Transposing -> Idle`);
         }
@@ -506,7 +522,7 @@ function on_transpose_box_key_down(e) {
 
 function stop_transposing() {
     // Update the display to handle the changes
-    transpose_box.style.display = "none";
+    elem_transpose_box.style.display = "none";
     on_comp_change();
 }
 
@@ -526,27 +542,26 @@ function update_hud() {
     // Populate row counter
     const part_len = stats.part_len;
     const num_parts = derived_state.part_heads.length;
-    document.getElementById("part-len").innerText = part_len.toString();
-    document.getElementById("num-parts").innerText = num_parts.toString();
-    document.getElementById("num-rows").innerText = (part_len * num_parts).toString();
+    elem_part_len.innerText = part_len.toString();
+    elem_num_parts.innerText = num_parts.toString();
+    elem_num_rows.innerText = (part_len * num_parts).toString();
 
     // Populate the falseness summary
-    const falseness_info = document.getElementById("falseness-info");
     const num_false_rows = stats.num_false_rows;
     const num_false_groups = stats.num_false_groups;
     const is_true = num_false_rows === 0;
-    falseness_info.innerText = is_true
+    elem_falseness_info.innerText = is_true
         ? "true"
         : num_false_rows.toString() + " false rows in " + num_false_groups.toString() + " groups";
-    falseness_info.style.color = is_true ? FALSE_COUNT_COL_TRUE : FALSE_COUNT_COL_FALSE;
+    elem_falseness_info.style.color = is_true ? FALSE_COUNT_COL_TRUE : FALSE_COUNT_COL_FALSE;
+
     // Set the part chooser to the value specified in `view`
-    document.getElementById("part-head").value = view.current_part;
+    elem_part_head_list.value = view.current_part;
 }
 
 function update_part_head_list() {
-    let ph_list = document.getElementById("part-head");
     // Clear the existing children
-    ph_list.innerHTML = "";
+    elem_part_head_list.innerHTML = "";
     // Add the new part heads
     for (var i = 0; i < derived_state.part_heads.length; i++) {
         // Generate the string for this option, following the format "#{index}: {row}"
@@ -558,7 +573,7 @@ function update_part_head_list() {
         let new_opt = document.createElement("option");
         new_opt.value = i.toString();
         new_opt.innerText = str;
-        ph_list.appendChild(new_opt);
+        elem_part_head_list.appendChild(new_opt);
     }
 }
 
@@ -579,22 +594,15 @@ function init_comp() {
 
 function start() {
     init_comp();
-    // Set up the canvas variables
-    canv = document.getElementById("comp-canvas");
-    ctx = canv.getContext("2d");
-    // Grab HTML elements we'll use a lot
-    transpose_box = document.getElementById("transpose-box");
-    transpose_input = document.getElementById("transpose-input");
-    transpose_message = document.getElementById("transpose-message");
     // Bind event listeners to all the things we need
     canv.addEventListener("mousemove", on_mouse_move);
     canv.addEventListener("mousedown", on_mouse_down);
     canv.addEventListener("mouseup", on_mouse_up);
     document.addEventListener("keydown", on_key_down);
     window.addEventListener("resize", on_window_resize);
-    document.getElementById("part-head").addEventListener("change", on_part_change);
-    transpose_input.addEventListener("keyup", on_transpose_box_change);
-    transpose_input.addEventListener("keydown", on_transpose_box_key_down);
+    elem_part_head_list.addEventListener("change", on_part_change);
+    elem_transpose_input.addEventListener("keyup", on_transpose_box_change);
+    elem_transpose_input.addEventListener("keydown", on_transpose_box_key_down);
     // Update all the parts of the display to initialise them
     on_window_resize();
     update_part_head_list();

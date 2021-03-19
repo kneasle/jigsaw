@@ -3,7 +3,6 @@
     <head>
         <title>Composing Program</title>
         <meta content="text/html;charset=utf-8" http-equiv="Content-Type"/>
-        <script src="index.js"></script>
         <script src="cookies.js"></script>
         <script src="colors.js"></script>
     </head>
@@ -65,5 +64,10 @@
             <p id="transpose-message"
                style="margin: 5px; text-align: center; color: red;">Bell '2' repeated twice</p>
         </div>
+
+        <!-- Load the main JS code after the rest of the document has loaded.  We do this so that we
+             can initialise references to the HTML elements as global constants for the JS code to
+             re-use. -->
+        <script src="index.js"></script>
     </body>
 </html>
