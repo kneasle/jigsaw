@@ -567,6 +567,40 @@ impl Row {
         }
     }
 
+    /// All the `Row`s formed by repeatedly permuting a given `Row`, but the first `Row` returned
+    /// will always be [rounds](Row::rounds), rather than `self`.  This is useful for situations
+    /// like generating part heads, where it's more intutive for the closure to start at rounds.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::Row;
+    ///
+    /// // The closure of "18234567" are all the fixed-treble cyclic part heads.
+    /// // Note how rounds is the first Row/part head generated
+    /// assert_eq!(
+    ///     Row::parse("18234567")?.closure_from_rounds(),
+    ///     vec![
+    ///         Row::parse("12345678")?,
+    ///         Row::parse("18234567")?,
+    ///         Row::parse("17823456")?,
+    ///         Row::parse("16782345")?,
+    ///         Row::parse("15678234")?,
+    ///         Row::parse("14567823")?,
+    ///         Row::parse("13456782")?,
+    ///     ]
+    /// );
+    /// # Ok::<(), proj_core::InvalidRowError>(())
+    /// ```
+    pub fn closure_from_rounds(&self) -> Vec<Row> {
+        let mut closure = vec![Row::rounds(self.stage())];
+        let mut row = self.clone();
+        while !row.is_rounds() {
+            closure.push(row.clone());
+            row = row.mul_unchecked(self);
+        }
+        closure
+    }
+
     /// Concatenates the names of the [`Bell`]s in this `Row` to the end of a [`String`].  Using
     /// `format!("{}", row)` will behave the same as this but will return an newly allocated
     /// [`String`].

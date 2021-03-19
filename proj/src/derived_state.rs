@@ -1,7 +1,8 @@
-use crate::spec::{MethodName, Spec};
+use crate::spec::{MethodName, PartHeads, Spec};
 use proj_core::{run_len, Row, Stage};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 
 // Imports used only for the doc comments
 #[allow(unused_imports)]
@@ -198,8 +199,8 @@ pub struct DerivedState {
     annot_frags: Vec<AnnotFrag>,
     frag_links: Vec<FragLink>,
     stats: DerivedStats,
-    #[serde(serialize_with = "crate::ser_utils::ser_rows")]
-    part_heads: Vec<Row>,
+    #[serde(flatten)]
+    part_heads: Rc<PartHeads>,
     stage: usize,
 }
 
@@ -221,7 +222,7 @@ impl DerivedState {
     /// number of parts.
     #[inline]
     pub fn get_part_head(&self, part_ind: usize) -> Option<&Row> {
-        self.part_heads.get(part_ind)
+        self.part_heads.rows().get(part_ind)
     }
 
     /// Given a [`Spec`]ification, derive a new `DerivedState` from it.

@@ -10,6 +10,75 @@ use std::{
 #[allow(unused_imports)]
 use crate::derived_state::DerivedState;
 
+// Pretend the `PartHeads` is contained within this module, not it's own minimodule
+pub use self::part_heads::PartHeads;
+
+/// A module to hold the code for part head specification.  This is in its own module to hide the
+/// fields from the rest of the code and make sure that the only way to construct a [`PartHeads`]
+/// is to use the fallible constructors provided (which guarutee that the [`PartHeads`]s created
+/// uphold all the required invariants).
+mod part_heads {
+    use proj_core::{InvalidRowError, Row, Stage};
+    use serde::Serialize;
+
+    /// The possible ways that parsing a part head specification can fail
+    pub type ParseError = InvalidRowError;
+
+    /// A struct that stores a specification for a set of part heads.  This contains the [`String`]
+    /// that the user entered into the part head box (which must be valid), as well as the
+    /// generated set of part heads.  The following invariants must be upheld:
+    /// - There is always at least one part head (0 part compositions can't exist)
+    /// - All the part_heads have the same [`Stage`]
+    #[derive(Debug, Clone, Eq, Serialize)]
+    pub struct PartHeads {
+        #[serde(rename = "part_head_spec")]
+        spec: String,
+        #[serde(serialize_with = "crate::ser_utils::ser_rows")]
+        part_heads: Vec<Row>,
+    }
+
+    // The invariant of always having at least one part head means that `is_empty` would always
+    // return `false`
+    #[allow(clippy::len_without_is_empty)]
+    impl PartHeads {
+        /// Returns a string slice of the specification string that generated these `PartHeads`.
+        #[inline]
+        pub fn spec_string(&self) -> &str {
+            &self.spec
+        }
+
+        /// The number of part heads in this set of `PartHeads`.
+        #[inline]
+        pub fn len(&self) -> usize {
+            self.part_heads.len()
+        }
+
+        /// Returns a slice over the part heads in this set of `PartHeads`
+        #[inline]
+        pub fn rows(&self) -> &[Row] {
+            &self.part_heads
+        }
+
+        /// Given a [`str`]ing specifying some part heads, attempts to parse and expand these PHs,
+        /// or generate a [`ParseError`] explaining the problem.
+        pub fn parse(s: &str, stage: Stage) -> Result<Self, ParseError> {
+            let part_heads = Row::parse_with_stage(s, stage)?.closure_from_rounds();
+            Ok(PartHeads {
+                part_heads,
+                spec: String::from(s),
+            })
+        }
+    }
+
+    // Two PartHeads are equal if their specifications are the same; the `part_heads` vec is
+    // dependent on the spec so if the specs are equal, the `part_heads` must be too.
+    impl PartialEq for PartHeads {
+        fn eq(&self, other: &PartHeads) -> bool {
+            self.spec == other.spec
+        }
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 struct AnnotatedRow {
     is_lead_end: bool,
@@ -358,7 +427,7 @@ impl Frag {
 #[derive(Debug, Clone)]
 pub struct Spec {
     frags: Vec<Rc<Frag>>,
-    part_heads: Rc<Vec<Row>>,
+    part_heads: Rc<PartHeads>,
     stage: Stage,
 }
 
@@ -367,34 +436,21 @@ impl Spec {
 
     /// Creates an example Spec
     pub fn cyclic_s8() -> Spec {
-        // Generate all the cyclic part heads, and make sure that we start with rounds
-        let mut part_heads = Row::parse("81234567").unwrap().closure();
-        let rounds = part_heads.pop().unwrap();
-        part_heads.insert(0, rounds);
-        // Create a Spec and return
-        Self::single_frag(Frag::cyclic_s8(), part_heads, Stage::MAJOR)
+        Self::single_frag(Frag::cyclic_s8(), "81234567", Stage::MAJOR)
     }
 
     pub fn cyclic_max_eld() -> Spec {
-        // Generate all the cyclic part heads, and make sure that we start with rounds
-        let mut part_heads = Row::parse("890ET1234567").unwrap().closure();
-        let rounds = part_heads.pop().unwrap();
-        part_heads.insert(0, rounds);
-        // Create a Spec and return
-        Self::single_frag(Frag::cyclic_max_eld(), part_heads, Stage::MAXIMUS)
+        Self::single_frag(Frag::cyclic_max_eld(), "890ET1234567", Stage::MAXIMUS)
     }
 
-    fn single_frag(frag: Frag, part_heads: Vec<Row>, stage: Stage) -> Spec {
+    fn single_frag(frag: Frag, part_head_spec: &str, stage: Stage) -> Spec {
         // Check that all the stages match
         for annot_r in frag.rows.iter() {
             assert_eq!(annot_r.row.stage(), stage);
         }
-        for p in &part_heads {
-            assert_eq!(p.stage(), stage);
-        }
         Spec {
             frags: vec![Rc::new(frag)],
-            part_heads: Rc::new(part_heads),
+            part_heads: Rc::new(PartHeads::parse(part_head_spec, stage).unwrap()),
             stage,
         }
     }
@@ -537,8 +593,7 @@ impl Spec {
     ///     Vec<Row>, // Part heads; one per part
     /// )
     /// ```
-    pub fn expand(&self) -> (Vec<Vec<ExpandedRow>>, Vec<Row>) {
-        let part_heads = self.part_heads.as_ref().clone();
+    pub fn expand(&self) -> (Vec<Vec<ExpandedRow>>, Rc<PartHeads>) {
         let expanded_rows = self
             .frags
             .iter()
@@ -553,7 +608,7 @@ impl Spec {
                             r.call_str.clone(),
                             r.method_str.clone(),
                             r.is_lead_end,
-                            &part_heads,
+                            self.part_heads.rows(),
                             // Figure out if this frag should be proved
                             row_ind != f.len() && !self.frags[frag_ind].is_muted,
                         )
@@ -562,6 +617,6 @@ impl Spec {
             })
             .collect();
 
-        (expanded_rows, part_heads)
+        (expanded_rows, self.part_heads.clone())
     }
 }
