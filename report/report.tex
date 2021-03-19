@@ -5,6 +5,8 @@
 
 \newcommand{\row}[1]{\texttt{#1}}
 
+\newcommand{\br}[0]{\vspace{10pt} \noindent}
+
 \begin{document}
 
 % Title page & T.o.C.
@@ -30,6 +32,10 @@ composers, and knowledge gained from experimenting with prototypes early on in t
 \begin{enumerate}
     \item \textbf{Ease of Use}: The application should be made so that anyone can install and use
         it.
+    \item \textbf{Completeness}: Everything considered ``change ringing'' should be representable in
+        the application.  Completeness is defined by the Framework for Change Ringing.
+    \item \textbf{Generality}: If a composer has an idea for a composition then this should be
+        representable in the application, regardless of how complete the idea is.
     \item \textbf{Incremental}: The application should allow the user to incrementally build up
         their composition, in whatever order they want, starting wherever they want to.
     \item \textbf{Instant}: Feedback on important measures like truth, music content and length
@@ -107,16 +113,17 @@ usability.
 
 \paragraph{Instant:}  CompLib does reasonably well.  If the composition is a round block, then it
 gives a good visual indication of where the falseness occurs.  However, it isn't perfect.  The main
-problem is that all the row expansion (known as `pricking') is handled server-side, which means that
-any change to the composition has to travel across the internet before the user gets any feedback.
-Also, there is a concurrency bug where making too many changes in quick succession will cause some
-of them to disappear.
+problem is that all the row generation and proving is handled server-side, which means that any
+change to the composition has to travel across the internet before the user gets any feedback.
+Also, there is a related concurrency bug where making too many changes in quick succession will
+cause some of them to be overwritten and lost.
 
 \paragraph{Visual \& View-Independence:}  CompLib again does reasonably well (and it is flawed only
-because it is designed for inputting --- or later learning --- already finished compositions).
+because it is designed for inputting and later learning already finished compositions).
 CompLib allows the user to choose between a range of several ways of viewing their composition (even
-when it doesn't come round), and all of these are very easy to read.  The blueline view is, however,
-missing music highlighting.  However, if you want to see more detail of one segment of a
+when it doesn't come round), and all of these are very easy to read.  On the other hand, the
+blueline view doesn't hightlight musical rows, which I think would be beneficial even for CompLib's
+use case of people learning comps.  Also, if you want to see more detail of one segment of a
 composition, there is no way to `unfold' only part of it --- you have to switch to an entirely new
 view and then find that location again.
 
@@ -142,6 +149,14 @@ Inpact is a program written by Alexander Holroyd to support the workflow of expe
 compositions.  It provides instant feedback on truth and music, but is visually quite clunky and
 doesn't support `partial' compositions.
 
+\paragraph{Ease of use:}
+
+\paragraph{Incremental:}
+
+\paragraph{Instant:}
+
+\paragraph{Visual \& View-Independence:}
+
 \subsubsection{Things that Inpact does well}
 
 \begin{enumerate}
@@ -160,6 +175,94 @@ doesn't support `partial' compositions.
     \item There isn't a visual way to see the music in the composition.
 \end{enumerate}
 
-\section{What Does My Solution Look Like?}
+\section{Initial Design}
+
+Now that we've taken a look at the state of the art, it's time to start making design decisions
+about this project.  To do this, I will lay out my initial design and why I think it will satisfy
+each of the design goals.
+
+\subsection{The Application Model}
+
+This is the high-level model that should define how the application should behave (even if the
+implementation details are different).  This model contributes to most of the learning curve for new
+users and therefore should be as simple as possible without losing expressivity.  I'm going to
+describe the model in terms of Haskell datatypes, using names identical to those used in the
+project's source code (the actual implementation will look largely similar due to Rust being heavily
+inspired by Haskell).
+
+\subsubsection{Specification vs Derived State}
+
+In order for the model to be as simple as possible, it is important to differentiate the
+\emph{specification} from any \emph{derived state} generated from it.  As a toy example, let us
+consider two integers ($a$ and $b$) and their sum and product ($a + b$ and $ab$) as the total
+information required to represent a particular state.  This overall state consists of 4 pieces of
+information ($\{a, b, a + b, ab\}$) but it's easy to see that the inclusion of $a + b$ and $ab$ does
+not add any extra information.  Therefore, we can say that $\{a, b\}$ is the \emph{specification} of
+$\{a, b, a + b, ab\}$, whereas $\{a + b, ab\}$ is the \emph{derived state}.  This dependence also
+means that we don't have to store any derived state in the undo history, drastically reducing the
+memory footprint of storing long undo histories (provided that the derivation process is not
+prohibitively expensive --- though in the case of this project it is quite cheap in both time and
+memory).  Plus, the mental load on the user is reduced because they only have to reason about the
+specification and the behaviour of the derived state should be intuitive given the changes to the
+specification.
+
+For this project, we have a few requirements which will constrain the model used (namely the
+completeness and generality goals).  Firstly, to satisfy generality the application must be able to
+express composers' ideas about 
+
+\subsection{Ease of use}
+
+The best installation process is no installation process, so my application will run as a single
+static web page with no external dependencies or accounts required.  Having no dependence on a
+server both obviates the need for the user to make an account and also makes it trivial to deploy
+using GitHub pages or a similar service.  Also from a user-experience (UX) perspective, HTML canvas
+rendering (while extremely inefficient) is fast enough to feel instant and consistently looks good
+across all platforms and browsers.  Also, much efficiency can be gained by rendering sections of the
+composition into caches, which would be a relatively straightforward optimisation.
+
+However, writing an application as a static web page is not without its challenges.
+
+\br{}Firstly, JavaScript (though good for user interaction code) is both difficult to maintain
+at any kind of scale/complexity and also border-line impossible to get consistently good perforance
+when doing bulk number crunching.  Both of these are very important to me; composition generation
+requires quite a lot of fairly complex code that has to do a huge amount of number crunching in a
+short space of time.  My solution to this is to write the code with a client/server architecture,
+where there is a thin client written in JavaScript (to handle user interaction and rendering) and
+the server is written in Rust and compiled to WebAssembly.  This way, as much of the business logic
+is kept in Rust (which is extremely fast and easy to maintain) but there is no network delay between
+the user's inputs and visual feedback.
+
+This approach has been very promising performance-wise: as of the first prototype, the latency
+between a user changing the composition and the result appearing on screen is 3ms for a composition
+with 2000 rows of 8 bells each.  This processess involves no caching --- the entire composition is
+completely expanded, proved, music checked, serialised to JSON, copied to JavaScript and
+deserialised in the 3ms.  This could definitely be optimised, but we are so far under the 100ms
+limit of feeling instant that this would be a waste of my time.
+
+\br{}The second, more problematic limitation of working inside a browser is that of storage.
+Code running in a browser cannot (for security reasons) access the file system unless the user
+specifically uploads or saves a file, and therefore accessing the file system automatically when the
+user types `ctrl-S' is not an option.  Also, the best thing for the user's experience is to be able
+to close and reopen the page and have the page load into exactly the state it was in before closing
+(complete with as much undo history as possible).
+
+Fortunately for this project, there is some storage that web pages can use to store persistent data
+without the user's input, and those are cookies.  Unfortunately, cookies are severly size limited
+--- a web page can only expect to be able to save about 30 cookies per page, each of which can be at
+most 4096 bytes, so we have 122,800 bytes in which to save all the persistent state we need.  In
+reality, however, it's not a good idea to run too close to this limit because the page may have to
+store other cookies and these shouldn't suddenly fail to save.  Saving just the current undo
+snapshot is fine, but I want to save the undo history which will require a complicated
+serialisation/deserialisation algorithm.  I have chosen not to implement this for the prototype,
+because I suspect that I will need to change the internal representation a lot and doing so will
+break any serialised data.
+
+\subsection{Incremental}
+
+This is where the proper design starts.  In order to allow the application to be intuitive, there
+must be a relatively simple underlying model of how the user should think about the composition they
+are editing.
+
+A composition is an unordered counted set (i.e.\ a ``bag'') of ``fragments''.
 
 \end{document}
