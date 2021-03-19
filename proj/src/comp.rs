@@ -1,6 +1,6 @@
 use crate::{
     derived_state::DerivedState,
-    spec::{Frag, Spec},
+    spec::{Frag, PartHeads, Spec},
     view::View,
 };
 use proj_core::Row;
@@ -112,6 +112,9 @@ impl Comp {
         self.history_index += 1;
         // Rebuild the derived state, since the Spec has changed
         self.rebuild_state();
+        // Clamp the currently viewed part to within the range of possible parts in the composition
+        // (because the number of parts might have changed by this edit)
+        self.view.current_part = self.view.current_part.min(self.spec().num_parts() - 1);
     }
 
     /// Perform an action (some arbitrary function) on a single [`Frag`] in the current [`Spec`],
@@ -140,6 +143,24 @@ impl Comp {
         match Row::parse_with_stage(&row_str, self.spec().stage()) {
             Err(e) => format!("{}", e),
             Ok(_row) => "".to_owned(),
+        }
+    }
+
+    /// Attempt to parse a new part head specification [`String`].  If it successfully parses then
+    /// update the part head list as a new edit (returning `""`), otherwise return a [`String`]
+    /// summarising the issue with the parsing.
+    pub fn parse_part_head_spec(&mut self, s: String) -> String {
+        match PartHeads::parse(&s, self.spec().stage()) {
+            // If it parsed correctly, then we update the part heads and return ""
+            Ok(part_heads) => {
+                // Only make an undo step if the part heads have actually changed
+                if self.spec().part_heads() != &part_heads {
+                    self.make_action(|spec: &mut Spec| spec.set_part_heads(part_heads));
+                }
+                "".to_owned()
+            }
+            // If the parsing failed, then we return the error message
+            Err(e) => format!("{}", e),
         }
     }
 

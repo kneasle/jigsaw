@@ -457,6 +457,11 @@ impl Spec {
 
     /* Operations */
 
+    /// Overwrite the [`PartHeads`] of this `Spec`
+    pub fn set_part_heads(&mut self, part_heads: PartHeads) {
+        self.part_heads = Rc::new(part_heads);
+    }
+
     /// Perform some `action` on a clone of a specific [`Frag`] in this `Spec`.  This has the
     /// effect of performing the action whilst preserving the original `Spec` (to be used in the
     /// undo history).
@@ -554,10 +559,20 @@ impl Spec {
         self.frags.is_empty()
     }
 
+    /// The [`PartHeads`] of this `Spec`
+    pub fn part_heads(&self) -> &PartHeads {
+        &self.part_heads
+    }
+
+    /// The number of parts that this `Spec` has
+    pub fn num_parts(&self) -> usize {
+        self.part_heads.len()
+    }
+
     /// Gets the number of [`Row`]s that should be proved in the expanded version of this comp,
     /// without expanding anything.
     pub fn len(&self) -> usize {
-        self.part_heads.len() * self.part_len()
+        self.num_parts() * self.part_len()
     }
 
     /// Gets the number of [`Row`]s that are generated in one part of this composition

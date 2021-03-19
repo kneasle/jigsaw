@@ -557,6 +557,9 @@ function update_hud() {
 
     // Set the part chooser to the value specified in `view`
     elem_part_head_list.value = view.current_part;
+    elem_part_head_input.value = derived_state.part_head_spec;
+    elem_part_head_message.innerText = `Parses to ${derived_state.part_heads.length} parts.`;
+    elem_part_head_message.style.color = FOREGROUND_COL;
 }
 
 function update_part_head_list() {
@@ -574,6 +577,22 @@ function update_part_head_list() {
         new_opt.value = i.toString();
         new_opt.innerText = str;
         elem_part_head_list.appendChild(new_opt);
+    }
+    // Make sure the correct part head is selected
+    elem_part_head_list.value = view.current_part;
+}
+
+function on_part_head_spec_change() {
+    const parse_error = comp.parse_part_head_spec(elem_part_head_input.value);
+    if (parse_error === "") {
+        // Update the composition if the part heads parsed successfully (before updating this
+        // display).  This will update `elem_part_head_message` with a success message.
+        on_comp_change();
+    } else {
+        // If the parsing failed, then update `elem_part_head_message` to display the error to the
+        // user
+        elem_part_head_message.style.color = ERROR_COL;
+        elem_part_head_message.innerText = parse_error;
     }
 }
 
@@ -601,6 +620,7 @@ function start() {
     document.addEventListener("keydown", on_key_down);
     window.addEventListener("resize", on_window_resize);
     elem_part_head_list.addEventListener("change", on_part_change);
+    elem_part_head_input.addEventListener("keyup", on_part_head_spec_change);
     elem_transpose_input.addEventListener("keyup", on_transpose_box_change);
     elem_transpose_input.addEventListener("keydown", on_transpose_box_key_down);
     // Update all the parts of the display to initialise them
@@ -789,7 +809,9 @@ function new_rect(x, y, w, h) {
 // user's view in sync with the new composition.
 function on_comp_change() {
     sync_derived_state();
+    sync_view();
     update_hud();
+    update_part_head_list();
     request_frame();
 }
 
