@@ -512,7 +512,7 @@ function stop_transposing() {
 
 /* ===== HUD CODE ===== */
 
-function on_part_head_change(evt) {
+function on_part_change(evt) {
     // Update which part to display (indirectly so that we avoid divergence between Rust's
     // datastructures and their JS counterparts).
     comp.set_current_part(parseInt(evt.target.value));
@@ -549,12 +549,14 @@ function update_part_head_list() {
     ph_list.innerHTML = "";
     // Add the new part heads
     for (var i = 0; i < derived_state.part_heads.length; i++) {
-        let new_opt = document.createElement("option");
-        new_opt.value = i.toString();
+        // Generate the string for this option, following the format "#{index}: {row}"
         let str = "#" + (i + 1).toString() + ": ";
         for (const j of derived_state.part_heads[i]) {
             str += BELL_NAMES[j];
         }
+        // Add the new option to the part heads list
+        let new_opt = document.createElement("option");
+        new_opt.value = i.toString();
         new_opt.innerText = str;
         ph_list.appendChild(new_opt);
     }
@@ -590,7 +592,7 @@ function start() {
     canv.addEventListener("mouseup", on_mouse_up);
     document.addEventListener("keydown", on_key_down);
     window.addEventListener("resize", on_window_resize);
-    document.getElementById("part-head").addEventListener("change", on_part_head_change);
+    document.getElementById("part-head").addEventListener("change", on_part_change);
     transpose_input.addEventListener("keyup", on_transpose_box_change);
     transpose_input.addEventListener("keydown", on_transpose_box_key_down);
     // Update all the parts of the display to initialise them

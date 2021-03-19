@@ -73,6 +73,19 @@ impl Comp {
         &self.undo_history[self.history_index]
     }
 
+    /// Perform an action (some arbitrary function) on the current [`Spec`], maintaining the undo
+    /// history and recalculating the [`DerivedState`].  This returns the value returned from the
+    /// call of `action`.
+    fn make_action<T>(&mut self, action: impl FnOnce(&mut Spec) -> T) -> T {
+        // Perform the required action on a clone of the Spec being displayed
+        let mut new_spec = self.undo_history[self.history_index].clone();
+        let result = action(&mut new_spec);
+        // Actually make that action present
+        self.finish_action(new_spec);
+        // 'bubble' the return value of the action out of this function too
+        result
+    }
+
     /// Perform an fallible action (some arbitrary function which returns a `Result<Spec>`) on the
     /// current [`Spec`].  If this returns `Ok` then follow through with the edit - maintaining the
     /// undo history, recalculating the [`DerivedState`] and returning `Ok(())`.  If the action
@@ -83,32 +96,22 @@ impl Comp {
     ) -> Result<(), E> {
         // Make sure that we try the action **before** deleting the redo history -- if the user
         // performs an action which fails, we want them to not lose their redo history
-        let new_spec = action(&mut self.undo_history[self.history_index])?;
-        // Rollback the history so that `history_index` points to the last edit
-        drop(self.undo_history.drain(self.history_index + 1..));
-        // Add this modified Spec to the undo history, and make it the current one
-        self.undo_history.push(new_spec);
-        self.history_index += 1;
-        // Rebuild the derived state, since the Spec has changed
-        self.rebuild_state();
+        let new_spec = action(self.spec())?;
+        self.finish_action(new_spec);
         Ok(())
     }
 
-    /// Perform an action (some arbitrary function) on the current [`Spec`], maintaining the undo
-    /// history and recalculating the [`DerivedState`].  This returns the value returned from the
-    /// call of `action`.
-    fn make_action<T>(&mut self, action: impl FnOnce(&mut Spec) -> T) -> T {
+    /// Given a `new_spec` to append to the undo history, this actually mutates `self` to make the
+    /// edit take effect.  This handles things like maintaining the undo history, rebuilding the
+    /// state, and enforcing bounds checks.
+    fn finish_action(&mut self, new_spec: Spec) {
         // Rollback the history so that `history_index` points to the last edit
         drop(self.undo_history.drain(self.history_index + 1..));
-        // Perform the required action on a clone of the Spec being displayed
-        let mut new_spec = self.undo_history[self.history_index].clone();
-        let result = action(&mut new_spec);
         // Add this modified Spec to the undo history, and make it the current one
         self.undo_history.push(new_spec);
         self.history_index += 1;
         // Rebuild the derived state, since the Spec has changed
         self.rebuild_state();
-        result
     }
 
     /// Perform an action (some arbitrary function) on a single [`Frag`] in the current [`Spec`],
