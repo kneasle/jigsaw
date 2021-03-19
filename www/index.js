@@ -62,8 +62,9 @@ let transpose_box, transpose_input, transpose_message;
 // Global variable of the `link` that the user is 'selecting'.  This is recalculated every time the
 // mouse moves, and is then cached and used in rendering and when deciding which fragments to join.
 let selected_link = undefined;
-// Variables which will used to sync with the Rust code (in 90% of the code, these should be treated
-// as immutable).
+// Variables which will used to sync with the Rust code (in 99% of the code, these should be treated
+// as immutable - they should only be mutated from `sync_derived_state`, `sync_derived_state` and
+// `start` or when allowed to get out-of-sync whilst the user either pans or drags fragments).
 let comp, derived_state, view;
 // Mouse variables that the browser should keep track of but doesn't
 let mouse_coords = { x: 0, y: 0 };
@@ -521,12 +522,14 @@ function on_part_head_change(evt) {
 
 function update_hud() {
     const stats = derived_state.stats;
+
     // Populate row counter
     const part_len = stats.part_len;
     const num_parts = derived_state.part_heads.length;
     document.getElementById("part-len").innerText = part_len.toString();
     document.getElementById("num-parts").innerText = num_parts.toString();
     document.getElementById("num-rows").innerText = (part_len * num_parts).toString();
+
     // Populate the falseness summary
     const falseness_info = document.getElementById("falseness-info");
     const num_false_rows = stats.num_false_rows;
@@ -590,7 +593,7 @@ function start() {
     document.getElementById("part-head").addEventListener("change", on_part_head_change);
     transpose_input.addEventListener("keyup", on_transpose_box_change);
     transpose_input.addEventListener("keydown", on_transpose_box_key_down);
-    // Force a load of updates to initialise the display
+    // Update all the parts of the display to initialise them
     on_window_resize();
     update_part_head_list();
     update_hud();
@@ -773,7 +776,7 @@ function new_rect(x, y, w, h) {
 }
 
 // Called whenever the composition changes, and generates the necessary updates in order to get the
-// user's view in sync with the new composition
+// user's view in sync with the new composition.
 function on_comp_change() {
     sync_derived_state();
     update_hud();

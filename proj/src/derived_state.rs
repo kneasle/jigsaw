@@ -230,12 +230,14 @@ impl DerivedState {
         // Fully expand the comp from the [`Spec`]
         let (generated_rows, part_heads) = spec.expand();
 
-        // Truth proving pipeline - each stage relies on the output of the first
+        // Truth proving pipeline
         let (flat_proved_rows, part_len) = Self::flatten_proved_rows(&generated_rows, spec.len());
         let (false_rows, num_false_rows) = Self::gen_false_row_groups(flat_proved_rows);
         let (mut ranges_by_frag, num_false_groups) = Self::coalesce_false_row_groups(false_rows);
 
+        // Decide how the frags link together
         let (frag_links, frag_link_groups) = Self::gen_frag_links(&generated_rows);
+
         // Compile all of the derived state into one struct
         DerivedState {
             frag_links,

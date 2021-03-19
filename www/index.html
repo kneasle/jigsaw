@@ -23,21 +23,27 @@
             run();
         </script>
 
+        <!-- Main canvas -->
         <canvas id = "comp-canvas"
                 style="position: absolute;
                        left: 0; top: 0;
                        width: 100%; height: 100%;
                        margin: 0;">
         </canvas>
+
+        <!-- Top-left HUD -->
         <div style="position: absolute;
                     top: 0;
                     left: 0;
                     background: #ffffffee;
                     border-radius: 0 0 5px 0;
                     font-family: monospace;">
+            <!-- Summary -->
             <p style="margin: 5px;"><span id="part-len">0</span> rows * <span
                 id="num-parts">0</span> parts = <span id="num-rows">0</span> rows</p>
             <p style="margin: 5px;"><span id="falseness-info">true</span></p>
+
+            <!-- Part Heads -->
             <p style="margin: 5px;">Viewing Part: <select name="part-head" id="part-head">
                 <!-- The part heads are filled in only when the wasm is loaded, which is far enough
                      after page load to cause jank, so we fill this with a sensible default so that
@@ -45,6 +51,8 @@
                 <option value="0">#1: 12345678</option>
             </select></p>
         </div>
+
+        <!-- Transpose box -->
         <div style="position: absolute;
                     top: 100px;
                     left: 100px;

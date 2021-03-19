@@ -496,6 +496,8 @@ impl Spec {
         self.frags.remove(frag_2_ind);
     }
 
+    /// Split a [`Frag`] into two pieces at a given `split_index`, moving the 2nd of these to
+    /// a `new_y` coordinate.
     pub fn split_frag(
         &self,
         frag_ind: usize,
