@@ -555,10 +555,10 @@ function update_hud() {
         : num_false_rows.toString() + " false rows in " + num_false_groups.toString() + " groups";
     elem_falseness_info.style.color = is_true ? FALSE_COUNT_COL_TRUE : FALSE_COUNT_COL_FALSE;
 
-    // Set the part chooser to the value specified in `view`
+    // Update the part head display(s)
     elem_part_head_list.value = view.current_part;
     elem_part_head_input.value = derived_state.part_head_spec;
-    elem_part_head_message.innerText = `Parses to ${derived_state.part_heads.length} parts.`;
+    elem_part_head_message.innerText = `Parses to ${num_parts} part${num_parts == 1 ? "" : "s"}.`;
     elem_part_head_message.style.color = FOREGROUND_COL;
 }
 
