@@ -32,6 +32,8 @@ impl std::fmt::Display for InvalidRowError {
     }
 }
 
+impl std::error::Error for InvalidRowError {}
+
 pub type RowResult = Result<Row, InvalidRowError>;
 
 /// An error created when a [`Row`] was used to permute something with the wrong length
@@ -229,7 +231,7 @@ impl Row {
     /// # Ok::<(), InvalidRowError>(())
     /// ```
     pub fn parse(s: &str) -> RowResult {
-        Self::from_iter_checked(s.chars().filter_map(Bell::from_name))
+        Self::from_iter(s.chars().filter_map(Bell::from_name))
     }
 
     /// Parse a string into a `Row`, extending to the given [`Stage`] if required and skipping any
@@ -276,13 +278,13 @@ impl Row {
     ///
     /// // Create a valid row from an iterator over `Bell`s
     /// let iter = [0, 3, 4, 2, 1].iter().copied().map(Bell::from_index);
-    /// let row = Row::from_iter_checked(iter)?;
+    /// let row = Row::from_iter(iter)?;
     /// assert_eq!(row.to_string(), "14532");
     /// // Attempt to create an invalid row from an iterator over `Bell`s
     /// // (we get an error)
     /// let iter = [0, 3, 7, 2, 1].iter().copied().map(Bell::from_index);
     /// assert_eq!(
-    ///     Row::from_iter_checked(iter),
+    ///     Row::from_iter(iter),
     ///     Err(InvalidRowError::BellOutOfStage(
     ///         Bell::from_name('8').unwrap(),
     ///         Stage::DOUBLES,
@@ -291,11 +293,36 @@ impl Row {
     ///
     /// # Ok::<(), InvalidRowError>(())
     /// ```
-    pub fn from_iter_checked<I>(iter: I) -> RowResult
+    pub fn from_iter<I>(iter: I) -> RowResult
     where
         I: Iterator<Item = Bell>,
     {
         Self::from_vec(iter.collect())
+    }
+
+    /// Utility function that creates a `Row` from an iterator of [`Bell`]s, **without** performing
+    /// the validity check.  Only use this function if you can guarantee that all the required
+    /// invariants are upheld.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Bell, Row, Stage, InvalidRowError};
+    ///
+    /// // Create a valid row from an iterator over `Bell`s
+    /// let iter = [0, 3, 4, 2, 1].iter().copied().map(Bell::from_index);
+    /// let row = Row::from_iter_unchecked(iter);
+    /// assert_eq!(row.to_string(), "14532");
+    /// // Create an invalid row from an iterator over `Bell`s.  We get no error,
+    /// // but doing anything with the resulting `Row` is undefined behaviour
+    /// let iter = [0, 3, 7, 2, 1].iter().copied().map(Bell::from_index);
+    /// let row = Row::from_iter_unchecked(iter);
+    /// assert_eq!(row.to_string(), "14832");
+    /// ```
+    pub fn from_iter_unchecked<I>(iter: I) -> Row
+    where
+        I: Iterator<Item = Bell>,
+    {
+        Self::from_vec_unchecked(iter.collect())
     }
 
     /// Creates a `Row` from a [`Vec`] of [`Bell`]s, checking that the the resulting `Row` is valid.
