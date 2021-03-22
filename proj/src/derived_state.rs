@@ -22,7 +22,7 @@ pub struct RowOrigin {
 }
 
 impl RowOrigin {
-    /// Creates a new `RowOrigin` from it's parts
+    /// Creates a new `RowOrigin` from its parts
     pub fn new(part: usize, frag: usize, row: usize) -> RowOrigin {
         RowOrigin { part, frag, row }
     }
@@ -39,7 +39,7 @@ pub struct RowLocation {
 }
 
 impl RowLocation {
-    /// Creates a new `RowOrigin` from it's parts
+    /// Creates a new `RowOrigin` from its parts
     pub fn new(frag: usize, row: usize) -> Self {
         RowLocation { frag, row }
     }
@@ -322,11 +322,7 @@ impl DerivedState {
         let mut flattened_rows: Vec<(RowOrigin, &Row)> = Vec::with_capacity(spec_len);
         let mut part_len = 0;
         for (frag_index, rows) in generated_rows.iter().enumerate() {
-            for (row_index, expanded_row) in rows.iter().enumerate() {
-                // Only prove rows if they should be proven
-                if !expanded_row.is_proved {
-                    continue;
-                }
+            for (row_index, expanded_row) in rows.iter().filter(|r| r.is_proved).enumerate() {
                 for (part_index, row) in expanded_row.rows.iter().enumerate() {
                     flattened_rows.push((RowOrigin::new(part_index, frag_index, row_index), row));
                 }
@@ -501,10 +497,12 @@ mod tests {
         fn rl(frag: usize, row: usize) -> RowLocation {
             RowLocation { frag, row }
         }
+
         assert!(rl(0, 0) < rl(1, 0));
         assert!(rl(0, 1) < rl(1, 0));
-        assert!(rl(2, 1) > rl(1, 3));
         assert!(rl(0, 1) < rl(0, 3));
+
+        assert!(rl(2, 1) > rl(1, 3));
         assert!(rl(1, 0) > rl(0, 100));
     }
 }
