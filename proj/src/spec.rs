@@ -221,7 +221,8 @@ impl Frag {
 
     /// Create a new `Frag` of `other` onto the end of `self`, transposing `other` if necessary.
     /// Both `self` and `other` will be cloned in the process.
-    pub fn joined_with(&self, other: &Frag) -> Frag {
+    fn joined_with(&self, other: &Frag) -> Result<Frag, IncompatibleStages> {
+        IncompatibleStages::test_err(self.stage(), other.stage())?;
         // Figure out which rows we're trying to join together
         let end_row = &self.leftover_row().row;
         let start_row = &other.first_row().row;
@@ -233,14 +234,16 @@ impl Frag {
         if end_row == start_row {
             rows.extend(other.rows.iter().cloned());
         } else {
-            let transposition = end_row.mul_unchecked(&!start_row);
+            // All the unsafety in this block is OK because we have already asserted that the
+            // stages of these `Frag`s match, and by invariant all the `Row`s must be valid
+            let transposition = unsafe { end_row.mul_unchecked(&!start_row) };
             rows.extend(other.rows.iter().map(|r| {
                 let mut new_row = r.clone();
-                new_row.row = transposition.mul_unchecked(&r.row);
+                new_row.row = unsafe { transposition.mul_unchecked(&r.row) };
                 new_row
             }));
         }
-        self.clone_with_new_rows(rows)
+        Ok(self.clone_with_new_rows(rows))
     }
 
     /// Creates a new `Frag` which contains `self` joined to itself repeatedly until a round block
@@ -257,7 +260,9 @@ impl Frag {
             // the leftover row of the last `Frag` we added)
             rows.extend(self.rows[1..].iter().map(|r| {
                 let mut new_row = r.clone();
-                new_row.row = current_start_row.mul_unchecked(&r.row);
+                // This unsafety is OK because we are only ever transposing by rows taken from
+                // `self`, which by invariant all share the same stage
+                new_row.row = unsafe { current_start_row.mul_unchecked(&r.row) };
                 new_row
             }));
             // Make sure that the next row starts with the last row generated so far (i.e. the
@@ -290,7 +295,9 @@ impl Frag {
                 .iter()
                 .map(|r| {
                     let mut new_row = r.clone();
-                    new_row.row = transposition.mul_unchecked(&r.row);
+                    // The unsafety here is OK because we maintain an invariant that all the `Row`s
+                    // in this `Frag`
+                    new_row.row = unsafe { transposition.mul_unchecked(&r.row) };
                     new_row
                 })
                 .collect(),
@@ -496,7 +503,9 @@ impl Spec {
     /// and location of `frag_1_ind`, and the [`Frag`] at `frag_2_ind` is removed.  All properties
     /// of the resulting [`Frag`] are inherited from the `frag_1_ind`.
     pub fn join_frags(&mut self, frag_1_ind: usize, frag_2_ind: usize) {
-        let joined_frag = self.frags[frag_1_ind].joined_with(&self.frags[frag_2_ind]);
+        let joined_frag = self.frags[frag_1_ind]
+            .joined_with(&self.frags[frag_2_ind])
+            .unwrap();
         self.frags[frag_1_ind] = Rc::new(joined_frag);
         self.frags.remove(frag_2_ind);
     }

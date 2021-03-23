@@ -127,8 +127,8 @@ impl Row {
     /// assert_eq!(Row::rounds(Stage::CATERS).to_string(), "123456789");
     /// ```
     pub fn rounds(stage: Stage) -> Row {
-        // We skip the validity check, because it is trivially satisfied by rounds
-        Row::from_vec_unchecked((0..stage.as_usize()).map(Bell::from_index).collect())
+        // This unsafety is OK, because rounds is always a valid `Row`
+        unsafe { Row::from_vec_unchecked((0..stage.as_usize()).map(Bell::from_index).collect()) }
     }
 
     /// Creates backrounds on a given [`Stage`].
@@ -141,8 +141,10 @@ impl Row {
     /// assert_eq!(Row::backrounds(Stage::CATERS).to_string(), "987654321");
     /// ```
     pub fn backrounds(stage: Stage) -> Row {
-        // We skip the validity check, because it is trivially satisfied by backrounds
-        Row::from_vec_unchecked((0..stage.as_usize()).rev().map(Bell::from_index).collect())
+        // This unsafety is OK, because backrounds is always a valid `Row`
+        unsafe {
+            Row::from_vec_unchecked((0..stage.as_usize()).rev().map(Bell::from_index).collect())
+        }
     }
 
     /// Creates Queens on a given [`Stage`].
@@ -155,14 +157,16 @@ impl Row {
     /// assert_eq!(Row::queens(Stage::CATERS).to_string(), "135792468");
     /// ```
     pub fn queens(stage: Stage) -> Row {
-        // We skip the validity check, because it is trivially satisfied by backrounds
-        Row::from_vec_unchecked(
-            (0..stage.as_usize())
-                .step_by(2)
-                .chain((1..stage.as_usize()).step_by(2))
-                .map(Bell::from_index)
-                .collect(),
-        )
+        // This unsafety is OK, because Queens is always a valid `Row`
+        unsafe {
+            Row::from_vec_unchecked(
+                (0..stage.as_usize())
+                    .step_by(2)
+                    .chain((1..stage.as_usize()).step_by(2))
+                    .map(Bell::from_index)
+                    .collect(),
+            )
+        }
     }
 
     /// Returns the [`Stage`] of this `Row`.
@@ -301,8 +305,8 @@ impl Row {
     }
 
     /// Utility function that creates a `Row` from an iterator of [`Bell`]s, **without** performing
-    /// the validity check.  Only use this function if you can guarantee that all the required
-    /// invariants are upheld.
+    /// the validity check.  This function is `unsafe`; only use it if you can guarantee that the
+    /// resulting `Row` is valid.
     ///
     /// # Example
     /// ```
@@ -310,15 +314,15 @@ impl Row {
     ///
     /// // Create a valid row from an iterator over `Bell`s
     /// let iter = [0, 3, 4, 2, 1].iter().copied().map(Bell::from_index);
-    /// let row = Row::from_iter_unchecked(iter);
+    /// let row = unsafe { Row::from_iter_unchecked(iter) };
     /// assert_eq!(row.to_string(), "14532");
     /// // Create an invalid row from an iterator over `Bell`s.  We get no error,
     /// // but doing anything with the resulting `Row` is undefined behaviour
     /// let iter = [0, 3, 7, 2, 1].iter().copied().map(Bell::from_index);
-    /// let row = Row::from_iter_unchecked(iter);
+    /// let row = unsafe { Row::from_iter_unchecked(iter) };
     /// assert_eq!(row.to_string(), "14832");
     /// ```
-    pub fn from_iter_unchecked<I>(iter: I) -> Row
+    pub unsafe fn from_iter_unchecked<I>(iter: I) -> Row
     where
         I: Iterator<Item = Bell>,
     {
@@ -365,30 +369,38 @@ impl Row {
     /// ```
     /// use proj_core::{Bell, InvalidRowError, Row};
     ///
-    /// // Converting a `Row` from a valid `Vec` of `Bell`s is fine
+    /// # fn test() -> Option<()> {
+    /// // Converting a `Row` from a valid `Vec` of `Bell`s is fine, but still unsafe
     /// assert_eq!(
-    ///     Row::from_vec_unchecked(vec![
-    ///         Bell::from_name('4').unwrap(),
-    ///         Bell::from_name('2').unwrap(),
-    ///         Bell::from_name('1').unwrap(),
-    ///         Bell::from_name('3').unwrap(),
-    ///     ]).to_string(),
+    ///     unsafe {
+    ///         Row::from_vec_unchecked(vec![
+    ///             Bell::from_name('4')?,
+    ///             Bell::from_name('2')?,
+    ///             Bell::from_name('1')?,
+    ///             Bell::from_name('3')?,
+    ///         ])
+    ///     }.to_string(),
     ///     "4213"
     /// );
-    /// // Converting a `Row` from an invalid `Vec` of `Bell`s **works**,
-    /// // but creates an invalid `Row`
+    /// // Converting a `Row` from an invalid `Vec` of `Bell`s compiles and runs,
+    /// // but silently creates an invalid `Row`
     /// assert_eq!(
-    ///     Row::from_vec_unchecked(vec![
-    ///         Bell::from_name('4').unwrap(),
-    ///         Bell::from_name('2').unwrap(),
-    ///         Bell::from_name('1').unwrap(),
-    ///         Bell::from_name('4').unwrap(),
-    ///     ]).to_string(),
+    ///     unsafe {
+    ///         Row::from_vec_unchecked(vec![
+    ///             Bell::from_name('4')?,
+    ///             Bell::from_name('2')?,
+    ///             Bell::from_name('1')?,
+    ///             Bell::from_name('4')?,
+    ///         ])
+    ///     }.to_string(),
     ///     "4214"
     /// );
+    /// # Some(())
+    /// # }
+    /// # fn main() { test().unwrap() }
     /// ```
     #[inline]
-    pub fn from_vec_unchecked(bells: Vec<Bell>) -> Row {
+    pub unsafe fn from_vec_unchecked(bells: Vec<Bell>) -> Row {
         Row { bells }
     }
 
@@ -530,33 +542,41 @@ impl Row {
     /// ```
     pub fn mul(&self, rhs: &Row) -> Result<Row, IncompatibleStages> {
         IncompatibleStages::test_err(self.stage(), rhs.stage())?;
-        Ok(self.mul_unchecked(rhs))
+        // This unsafety is OK because the `self` and `rhs` are both assumed to be valid, and we
+        // have already checked that their stages are equal
+        Ok(unsafe { self.mul_unchecked(rhs) })
     }
 
     /// Multiply two `Row`s (i.e. use the RHS to permute the LHS), but without checking that the
-    /// [`Stage`]s are compatible.  This is slighlty faster than using `*` or [`Row::mul`], but the
-    /// output is not guaruteed to be valid unless both inputs have the same [`Stage`].
+    /// [`Stage`]s are compatible.  This is slighlty faster than using `*` or [`Row::mul`], but is
+    /// `unsafe`: the output is not guaruteed to be valid unless both inputs have the same
+    /// [`Stage`].
     ///
     /// # Example
     /// ```
     /// use proj_core::{Bell, Row, Stage, IncompatibleStages};
     ///
-    /// // Multiplying two Rows of the same Stage is fine
+    /// // Multiplying two Rows of the same Stage is OK, but still unsafe
     /// assert_eq!(
-    ///     Row::parse("13425678")?.mul_unchecked(&Row::parse("43217568")?),
+    ///     unsafe {
+    ///         Row::parse("13425678")?.mul_unchecked(&Row::parse("43217568")?)
+    ///     },
     ///     Row::parse("24317568")?
     /// );
-    /// // Multiplying two Rows of different Stages is not, and creates an invalid Row.
+    /// // Multiplying two Rows of different Stages is not OK, and creates an invalid Row.
+    /// // Note how both sides of the `assert_eq` have to use unsafe to create an invalid Row.
     /// assert_eq!(
-    ///     Row::parse("13475628")?.mul_unchecked(&Row::parse("4321")?),
-    ///     Row::from_vec_unchecked(
+    ///     unsafe { Row::parse("13475628")?.mul_unchecked(&Row::parse("4321")?) },
+    ///     unsafe {Row::from_vec_unchecked(
     ///         [7, 4, 3, 1].iter().map(|&x| Bell::from_number(x).unwrap()).collect()
-    ///     )
+    ///     )}
     /// );
     /// # Ok::<(), proj_core::InvalidRowError>(())
     /// ```
-    pub fn mul_unchecked(&self, rhs: &Row) -> Row {
-        // We bypass the validity check because if two Rows are valid, then so is their product
+    pub unsafe fn mul_unchecked(&self, rhs: &Row) -> Row {
+        // We bypass the validity check because if two Rows are valid, then so is their product.
+        // However, this function is also unsafe because permuting two rows of different Stages
+        // causes undefined behaviour
         Row::from_vec_unchecked(rhs.bells().map(|b| self[b.index()]).collect())
     }
 
@@ -590,7 +610,9 @@ impl Row {
             if row.is_rounds() {
                 return closure;
             }
-            row = row.mul_unchecked(self);
+            // This unsafety is OK, because `self` is a valid Row and `row` and `self` will always
+            // have the same Stage
+            row = unsafe { row.mul_unchecked(self) };
         }
     }
 
@@ -623,7 +645,9 @@ impl Row {
         let mut row = self.clone();
         while !row.is_rounds() {
             closure.push(row.clone());
-            row = row.mul_unchecked(self);
+            // This unsafety is OK, because `self` is a valid Row and `row` and `self` will always
+            // have the same Stage
+            row = unsafe { row.mul_unchecked(self) };
         }
         closure
     }
@@ -718,7 +742,9 @@ impl std::ops::Mul for &Row {
     /// ```
     fn mul(self, rhs: &Row) -> Self::Output {
         assert_eq!(self.stage(), rhs.stage());
-        self.mul_unchecked(rhs)
+        // This unsafety is OK because the product of two valid Rows of the same Stage is always
+        // valid (because groups are closed under their binary operation).
+        unsafe { self.mul_unchecked(rhs) }
     }
 }
 
@@ -758,8 +784,9 @@ impl std::ops::Not for &Row {
         for (i, b) in self.bells().enumerate() {
             inv_bells[b.index()] = Bell::from_index(i);
         }
-        // If `self` is a valid row, so will its inverse.  So we elide the validity check
-        Row::from_vec_unchecked(inv_bells)
+        // This unsafety is OK because Rows form a group and by the closure of groups under
+        // inversion, if `self` is in the group of permutations, then so is `!self`.
+        unsafe { Row::from_vec_unchecked(inv_bells) }
     }
 }
 
