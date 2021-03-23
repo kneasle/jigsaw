@@ -4,7 +4,6 @@
 \author{Benjamin White-Horne \\ \emph{Oxford University}}
 
 \newcommand{\row}[1]{\texttt{#1}}
-
 \newcommand{\br}[0]{\vspace{10pt} \noindent}
 
 \begin{document}
@@ -181,6 +180,95 @@ Now that we've taken a look at the state of the art, it's time to start making d
 about this project.  To do this, I will lay out my initial design and why I think it will satisfy
 each of the design goals.
 
+\subsection{Technologies Used}
+
+When choosing technologies for a project, we must first decide what the project will require of
+them.  For this project, we will need to maintain a pretty-looking canvas-style user interface which
+can be updated in real time if the user were to pan the viewport or drag parts of the composition.
+However, behind the scenes, the application will have to perform a large amount of permutation logic
+every time the user changes anything and must do all of this without a noticable delay or hitch to
+the UI, regardless of the size and complexity of the composition.  This logic will be fairly complex
+and its correctness is vital for the application to work as expected.  Finally, the application
+should be as easy to get running as possible --- i.e.\ we want to minimise the time between the user
+discovering that this application exists and them starting to use it.
+
+\subsubsection{Application as a Static Web Page}
+
+Therefore, I propose that the application run as a single static web page (i.e.\ it is a fixed set
+of files that can be served by a simple HTTP server).  This has many advantages:
+\begin{enumerate}
+    \item There is no start-up time for a new user --- they open the page in any browser and the
+        application starts immediately.
+    \item HTML canvas rendering (while extremely inefficient compared to OpenGL or Vulkan) is easy,
+        fast enough to feel instant and consistently looks good an all browsers and operating
+        systems.  As of the first prototype, the performance of naively redrawing the whole canvas
+        every frame is more than adequate (at least on my brand-new PC).  However, if performance
+        does become an issue there are many obvious caching optimisations that would cause huge
+        speed-ups in rendering.
+    \item Having no dependence on a server both obviates the need for the user to make an account
+        and also makes it trivial to deploy using GitHub pages or a similar service.
+\end{enumerate}
+
+However, writing an application as a static web page is not without its challenges.  The first
+challenge is that of JavaScript: though JavaScript is excellent for writing a small amount of user
+interaction code (due to its first-class web support), it has two chief shortcomings: performance
+and scalability.
+
+Furthermore, as noted with CompLib, it is highly detrimental to the user experience if part of the
+code has to run on a web server.  Therefore, any replacement to JavaScript to must also be able to
+run natively inside a browser.
+
+\subsubsection{Move Complex Logic to Rust and WebAssembly}
+
+My solution to both of these is to write the code with a client/server architecture, where there is
+a thin client written in JavaScript (to handle user interaction and rendering) and the server is
+written in Rust and compiled to WebAssembly.  There are many other languages that could work for
+this purpose, for example TypeScript, C/C++ or Go but I chose Rust for the following reasons:
+
+\begin{enumerate}
+    \item Rust gives you direct control over memory layout which provides excellent performance when
+        manipulating complex data structures.  The performance of TypeScript, for instance, is by
+        definition no better than that of JavaScript.
+    \item The Rust compiler performs a large amount of strict compile-time correctness checks on
+        your code, making it easy to implement complex algorithms in ways that you know is correct
+        and fast.  C/C++ and Go cannot compete in this regard.
+    \item Rust's WebAssembly support is fantastic, with particular shout-out to \verb|wasm_bindgen|,
+        which generates binding code between native Rust and native JavaScript to let them interface
+        seamlessly.
+    \item I am already proficient in Rust, and have already developed a library with useful
+        datatypes for handling compositions efficiently.
+\end{enumerate}
+
+This approach has been very promising performance-wise: as of the first prototype, the latency
+between a user changing the composition and the result appearing on screen is 3ms for a composition
+with 2000 rows of 8 bells each.  This processess involves no caching --- the entire composition is
+completely expanded, proved, music checked, serialised to JSON, copied to JavaScript and
+deserialised in the 3ms.  The algorithms implemented are no worse than quadratic in the number of
+bells, so I would place a very paranoid upper bound to be about 103ms (for 6000 rows of 16 bells
+each).  I suspect there is a lot of low-hanging fruit for optimisations, but this is not run every
+frame so even 100ms will feel instant.
+
+The second, more problematic limitation of working inside a browser is that of storage.  Code
+running in a browser cannot (for security reasons) access the user's file system unless the user
+explicitly uploads or saves to a file, so accessing the file system to save without the user's
+express permission is not an option.  Also, the user experience will be massively improved if the
+user can close and reopen the page at any point and have everything stay as they left it (complete
+with as much undo history as possible).
+
+\subsubsection{Using Cookies as Persistent State}
+
+Fortunately for this project, there is some storage that web pages can use to store persistent data
+without the user's input, and those are cookies.  Unfortunately, cookies are severly size limited
+--- a web page can only expect to be able to save about 30 cookies per page, each of which can be at
+most 4096 bytes, so we have 122,800 bytes in which to save all the persistent state we need.  In
+reality, however, it's not a good idea to run too close to this limit because the page may have to
+store other cookies and these shouldn't suddenly fail to save.
+
+Saving just the current undo snapshot is fine, but I want to save the undo history which will
+require a complicated serialisation/deserialisation algorithm.  I have chosen not to implement this
+for the prototype, because I suspect that I will need to change the internal representation a lot
+and doing so will break any serialised data.
+
 \subsection{The Application Model}
 
 This is the high-level model that should define how the application should behave (even if the
@@ -193,76 +281,103 @@ inspired by Haskell).
 \subsubsection{Specification vs Derived State}
 
 In order for the model to be as simple as possible, it is important to differentiate the
-\emph{specification} from any \emph{derived state} generated from it.  As a toy example, let us
-consider two integers ($a$ and $b$) and their sum and product ($a + b$ and $ab$) as the total
-information required to represent a particular state.  This overall state consists of 4 pieces of
-information ($\{a, b, a + b, ab\}$) but it's easy to see that the inclusion of $a + b$ and $ab$ does
-not add any extra information.  Therefore, we can say that $\{a, b\}$ is the \emph{specification} of
-$\{a, b, a + b, ab\}$, whereas $\{a + b, ab\}$ is the \emph{derived state}.  This dependence also
-means that we don't have to store any derived state in the undo history, drastically reducing the
-memory footprint of storing long undo histories (provided that the derivation process is not
-prohibitively expensive --- though in the case of this project it is quite cheap in both time and
-memory).  Plus, the mental load on the user is reduced because they only have to reason about the
-specification and the behaviour of the derived state should be intuitive given the changes to the
-specification.
+\emph{specification} from any \emph{derived state} generated from it (in the code, these are stored
+in structures called \verb|Spec| and \verb|DerivedState| respectively, both in the \verb|proj/|
+crate/directory).
+
+As a toy example, let us consider two integers ($a$ and $b$) and their sum and product ($a + b$ and
+$ab$) as the total information required to represent a particular state.  This overall state
+consists of 4 pieces of information ($\{a, b, a + b, ab\}$) but it's easy to see that the inclusion
+of $a + b$ and $ab$ does not add any extra information.  Therefore, we can say that $\{a, b\}$ is
+the \emph{specification} of $\{a, b, a + b, ab\}$, whereas $\{a + b, ab\}$ is the \emph{derived
+state}.  This dependence also means that we don't have to store any derived state in the undo
+history, drastically reducing the memory footprint of storing long undo histories (provided that the
+derivation process is not prohibitively expensive --- though in the case of this project it is quite
+cheap in both time and memory).  Plus, the mental load on the user is reduced because they only have
+to reason about the specification and the behaviour of the derived state should be intuitive given
+the changes to the specification.
+
+\subsubsection{High-Level Requirements of the Model}
 
 For this project, we have a few requirements which will constrain the model used (namely the
-completeness and generality goals).  Firstly, to satisfy generality the application must be able to
-express composers' ideas about 
+completeness and generality goals).  Firstly, to satisfy generality the model must be able to
+express as many partial compositions as possible.  From discussions with other composers on this
+topic, I know that it is a very common workflow to begin a composition with ideas that fit into
+three broad categories:
 
-\subsection{Ease of use}
+\begin{enumerate}
+    \item \textbf{Meta-data:} Some concept of overall structure, for example which method(s) to use,
+        what part structure to use, etc.  These are usually laid out before composing starts, and
+        it is likely that the finished composition will have the same metadata as the initial idea.
+    \item \textbf{Fragments:} Some chunks of the composition that they want to ring, perhaps with
+        some idea on what order these should be rung in (no assumptions are made about whether or
+        not these ``fragments'' are connectible or even mutually true).  These will almost certainly
+        have to be extended and joined in order to reach a final composition, and will therefore be
+        modified extensively over the composing process.
+    \item \textbf{Abstract} ideas about complexity, use of repeated blocks, etc.\ which are
+        relevant to the resulting composition but extremely difficult to represent in a
+        machine-compatible way.  This model will not attempt to encapsulate these ideas, since they
+        are so varied, abstract and complex that a sufficiently general model would be enourmously
+        complex for both the programmer and the user.  Also, these `rules' are usually strategically
+        bent by composers due to context that isn't available to the computer so having an
+        application that enforces them would likely feel overly restrictive.
+\end{enumerate}
 
-The best installation process is no installation process, so my application will run as a single
-static web page with no external dependencies or accounts required.  Having no dependence on a
-server both obviates the need for the user to make an account and also makes it trivial to deploy
-using GitHub pages or a similar service.  Also from a user-experience (UX) perspective, HTML canvas
-rendering (while extremely inefficient) is fast enough to feel instant and consistently looks good
-across all platforms and browsers.  Also, much efficiency can be gained by rendering sections of the
-composition into caches, which would be a relatively straightforward optimisation.
+\subsubsection{Model Description}
 
-However, writing an application as a static web page is not without its challenges.
+Here, I will describe a model around which this project will be built.  As described above, we will
+only model the first two categories of ideas described above, as they are the most important and
+straightforward to implement.  I will describe the model as Haskell-style datatypes, using some
+light syntax extensions for things like \verb+{| .. |}+ for counted sets (a.k.a.\ bags).  For
+consistency between this report and the code, I have wherever possible given datatypes the same
+names as their counterparts in the Rust source code.
 
-\br{}Firstly, JavaScript (though good for user interaction code) is both difficult to maintain
-at any kind of scale/complexity and also border-line impossible to get consistently good perforance
-when doing bulk number crunching.  Both of these are very important to me; composition generation
-requires quite a lot of fairly complex code that has to do a huge amount of number crunching in a
-short space of time.  My solution to this is to write the code with a client/server architecture,
-where there is a thin client written in JavaScript (to handle user interaction and rendering) and
-the server is written in Rust and compiled to WebAssembly.  This way, as much of the business logic
-is kept in Rust (which is extremely fast and easy to maintain) but there is no network delay between
-the user's inputs and visual feedback.
+First of all, a \verb|Spec|ification of a composition is a combination of a bag of \verb|Frag|ments
+coupled with some \verb|MetaData| (in the code, the meta-data is simply flattened into the
+\verb|Spec| struct):
 
-This approach has been very promising performance-wise: as of the first prototype, the latency
-between a user changing the composition and the result appearing on screen is 3ms for a composition
-with 2000 rows of 8 bells each.  This processess involves no caching --- the entire composition is
-completely expanded, proved, music checked, serialised to JSON, copied to JavaScript and
-deserialised in the 3ms.  This could definitely be optimised, but we are so far under the 100ms
-limit of feeling instant that this would be a waste of my time.
+\begin{verbatim}
+data Spec = Spec {
+    frags :: {| Frag |},
+    meta_data :: MetaData
+}
+\end{verbatim}
 
-\br{}The second, more problematic limitation of working inside a browser is that of storage.
-Code running in a browser cannot (for security reasons) access the file system unless the user
-specifically uploads or saves a file, and therefore accessing the file system automatically when the
-user types `ctrl-S' is not an option.  Also, the best thing for the user's experience is to be able
-to close and reopen the page and have the page load into exactly the state it was in before closing
-(complete with as much undo history as possible).
+In this project, we will model fragments simply as an ordered sequence of annotated rows.  These
+`annotations' encode the higher-order structure of the composition in a view-independent format,
+so that the same composition can be displayed to the user in whatever way they prefer to view
+compositions (thus the exact calling of the composition becomes \emph{derived state}):
 
-Fortunately for this project, there is some storage that web pages can use to store persistent data
-without the user's input, and those are cookies.  Unfortunately, cookies are severly size limited
---- a web page can only expect to be able to save about 30 cookies per page, each of which can be at
-most 4096 bytes, so we have 122,800 bytes in which to save all the persistent state we need.  In
-reality, however, it's not a good idea to run too close to this limit because the page may have to
-store other cookies and these shouldn't suddenly fail to save.  Saving just the current undo
-snapshot is fine, but I want to save the undo history which will require a complicated
-serialisation/deserialisation algorithm.  I have chosen not to implement this for the prototype,
-because I suspect that I will need to change the internal representation a lot and doing so will
-break any serialised data.
+\begin{verbatim}
+type Frag = [AnnotRow]
 
-\subsection{Incremental}
+data AnnotRow = AnnotRow {
+    row :: Row,
+    is_rule_off :: Bool,
+    call_str :: Maybe String,
+    -- more annotations ...
+}
+\end{verbatim}
 
-This is where the proper design starts.  In order to allow the application to be intuitive, there
-must be a relatively simple underlying model of how the user should think about the composition they
-are editing.
+The \verb|MetaData| contains the remaining information required to specify the composition,
+including part heads and the composition's stage:
 
-A composition is an unordered counted set (i.e.\ a ``bag'') of ``fragments''.
+\begin{verbatim}
+data MetaData = MetaData {
+    part_heads :: [Row],
+    stage :: Stage
+}
+\end{verbatim}
+
+The remaining datatypes in this definition (\verb|Row|, \verb|Stage|, \verb|Bell|, etc.) are stored
+in a separate library to the project's business code in the \verb|core| directory (imported as
+\verb|proj_core| in the code).  For completeness, they could be defined in Haskell as follows:
+
+\begin{verbatim}
+type Row = [Bell]
+
+data Bell = Bell Int
+data Stage = Stage Int
+\end{verbatim}
 
 \end{document}
