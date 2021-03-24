@@ -260,7 +260,7 @@ impl Row {
     /// assert_eq!(
     ///     Row::parse("12745"),
     ///     Err(InvalidRowError::BellOutOfStage(
-    ///         Bell::from_number(7).unwrap(),
+    ///         Bell::from_name('7').unwrap(),
     ///         Stage::DOUBLES
     ///     ))
     /// );

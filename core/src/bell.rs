@@ -20,13 +20,14 @@ impl Bell {
     ///
     /// # Example
     /// ```
+    /// # fn test() -> Option<()> {
     /// use proj_core::Bell;
     ///
     /// // Converting a valid name to a `Bell` and back should be the identity function
-    /// assert_eq!(Bell::from_name('1').unwrap().name(), "1");
-    /// assert_eq!(Bell::from_name('5').unwrap().name(), "5");
-    /// assert_eq!(Bell::from_name('0').unwrap().name(), "0");
-    /// assert_eq!(Bell::from_name('T').unwrap().name(), "T");
+    /// assert_eq!(Bell::from_name('1')?.name(), "1");
+    /// assert_eq!(Bell::from_name('5')?.name(), "5");
+    /// assert_eq!(Bell::from_name('0')?.name(), "0");
+    /// assert_eq!(Bell::from_name('T')?.name(), "T");
     /// // Converting a lower-case letter should return `None`, even if the upper case
     /// // version is valid
     /// assert_eq!(Bell::from_name('e'), None);
@@ -34,6 +35,9 @@ impl Bell {
     /// // Converting any old rubbish will return `None` (no shade on Ferris)
     /// assert_eq!(Bell::from_name('\r'), None);
     /// assert_eq!(Bell::from_name('🦀'), None);
+    /// # Some(())
+    /// # }
+    /// # fn main() { test().unwrap() }
     /// ```
     pub fn from_name(c: char) -> Option<Bell> {
         BELL_NAMES
@@ -63,12 +67,16 @@ impl Bell {
     ///
     /// # Example
     /// ```
+    /// # fn test() -> Option<()> {
     /// use proj_core::Bell;
     ///
     /// // The `Bell` with number '12' is the 12th and should be displayed as 'T'
-    /// assert_eq!(Bell::from_number(12).unwrap().name(), "T");
+    /// assert_eq!(Bell::from_number(12)?.name(), "T");
     /// // Trying to create a Bell with number `0` fails:
     /// assert_eq!(Bell::from_number(0), None);
+    /// # Some(())
+    /// # }
+    /// # fn main() { test().unwrap() }
     /// ```
     pub fn from_number(number: usize) -> Option<Bell> {
         number.checked_sub(1).map(Bell::from_index)
@@ -96,15 +104,19 @@ impl Bell {
     ///
     /// # Example
     /// ```
+    /// # fn test() -> Option<()> {
     /// use proj_core::Bell;
     ///
     /// // A 'Bell' with index 0 is the treble, and therefore displays as `1`
     /// assert_eq!(Bell::from_index(0).to_char(), Some('1'));
     /// // The 11th should display as 'E'
-    /// assert_eq!(Bell::from_number(11).unwrap().to_char(), Some('E'));
+    /// assert_eq!(Bell::from_number(11)?.to_char(), Some('E'));
     ///
     /// // Trying to display the 100th Bell fails:
-    /// assert_eq!(Bell::from_number(100).unwrap().to_char(), None);
+    /// assert_eq!(Bell::from_number(100)?.to_char(), None);
+    /// # Some(())
+    /// # }
+    /// # fn main() { test().unwrap() }
     /// ```
     pub fn to_char(&self) -> Option<char> {
         BELL_NAMES.as_bytes().get(self.index).map(|x| *x as char)
@@ -114,15 +126,19 @@ impl Bell {
     ///
     /// # Example
     /// ```
+    /// # fn test() -> Option<()> {
     /// use proj_core::Bell;
     ///
     /// // Creating a `Bell` with `from_index` should return the same index passed to it
     /// assert_eq!(Bell::from_index(0).index(), 0);
     /// assert_eq!(Bell::from_index(12).index(), 12);
     ///
-    /// assert_eq!(Bell::from_name('8').unwrap().index(), 7);
-    /// assert_eq!(Bell::from_name('0').unwrap().index(), 9);
-    /// assert_eq!(Bell::from_name('T').unwrap().index(), 11);
+    /// assert_eq!(Bell::from_name('8')?.index(), 7);
+    /// assert_eq!(Bell::from_name('0')?.index(), 9);
+    /// assert_eq!(Bell::from_name('T')?.index(), 11);
+    /// # Some(())
+    /// # }
+    /// # fn main() { test().unwrap() }
     /// ```
     #[inline]
     pub fn index(self) -> usize {
@@ -133,13 +149,17 @@ impl Bell {
     ///
     /// # Example
     /// ```
+    /// # fn test() -> Option<()> {
     /// use proj_core::Bell;
     ///
     /// assert_eq!(Bell::from_index(0).number(), 1);
-    /// assert_eq!(Bell::from_name('0').unwrap().number(), 10);
+    /// assert_eq!(Bell::from_name('0')?.number(), 10);
     /// // Using `from_number` should return the same number that was passed to it
-    /// assert_eq!(Bell::from_number(4).unwrap().number(), 4);
-    /// assert_eq!(Bell::from_number(10).unwrap().number(), 10);
+    /// assert_eq!(Bell::from_number(4)?.number(), 4);
+    /// assert_eq!(Bell::from_number(10)?.number(), 10);
+    /// # Some(())
+    /// # }
+    /// # fn main() { test().unwrap() }
     /// ```
     #[inline]
     pub fn number(self) -> usize {
@@ -152,19 +172,23 @@ impl Bell {
     ///
     /// # Example
     /// ```
+    /// # fn test() -> Option<()> {
     /// use proj_core::Bell;
     ///
     /// // Bells which are <= 9th should return their number as a `String`
-    /// assert_eq!(Bell::from_number(1).unwrap().name(), "1");
-    /// assert_eq!(Bell::from_number(5).unwrap().name(), "5");
-    /// assert_eq!(Bell::from_number(9).unwrap().name(), "9");
+    /// assert_eq!(Bell::from_number(1)?.name(), "1");
+    /// assert_eq!(Bell::from_number(5)?.name(), "5");
+    /// assert_eq!(Bell::from_number(9)?.name(), "9");
     /// // The 10th display as "0"
-    /// assert_eq!(Bell::from_number(10).unwrap().name(), "0");
+    /// assert_eq!(Bell::from_number(10)?.name(), "0");
     /// // Other bells display as their single-character names
-    /// assert_eq!(Bell::from_number(12).unwrap().name(), "T");
-    /// assert_eq!(Bell::from_number(16).unwrap().name(), "D");
+    /// assert_eq!(Bell::from_number(12)?.name(), "T");
+    /// assert_eq!(Bell::from_number(16)?.name(), "D");
     /// // Anything too big simply displays as '<{bell.number()}>'
-    /// assert_eq!(Bell::from_number(100).unwrap().name(), "<100>");
+    /// assert_eq!(Bell::from_number(100)?.name(), "<100>");
+    /// # Some(())
+    /// # }
+    /// # fn main() { test().unwrap() }
     /// ```
     pub fn name(&self) -> String {
         match self.to_char() {
