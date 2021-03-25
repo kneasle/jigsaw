@@ -1,7 +1,11 @@
 //! A type-safe representation of a bell.
 
 /// A lookup string of the bell names
-const BELL_NAMES: &str = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
+// - E, T stand for 11 and 12 and therefore feel out of place
+// - I could be confused with 1
+// - O could be confused with 0 and Q
+// - X is not a valid bell name to avoid confusion with 'x' as place notation
+const BELL_NAMES: &str = "1234567890ETABCDFGHJKLMNPQRSUVWYZ";
 
 /// A type-safe representation of a 'bell', which adds things like conversions to and from
 /// commonly-used bell names.
