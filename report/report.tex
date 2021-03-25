@@ -323,14 +323,14 @@ three broad categories:
         application that enforces them would likely feel overly restrictive.
 \end{enumerate}
 
-\subsubsection{Model Description}
+\subsubsection{Model Datatypes}
 
 Here, I will describe a model around which this project will be built.  As described above, we will
 only model the first two categories of ideas described above, as they are the most important and
 straightforward to implement.  I will describe the model as Haskell-style datatypes, using some
 light syntax extensions for things like \verb+{| .. |}+ for counted sets (a.k.a.\ bags).  For
-consistency between this report and the code, I have wherever possible given datatypes the same
-names as their counterparts in the Rust source code.
+consistency between this report and the code, I have given datatypes the same
+names as their counterparts in the Rust source code wherever possible.
 
 First of all, a \verb|Spec|ification of a composition is a combination of a bag of \verb|Frag|ments
 coupled with some \verb|MetaData| (in the code, the meta-data is simply flattened into the
@@ -355,7 +355,7 @@ data AnnotRow = AnnotRow {
     row :: Row,
     is_rule_off :: Bool,
     call_str :: Maybe String,
-    -- more annotations ...
+    -- more annotations omitted for brevity ...
 }
 \end{verbatim}
 
@@ -379,5 +379,12 @@ type Row = [Bell]
 data Bell = Bell Int
 data Stage = Stage Int
 \end{verbatim}
+
+\subsubsection{Operations on the Data}
+
+Now that we know how a composition is specified, we now need to define how the user will be able to
+modify the datatypes defined above.
+
+(T.B.C.)
 
 \end{document}
