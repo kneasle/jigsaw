@@ -57,7 +57,7 @@ impl Stage {
 /// ```
 impl Stage {
     /// A `Stage` with `2` working bells
-    pub const TWO: Stage = Stage(3);
+    pub const TWO: Stage = Stage(2);
 
     /// A `Stage` with `3` working bells
     pub const SINGLES: Stage = Stage(3);
