@@ -9,7 +9,7 @@ mod utils;
 
 pub use bell::Bell;
 pub use block::Block;
-pub use place_not::PlaceNot;
+pub use place_not::{PlaceNot, PnBlock};
 pub use row::{IncompatibleStages, InvalidRowError, Row, RowResult};
 pub use stage::Stage;
 pub use utils::run_len;

@@ -2,9 +2,10 @@
 
 use crate::{Bell, Stage};
 use itertools::Itertools;
-use std::fmt::{Display, Formatter};
-
-static CROSS_NOTATIONS: [&str; 3] = ["-", "x", "X"];
+use std::{
+    fmt::{Display, Formatter},
+    ops::Range,
+};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum ParseError {
@@ -62,6 +63,7 @@ pub struct PlaceNot {
     /// cost of (slightly) slower parsing, but I think this trade-off is justified since all
     /// `PlaceNot`s are parsed only once but permuting/equality tests happen many many times.
     places: Vec<usize>,
+    /// The [`Stage`] that this `PlaceNot` is intended to be used for.
     stage: Stage,
 }
 
@@ -97,7 +99,7 @@ impl PlaceNot {
     /// ```
     pub fn parse(s: &str, stage: Stage) -> Result<Self, ParseError> {
         // If the string is any one of the cross strings, then return CROSS
-        if CROSS_NOTATIONS.contains(&s) {
+        if s.len() == 1 && s.chars().next().map(CharMeaning::from) == Some(CharMeaning::Cross) {
             return Self::cross(stage).ok_or(ParseError::OddStageCross { stage });
         }
         // Parse the string into bell indices, ignoring any invalid characters
@@ -106,11 +108,18 @@ impl PlaceNot {
             .filter_map(Bell::from_name)
             .map(Bell::index)
             .collect();
+        // Convert this unsorted slice into a PlaceNot, or return an error
+        Self::from_slice(&mut parsed_places, stage)
+    }
+
+    /// Creates a new `PlaceNot` from an unsorted slice of places, performing bounds checks and
+    /// returning errors if necessary.
+    fn from_slice(parsed_places: &mut [usize], stage: Stage) -> Result<Self, ParseError> {
         // Check if we were given no places (I'm making this an error because '-' should be used
         // instead)
         parsed_places.last().ok_or(ParseError::NoPlacesGiven)?;
-        // Sort the places into ascending order
-        parsed_places.sort();
+        // Sort the places into ascending order (unstable sort doesn't matter for usizes)
+        parsed_places.sort_unstable();
         // Check if any of the bells are out of range
         if let Some(out_of_range_place) = parsed_places.last().filter(|p| **p >= stage.as_usize()) {
             return Err(ParseError::PlaceOutOfStage {
@@ -122,10 +131,9 @@ impl PlaceNot {
         // Rebuild to a new Vec when adding places to avoid quadratic behaviour
         let mut places = Vec::with_capacity(parsed_places.len() + 5);
         // Add implicit place in lead
-        parsed_places
-            .first()
-            .filter(|p| *p % 2 == 1)
-            .map(|_| places.push(0));
+        if parsed_places.first().filter(|p| *p % 2 == 1).is_some() {
+            places.push(0)
+        }
         // Copy the contents of `parsed_places`, inserting implicit places where necessary
         for (p, q) in parsed_places.iter().copied().tuple_windows() {
             // Add `p` to `places`
@@ -144,12 +152,17 @@ impl PlaceNot {
         // Copy the last element from `places`.  This is a special case, because `tuple_windows`
         // won't return the last element as the first element of a tuple window (because there's
         // nothing to pair it with)
-        parsed_places.last().map(|p| places.push(*p));
+        if let Some(p) = parsed_places.last() {
+            places.push(*p)
+        }
         // Add implicit place at the back if necessary
-        parsed_places
+        if parsed_places
             .last()
             .filter(|p| (stage.as_usize() - *p) % 2 == 0)
-            .map(|_| places.push(stage.as_usize() - 1));
+            .is_some()
+        {
+            places.push(stage.as_usize() - 1)
+        }
         // Create struct and return.  We don't need to sort the places, because we only push to
         // them in ascending order.
         Ok(PlaceNot { places, stage })
@@ -218,10 +231,220 @@ impl Display for PlaceNot {
     }
 }
 
+/// The possible ways that parsing a block of place notations could fail
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum BlockParseError {
+    /// A '+' was found somewhere other than the start of a block (e.g. in `16x16+16,12`).  The
+    /// argument refers to the byte index of the location of the '+' within the parse string.
+    PlusNotAtBlockStart(usize),
+    /// One of the pieces of place notation was invalid.  The [`Range`] points to the byte range
+    /// within the input string where the invalid place notation string was found, whereas the
+    /// [`ParseError`] describes the problem.
+    PnError(Range<usize>, ParseError),
+    /// The string represents a block with no place notations.  This would violate the invariants
+    /// of [`PnBlock`], so is an error.
+    EmptyBlock,
+}
+
+/// A contiguous block of [`PlaceNot`]s.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct PnBlock {
+    /// The underlying [`PlaceNot`]s that make up this block.  This has to satisfy the following
+    /// invariants:
+    /// - `pns` cannot be empty, since that would correspond to a zero-length [`Block`], which is
+    ///   not allowed
+    /// - All the [`PlaceNot`]s must have the same [`Stage`].
+    pns: Vec<PlaceNot>,
+}
+
+impl PnBlock {
+    /// Parse a string slice into a `PnBlock`, checking for ambiguity and correctness.  This also
+    /// expands symmetric blocks and implicit places.
+    pub fn parse(s: &str, stage: Stage) -> Result<Self, BlockParseError> {
+        let address_of_start_of_s = s.as_ptr() as usize;
+        let mut pns: Vec<PlaceNot> = Vec::new();
+        // A re-usuable chunk of memory used to store the unexpanded version of a symblock before
+        // copying it into `pns`.
+        let mut sym_block_buf: Vec<PlaceNot> = Vec::new();
+        let is_single_block = !s.contains(',');
+        // Split `s` into symmetric blocks, which are delimited by `,`
+        for sym_block in s.split(',') {
+            // Calculate the index of the start of this block within `s`, so that errors can be
+            // pinpointed accurately
+            let byte_offset = sym_block.as_ptr() as usize - address_of_start_of_s;
+            // Parse this symblock as an asymmetric block into `sym_block_buf`
+            let is_asymmetric =
+                Self::parse_asym_block(sym_block, byte_offset, stage, &mut sym_block_buf)?;
+
+            // Handle the output of parsing the current block
+            if is_single_block || is_asymmetric {
+                pns.extend(sym_block_buf.drain(..));
+            } else {
+                // Clone sym_block_buf into `pns` in order
+                pns.extend_from_slice(&sym_block_buf);
+                // **Move** pns except the last one from sym_block_buf in reverse order
+                pns.extend(sym_block_buf.drain(..).rev().skip(1));
+            }
+        }
+        // Return an error if pns is empty, otherwise construct the block
+        if pns.is_empty() {
+            Err(BlockParseError::EmptyBlock)
+        } else {
+            Ok(PnBlock { pns })
+        }
+    }
+
+    fn parse_asym_block(
+        block: &str,
+        byte_offset: usize,
+        stage: Stage,
+        buf: &mut Vec<PlaceNot>,
+    ) -> Result<bool, BlockParseError> {
+        // Check that the buffer is empty -- it should be, because this will only be used in
+        // `Self::parse`
+        debug_assert!(buf.is_empty());
+        // Create an iterator over the chars in block that we will then read from left to right and
+        // parse
+        let mut tok_indices = block
+            .char_indices()
+            .map(|(i, c)| (i + byte_offset, CharMeaning::from(c)))
+            // Insert a 'fake' delimiter at the end, to make sure that the last chunk of place
+            // notation is not ignored
+            .chain(std::iter::once((
+                byte_offset + block.len(),
+                CharMeaning::Delimiter,
+            )))
+            // We need one a lookahead of one char to make parsing easier
+            .peekable();
+
+        /* Step 1: Skip meaningless chars at the left of the string */
+        loop {
+            if let Some((_i, c)) = tok_indices.peek() {
+                if matches!(c, CharMeaning::Delimiter | CharMeaning::Unknown) {
+                    tok_indices.next();
+                    continue;
+                }
+            }
+            break;
+        }
+
+        /* Step 2: If the first non-delimiter char we see represents an asymmetric block, then
+         * consume it and log the asymmetricness of the block */
+        let is_asymmetric = matches!(tok_indices.peek(), Some((_i, CharMeaning::Asym)));
+        if is_asymmetric {
+            // Consume the asymmetric-block char, and any rogue delimiters after it
+            tok_indices.next();
+        }
+
+        // A buffer used to accumulate the block of places that are currently being parsed
+        let mut places: Vec<usize> = Vec::new();
+        // Tracks the index of the first byte in the chunk of PN currently being read.  This is
+        // used so that we can return a byte range in the case of an error
+        let mut current_pn_start_index = 0;
+        for (i, m) in tok_indices {
+            let index = i + byte_offset;
+            match m {
+                // If the char is a bell name, then add it to the places
+                CharMeaning::Bell(b) => {
+                    if places.is_empty() {
+                        // If this was the first place of the pn chunk, then we store its index as
+                        // the start of this pn block
+                        current_pn_start_index = index;
+                    }
+                    places.push(b.index());
+                }
+                // If it's a cross notation or a delimiter, then we create a new PlaceNot out of
+                // the places we've collected so far and push it to `buf`
+                CharMeaning::Cross | CharMeaning::Delimiter => {
+                    if !places.is_empty() {
+                        // Create a new place notation from `places`, reporting the error if
+                        // necessary
+                        let new_pn = PlaceNot::from_slice(&mut places, stage).map_err(|e| {
+                            BlockParseError::PnError(current_pn_start_index..index + 1, e)
+                        })?;
+                        places.clear();
+                        // Push the new place notation to the buffer
+                        buf.push(new_pn);
+                    }
+                }
+                // A '+' (for asymmetric block) not at the start of a block is an error
+                CharMeaning::Asym => return Err(BlockParseError::PlusNotAtBlockStart(index)),
+                // Unknown characters are ignored
+                CharMeaning::Unknown => continue,
+            }
+            // Push a cross notation if we see it, making sure to any errors
+            if m == CharMeaning::Cross {
+                buf.push(
+                    PlaceNot::cross(stage)
+                        .ok_or(ParseError::OddStageCross { stage })
+                        .map_err(|e| BlockParseError::PnError(index..index + 1, e))?,
+                );
+            }
+        }
+
+        Ok(is_asymmetric)
+    }
+
+    /// The [`Stage`] of this `PnBlock`.
+    #[inline]
+    pub fn stage(&self) -> Stage {
+        // This index cannot fail, because we maintain an invariant that `self.pns` always has at
+        // least one element.
+        self.pns[0].stage
+    }
+
+    /// The number of [`PlaceNot`]s in this `PnBlock`.  This is also the `len` of any [`Block`]
+    /// generated by applying this `PnBlock` to some [`Row`].
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.pns.len()
+    }
+
+    /// Generates a [`Block`] specified by applying these `PlaceNot`s to a given starting [`Row`].
+    pub fn block_starting_with(&self, start_row: &Row) -> Result<Block, IncompatibleStages> {
+        IncompatibleStages::test_err(start_row.stage(), self.stage())?;
+        // The rows which will make up the new Block
+        let mut rows = Vec::with_capacity(self.pns.len() + 1);
+        rows.push(start_row.clone());
+        for pn in &self.pns {
+            rows.push(unsafe { pn.permute_new_unchecked(rows.last().unwrap()) });
+        }
+        // This unsafety is OK, because:
+        // - rows.len() >= 2, because it contains one copy of `start_row` and one Row per PN in
+        //   this Block (and PnBlocks must have at least one PlaceNot)
+        // - We've checked that the stages match at the top of this function
+        Ok(unsafe { Block::from_rows_unchecked(rows) })
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+enum CharMeaning {
+    Bell(Bell),
+    Delimiter,
+    Cross,
+    Asym,
+    Unknown,
+}
+
+impl From<char> for CharMeaning {
+    fn from(c: char) -> Self {
+        if let Some(b) = Bell::from_name(c) {
+            CharMeaning::Bell(b)
+        } else {
+            match c {
+                '+' => CharMeaning::Asym,
+                ' ' | '.' => CharMeaning::Delimiter,
+                'x' | 'X' | '-' => CharMeaning::Cross,
+                _ => CharMeaning::Unknown,
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::ParseError;
-    use crate::{PlaceNot, Stage};
+    use crate::{PlaceNot, PnBlock, Stage};
 
     #[test]
     fn parse_ok() {
@@ -325,6 +548,30 @@ mod tests {
                 PlaceNot::parse(inp_string, stage),
                 Err(ParseError::AmbiguousPlacesBetween { p: exp_p, q: exp_q })
             );
+        }
+    }
+
+    #[test]
+    fn parse_block_ok() {
+        let equal_blocks = [
+            (Stage::SINGLES, "1.3", "1   .  3", 2),
+            (Stage::MINIMUS, "-4-3-1-..2", "x14x34x14x12", 8),
+            (Stage::MINIMUS, "-4-3-1-..2", "-14x34-14x12", 8),
+            (Stage::MINIMUS, "x14x14,12", "-14-14-14-12", 8),
+            (Stage::TRIPLES, "2.3", "2,3", 2),
+            (Stage::MAJOR, "x1,1x,x1,1x,x1,2", "-18-18-18-18,12", 16),
+            (Stage::MAJOR, "+x4x1,", "x14x18", 4),
+            (Stage::MAXIMUS, "x4x1,", "x14x1Tx14x", 7),
+            (Stage::MAXIMUS, "xxx1", "---1T", 4),
+            (Stage::MAXIMUS, "x   -\tx1", "---1T", 4),
+        ];
+
+        for &(stage, s1, s2, exp_len) in &equal_blocks {
+            println!("Parsing {} vs {}", s1, s2);
+            let b1 = PnBlock::parse(s1, stage).unwrap();
+            let b2 = PnBlock::parse(s2, stage).unwrap();
+            assert_eq!(b1, b2);
+            assert_eq!(b1.len(), exp_len);
         }
     }
 }
