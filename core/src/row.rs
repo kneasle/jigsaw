@@ -169,6 +169,14 @@ impl Row {
         }
     }
 
+    /// Creates a `Row` containing no [`Bell`]s, but without causing any allocations.  This is
+    /// useful for initialising temporary `Row`s.
+    pub fn empty() -> Row {
+        // This unsafety is OK, because 0-length rows are always valid (albeit useless in most
+        // cases)
+        unsafe { Self::from_vec_unchecked(Vec::new()) }
+    }
+
     /// Returns the [`Stage`] of this `Row`.
     ///
     /// # Example
@@ -491,6 +499,25 @@ impl Row {
     #[inline]
     pub fn slice(&self) -> &[Bell] {
         self.bells.as_slice()
+    }
+
+    /// Swap two [`Bell`]s round in this `Row`, panicking if either of the indices point out of
+    /// bounds.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Row, Stage};
+    ///
+    /// let mut rounds = Row::rounds(Stage::MAJOR);
+    /// assert_eq!(rounds.to_string(), "12345678");
+    /// rounds.swap(0, 1); // Note we are using 0-indexing
+    /// assert_eq!(rounds.to_string(), "21345678");
+    /// rounds.swap(2, 5); // Note we are using 0-indexing
+    /// assert_eq!(rounds.to_string(), "21645378");
+    /// ```
+    #[inline]
+    pub fn swap(&mut self, a: usize, b: usize) {
+        self.bells.swap(a, b);
     }
 
     /// Returns an iterator over the [`Bell`]s in this `Row`

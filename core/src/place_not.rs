@@ -1,6 +1,6 @@
 //! Module for parsing and handling place notation
 
-use crate::{Bell, Stage};
+use crate::{Bell, Block, IncompatibleStages, Row, Stage};
 use itertools::Itertools;
 use std::{
     fmt::{Display, Formatter},
@@ -163,8 +163,8 @@ impl PlaceNot {
         {
             places.push(stage.as_usize() - 1)
         }
-        // Create struct and return.  We don't need to sort the places, because we only push to
-        // them in ascending order.
+        // Create struct and return.  We don't need to sort `places`, because we only pushed to it
+        // in ascending order.
         Ok(PlaceNot { places, stage })
     }
 
@@ -209,6 +209,57 @@ impl PlaceNot {
     /// ```
     pub fn is_cross(&self) -> bool {
         self.places.is_empty()
+    }
+
+    /// Uses this `PlaceNot` to perform an in-place permutation of a given [`Row`].  If you want to
+    /// to preserve the old [`Row`], then use [`permute_new`](Self::permute_new).
+    pub fn permute(&self, row: &mut Row) -> Result<(), IncompatibleStages> {
+        IncompatibleStages::test_err(row.stage(), self.stage)?;
+        Ok(unsafe { self.permute_unchecked(row) })
+    }
+
+    /// Uses this `PlaceNot` to perform an in-place permutation of a given [`Row`], **without**
+    /// checking that the [`Stage`]s match.  If you want to to preserve the old [`Row`], then use
+    /// [`permute_new_unchecked`](Self::permute_new).
+    ///
+    /// # Safety
+    ///
+    /// This function is safe to use only when `self.stage() == row.stage()`.
+    pub unsafe fn permute_unchecked(&self, row: &mut Row) {
+        let mut places = self.places.iter().copied().peekable();
+        let mut i = 0;
+        while i < self.stage.as_usize() {
+            if places.peek() == Some(&i) {
+                // If this PN contains a place at this index, then no modification is necessary but
+                // we do need to consume the place so we move on the iterator
+                places.next();
+                i += 1;
+            } else {
+                // If this isn't a place, then we know by invariant that i + 1 is also not a place
+                // (or out of range), so we perform a swap and move on by two bells
+                row.swap(i, i + 1);
+                i += 2;
+            }
+        }
+    }
+
+    /// Uses this `PlaceNot` to permute a given [`Row`], preserving the old copy and returning a
+    /// new [`Row`].  This checks that the [`Stage`]s are equal, and is therefore safe.
+    pub fn permute_new(&self, row: &Row) -> Result<Row, IncompatibleStages> {
+        IncompatibleStages::test_err(row.stage(), self.stage)?;
+        Ok(unsafe { self.permute_new_unchecked(row) })
+    }
+
+    /// Uses this `PlaceNot` to permute a given [`Row`], preserving the old copy and returning a
+    /// new [`Row`].
+    ///
+    /// # Safety
+    ///
+    /// This function is safe to use only when `self.stage() == row.stage()`.
+    pub unsafe fn permute_new_unchecked(&self, row: &Row) -> Row {
+        let mut new_row = row.clone();
+        self.permute_unchecked(&mut new_row);
+        new_row
     }
 }
 
