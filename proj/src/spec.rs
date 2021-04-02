@@ -317,25 +317,34 @@ impl Frag {
     /// Expand this `Frag` into the [`ExpandedRow`]s that make it up.  Only intended for use in
     /// [`Spec::expand`]
     fn expand(&self, part_heads: &[Row], methods: &[Rc<Method>]) -> Vec<ExpandedRow> {
-        let mut last_method: Option<usize> = None;
+        let mut last_method: Option<MethodRef> = None;
         self.rows
             .iter()
             .enumerate()
             .map(|(row_ind, r)| {
                 // A method splice should happen if this row points to a different method to the
                 // last one
-                let method = r.method.map(|m| m.method_index);
-                let should_splice = last_method == method;
-                last_method = method;
+                let is_continuation = match (last_method, r.method) {
+                    (Some(lm), Some(m)) => {
+                        lm.method_index == m.method_index
+                            // In order to be a continuation of the same method, we have to also
+                            // check that the row indices are also consecutive (so that things like
+                            // restarting a method cause a splice)
+                            && (lm.sub_lead_index + 1) % methods[m.method_index].first_lead.len()
+                                == m.sub_lead_index
+                    }
+                    _ => false,
+                };
+                last_method = r.method;
                 ExpandedRow::new(
                     &r.row,
                     r.call_str.clone(),
-                    method
+                    r.method
                         .map(|m| {
-                            let new_method = &methods[m];
+                            let new_method = &methods[m.method_index];
                             MethodName::new(new_method.name.clone(), new_method.shorthand.clone())
                         })
-                        .filter(|_| !should_splice),
+                        .filter(|_| !is_continuation),
                     r.is_lead_end,
                     part_heads,
                     // Figure out if this frag should be proved
