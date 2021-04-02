@@ -495,7 +495,7 @@ impl From<char> for CharMeaning {
 #[cfg(test)]
 mod tests {
     use super::ParseError;
-    use crate::{PlaceNot, PnBlock, Stage};
+    use crate::{Block, PlaceNot, PnBlock, Row, Stage};
 
     #[test]
     fn parse_ok() {
@@ -623,6 +623,40 @@ mod tests {
             let b2 = PnBlock::parse(s2, stage).unwrap();
             assert_eq!(b1, b2);
             assert_eq!(b1.len(), exp_len);
+        }
+    }
+
+    #[test]
+    fn pn_to_block() {
+        let equal_blocks = [
+            (
+                Stage::MINOR,
+                "34-36.14-12-36.14-14.36,12",
+                "156342",
+                include_str!("alnwick"),
+            ), // Alnwick Surprise Minor
+            (
+                Stage::MINOR,
+                "34-3.4-2-3.4-4.3,+2",
+                "156342",
+                include_str!("alnwick"),
+            ), // Alnwick Surprise Minor
+            (
+                Stage::MAJOR,
+                "x18x18x18x18,12",
+                "12345678",
+                include_str!("pb-8"),
+            ), // Plain Bob Major
+        ];
+
+        for &(stage, pn, row, block) in &equal_blocks {
+            println!("Parsing {}", pn);
+            let b1 = PnBlock::parse(pn, stage)
+                .unwrap()
+                .block_starting_with(&Row::parse(row).unwrap())
+                .unwrap();
+            let b2 = Block::parse(block).unwrap();
+            assert_eq!(b1, b2);
         }
     }
 }

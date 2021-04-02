@@ -1,4 +1,4 @@
-use crate::spec::{MethodName, PartHeads, Spec};
+use crate::spec::{PartHeads, Spec};
 use proj_core::{run_len, Row, Stage};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -51,6 +51,19 @@ impl From<RowOrigin> for RowLocation {
             frag: o.frag,
             row: o.row,
         }
+    }
+}
+
+/// A convenient data structure of the long and short method names
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize)]
+pub struct MethodName {
+    name: String,
+    shorthand: String,
+}
+
+impl MethodName {
+    pub fn new(name: String, shorthand: String) -> Self {
+        MethodName { name, shorthand }
     }
 }
 

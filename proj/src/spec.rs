@@ -1,6 +1,5 @@
-use crate::derived_state::ExpandedRow;
-use proj_core::{IncompatibleStages, Row, Stage};
-use serde::Serialize;
+use crate::derived_state::{ExpandedRow, MethodName};
+use proj_core::{Block, IncompatibleStages, PnBlock, Row, Stage};
 use std::{
     fmt::{Display, Formatter},
     rc::Rc,
@@ -79,10 +78,16 @@ mod part_heads {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy)]
+struct MethodRef {
+    method_index: usize,
+    sub_lead_index: usize,
+}
+
+#[derive(Debug, Clone)]
 struct AnnotatedRow {
     is_lead_end: bool,
-    method_str: Option<MethodName>,
+    method: Option<MethodRef>,
     call_str: Option<String>,
     row: Row,
 }
@@ -92,7 +97,7 @@ impl AnnotatedRow {
     pub fn unannotated(row: Row) -> AnnotatedRow {
         AnnotatedRow {
             is_lead_end: false,
-            method_str: None,
+            method: None,
             call_str: None,
             row,
         }
@@ -100,17 +105,10 @@ impl AnnotatedRow {
 
     /// Mutates this `AnnotatedRow` so that it has no annotations.
     pub fn clear_annotations(&mut self) {
-        self.method_str = None;
+        self.method = None;
         self.call_str = None;
         self.is_lead_end = false;
     }
-}
-
-/// A convenient data structure of the long and short method names
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize)]
-pub struct MethodName {
-    name: String,
-    shorthand: String,
 }
 
 /// The possible ways splitting a [`Frag`] could fail
@@ -229,7 +227,7 @@ impl Frag {
         // Create a Vec with enough space for both Frags, and insert this Frag (minus its leftover
         // row)
         let mut rows = Vec::with_capacity(self.len() + other.len() + 1);
-        rows.extend(self.rows[..self.len()].iter().cloned());
+        rows.extend_from_slice(&self.rows[..self.len()]);
         // If the joining rows are the same then we do a simple clone, otherwise
         if end_row == start_row {
             rows.extend(other.rows.iter().cloned());
@@ -258,7 +256,8 @@ impl Frag {
         loop {
             // Add a copy of `self` to rows (skipping the first row, since that will be provided as
             // the leftover row of the last `Frag` we added)
-            rows.extend(self.rows[1..].iter().map(|r| {
+            rows.pop();
+            rows.extend(self.rows.iter().map(|r| {
                 let mut new_row = r.clone();
                 // This unsafety is OK because we are only ever transposing by rows taken from
                 // `self`, which by invariant all share the same stage
@@ -315,6 +314,37 @@ impl Frag {
         }
     }
 
+    /// Expand this `Frag` into the [`ExpandedRow`]s that make it up.  Only intended for use in
+    /// [`Spec::expand`]
+    fn expand(&self, part_heads: &[Row], methods: &[Rc<Method>]) -> Vec<ExpandedRow> {
+        let mut last_method: Option<usize> = None;
+        self.rows
+            .iter()
+            .enumerate()
+            .map(|(row_ind, r)| {
+                // A method splice should happen if this row points to a different method to the
+                // last one
+                let method = r.method.map(|m| m.method_index);
+                let should_splice = last_method == method;
+                last_method = method;
+                ExpandedRow::new(
+                    &r.row,
+                    r.call_str.clone(),
+                    method
+                        .map(|m| {
+                            let new_method = &methods[m];
+                            MethodName::new(new_method.name.clone(), new_method.shorthand.clone())
+                        })
+                        .filter(|_| !should_splice),
+                    r.is_lead_end,
+                    part_heads,
+                    // Figure out if this frag should be proved
+                    row_ind != self.len() && !self.is_muted,
+                )
+            })
+            .collect()
+    }
+
     /* Constructors */
 
     /// Create a new `Frag` from its parts (creating [`Rc`]s where necessary)
@@ -332,30 +362,44 @@ impl Frag {
     }
 
     /// Generates an example fragment (in this case, it's https://complib.org/composition/75822)
-    pub fn cyclic_s8() -> Frag {
+    fn cyclic_s8() -> (Frag, Vec<Rc<Method>>) {
         let mut rows: Vec<_> = include_str!("cyclic-s8")
             .lines()
             .map(|x| Row::parse(x).unwrap())
             .map(AnnotatedRow::unannotated)
             .collect();
+        let methods: Vec<Rc<Method>> = [
+            ("Deva", "V", "-58-14.58-58.36-14-58-36-18,18"),
+            ("Bristol", "B", "-58-14.58-58.36.14-14.58-14-18,18"),
+            ("Lessness", "E", "-38-14-56-16-12-58-14-58,12"),
+            ("Yorkshire", "Y", "-38-14-58-16-12-38-14-78,12"),
+            ("York", "K", "-38-14-12-38.14-14.38.14-14.38,12"),
+            ("Superlative", "S", "-36-14-58-36-14-58-36-78,12"),
+            ("Cornwall", "W", "-56-14-56-38-14-58-14-58,18"),
+        ]
+        .iter()
+        .map(|(name, shorthand, pn)| {
+            Rc::new(Method {
+                name: String::from(*name),
+                shorthand: String::from(*shorthand),
+                first_lead: PnBlock::parse(pn, Stage::MAJOR)
+                    .unwrap()
+                    .block_starting_with(&Row::rounds(Stage::MAJOR))
+                    .unwrap(),
+            })
+        })
+        .collect();
+
         /* ANNOTATIONS */
+        let meths = [0, 1, 2, 3, 4, 5, 6, 1];
         // Method names and LE ruleoffs
-        let method_names = [
-            ("Deva", "V"),
-            ("Bristol", "B"),
-            ("Lessness", "E"),
-            ("Yorkshire", "Y"),
-            ("York", "K"),
-            ("Superlative", "S"),
-            ("Cornwall", "W"),
-            ("Bristol", "B"),
-        ];
         for i in 0..rows.len() / 32 {
-            let (method_name, method_short) = method_names[i];
-            rows[i * 32].method_str = Some(MethodName {
-                name: method_name.to_owned(),
-                shorthand: method_short.to_owned(),
-            });
+            for j in 0..32 {
+                rows[i * 32 + j].method = Some(MethodRef {
+                    method_index: meths[i],
+                    sub_lead_index: j,
+                });
+            }
             rows[i * 32 + 31].is_lead_end = true;
         }
         // Calls
@@ -364,66 +408,15 @@ impl Frag {
         rows[223].call_str = Some("sH".to_owned());
         rows[255].call_str = Some("sH".to_owned());
         // Create the fragment and return
-        Self::from_rows(rows)
+        (Self::from_rows(rows), methods)
     }
+}
 
-    pub fn cyclic_max_eld() -> Frag {
-        // Parse row and method locations
-        let mut rows: Vec<_> = include_str!("cyclic-max-eld")
-            .lines()
-            .map(|x| Row::parse(x).unwrap())
-            .map(AnnotatedRow::unannotated)
-            .collect();
-
-        // Add method names & ruleoffs to the appropriate rows
-        let methods = [
-            ("Mount Mackenzie Alliance", "Mm", 36),
-            ("Baluan Alliance", "B", 36),
-            ("Ganges Alliance", "Ga", 40),
-            ("Cauldron Dome Little Delight", "Ca", 32),
-            ("Europa Little Treble Place", "Eu", 16),
-            ("Diamond Head Alliance", "D2", 44),
-            ("Callisto Little Alliance", "Ca", 36),
-            ("Darwin Little Alliance", "D", 44),
-            ("Hallasan Alliance", "Ha", 32),
-            ("Asaph Hall Surprise", "As", 48),
-            ("Alcedo Alliance", "A", 40),
-            ("Kilauea Differential", "Li", 14),
-        ];
-        let mut method_start = 0;
-        for (full, short, length) in &methods {
-            rows[method_start].method_str = Some(MethodName {
-                name: full.to_string(),
-                shorthand: short.to_string(),
-            });
-            rows[method_start + length - 1].is_lead_end = true;
-            method_start += length;
-        }
-        assert_eq!(method_start + 1, rows.len());
-
-        // Add calls
-        rows[403].call_str = Some("-".to_owned());
-        rows[417].call_str = Some("-".to_owned());
-
-        Self::from_rows(rows)
-    }
-
-    /// Returns a `Frag` of the first plain lead of Plain Bob Major
-    pub fn one_lead_pb_maj(x: f32, y: f32) -> Frag {
-        let mut rows: Vec<_> = include_str!("pb-8")
-            .lines()
-            .map(|x| Row::parse(x).unwrap())
-            .map(AnnotatedRow::unannotated)
-            .collect();
-
-        rows[0].method_str = Some(MethodName {
-            name: "Plain Bob".to_owned(),
-            shorthand: "P".to_owned(),
-        });
-        rows[15].is_lead_end = true;
-
-        Self::new(rows, x, y, false)
-    }
+#[derive(Debug, Clone)]
+struct Method {
+    name: String,
+    shorthand: String,
+    first_lead: Block,
 }
 
 /// The _specification_ for a composition, and corresponds to roughly the least information
@@ -435,6 +428,7 @@ impl Frag {
 pub struct Spec {
     frags: Vec<Rc<Frag>>,
     part_heads: Rc<PartHeads>,
+    methods: Vec<Rc<Method>>,
     stage: Stage,
 }
 
@@ -443,20 +437,23 @@ impl Spec {
 
     /// Creates an example Spec
     pub fn cyclic_s8() -> Spec {
-        Self::single_frag(Frag::cyclic_s8(), "81234567", Stage::MAJOR)
+        let (frag, methods) = Frag::cyclic_s8();
+        Self::single_frag(frag, methods, "81234567", Stage::MAJOR)
     }
 
-    pub fn cyclic_max_eld() -> Spec {
-        Self::single_frag(Frag::cyclic_max_eld(), "890ET1234567", Stage::MAXIMUS)
-    }
-
-    fn single_frag(frag: Frag, part_head_spec: &str, stage: Stage) -> Spec {
+    fn single_frag(
+        frag: Frag,
+        methods: Vec<Rc<Method>>,
+        part_head_spec: &str,
+        stage: Stage,
+    ) -> Spec {
         // Check that all the stages match
         for annot_r in frag.rows.iter() {
             assert_eq!(annot_r.row.stage(), stage);
         }
         Spec {
             frags: vec![Rc::new(frag)],
+            methods,
             part_heads: Rc::new(PartHeads::parse(part_head_spec, stage).unwrap()),
             stage,
         }
@@ -479,11 +476,34 @@ impl Spec {
     }
 
     /// Add a new [`Frag`] to the composition, returning its index.  For the time being, we always
-    /// create the plain lead or course of Plain Bob Major.  This doesn't directly do any
-    /// transposing but the JS code will immediately enter transposing mode after the frag has been
-    /// added, thus allowing the user to add arbitrary [`Frag`]s with minimal code duplication.
+    /// create the plain lead or course of the first specified method.  This doesn't directly do
+    /// any transposing but the JS code will immediately enter transposing mode after the frag has
+    /// been added, thus allowing the user to add arbitrary [`Frag`]s with minimal code
+    /// duplication.
     pub fn add_frag(&mut self, x: f32, y: f32, add_course: bool) -> usize {
-        let new_frag = Frag::one_lead_pb_maj(x, y);
+        let method_ind = 0usize;
+        let new_frag = {
+            // Generate the rows
+            let mut rows: Vec<AnnotatedRow> = self.methods[method_ind]
+                .first_lead
+                .rows()
+                .cloned()
+                .map(AnnotatedRow::unannotated)
+                .collect();
+            // Annotate the rows with method indices
+            for (i, r) in rows.iter_mut().enumerate() {
+                r.method = Some(MethodRef {
+                    method_index: method_ind,
+                    sub_lead_index: i,
+                });
+            }
+            // Handle the last row separately
+            let row_len = rows.len();
+            rows[row_len - 2].is_lead_end = true;
+            rows.last_mut().unwrap().method = None;
+            // Create new frag
+            Frag::new(rows, x, y, false)
+        };
         self.frags.push(Rc::new(if add_course {
             new_frag.expand_to_round_block()
         } else {
@@ -620,29 +640,15 @@ impl Spec {
     /// )
     /// ```
     pub fn expand(&self) -> (Vec<Vec<ExpandedRow>>, Rc<PartHeads>) {
-        let expanded_rows = self
-            .frags
-            .iter()
-            .enumerate()
-            .map(|(frag_ind, f)| {
-                f.rows
-                    .iter()
-                    .enumerate()
-                    .map(|(row_ind, r)| {
-                        ExpandedRow::new(
-                            &r.row,
-                            r.call_str.clone(),
-                            r.method_str.clone(),
-                            r.is_lead_end,
-                            self.part_heads.rows(),
-                            // Figure out if this frag should be proved
-                            row_ind != f.len() && !self.frags[frag_ind].is_muted,
-                        )
-                    })
-                    .collect()
-            })
-            .collect();
-
-        (expanded_rows, self.part_heads.clone())
+        let part_heads = self.part_heads.rows();
+        (
+            // Expanded frags
+            self.frags
+                .iter()
+                .map(|f| f.expand(part_heads, &self.methods))
+                .collect(),
+            // Part heads
+            self.part_heads.clone(),
+        )
     }
 }
