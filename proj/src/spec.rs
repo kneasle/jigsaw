@@ -518,9 +518,7 @@ impl Spec {
     /// effect of performing the action whilst preserving the original `Spec` (to be used in the
     /// undo history).
     pub fn make_action_frag(&mut self, frag_ind: usize, action: impl Fn(&mut Frag)) {
-        let mut new_frag = self.frags[frag_ind].as_ref().clone();
-        action(&mut new_frag);
-        self.frags[frag_ind] = Rc::new(new_frag);
+        action(Rc::make_mut(&mut self.frags[frag_ind]));
     }
 
     /// Add a new [`Frag`] to the composition, returning its index.  For the time being, we always
@@ -620,9 +618,7 @@ impl Spec {
         for (i, f) in self.frags.iter_mut().enumerate() {
             let should_be_muted = !(i == frag_ind || is_only_unmuted_frag);
             if f.is_muted != should_be_muted {
-                let mut new_frag = f.as_ref().clone();
-                new_frag.is_muted = should_be_muted;
-                *f = Rc::new(new_frag);
+                Rc::make_mut(f).is_muted = should_be_muted;
             }
         }
     }
