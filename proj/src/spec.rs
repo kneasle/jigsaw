@@ -78,10 +78,24 @@ mod part_heads {
     }
 }
 
+/// The specification of where within a method a given row comes.  This is used to generate
+/// method splice text and calculate ATW stats.
 #[derive(Debug, Clone, Copy)]
-struct MethodRef {
+pub struct MethodRef {
     method_index: usize,
     sub_lead_index: usize,
+}
+
+impl MethodRef {
+    #[inline]
+    pub fn method_index(&self) -> usize {
+        self.method_index
+    }
+
+    #[inline]
+    pub fn sub_lead_index(&self) -> usize {
+        self.sub_lead_index
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -323,7 +337,8 @@ impl Frag {
             .enumerate()
             .map(|(row_ind, r)| {
                 // A method splice should happen if this row points to a different method to the
-                // last one
+                // last one, or the methods are the same and there's a jump in row indices
+                // (ignoring wrapping over lead ends)
                 let is_continuation = match (last_method, r.method) {
                     (Some(lm), Some(m)) => {
                         lm.method_index == m.method_index
@@ -345,6 +360,7 @@ impl Frag {
                             MethodName::new(new_method.name.clone(), new_method.shorthand.clone())
                         })
                         .filter(|_| !is_continuation),
+                    r.method,
                     r.is_lead_end,
                     part_heads,
                     // Figure out if this frag should be proved
@@ -422,10 +438,22 @@ impl Frag {
 }
 
 #[derive(Debug, Clone)]
-struct Method {
+pub struct Method {
     name: String,
     shorthand: String,
     first_lead: Block,
+}
+
+impl Method {
+    #[inline]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    #[inline]
+    pub fn shorthand(&self) -> &str {
+        &self.shorthand
+    }
 }
 
 /// The _specification_ for a composition, and corresponds to roughly the least information
@@ -648,7 +676,7 @@ impl Spec {
     ///     Vec<Row>, // Part heads; one per part
     /// )
     /// ```
-    pub fn expand(&self) -> (Vec<Vec<ExpandedRow>>, Rc<PartHeads>) {
+    pub fn expand(&self) -> (Vec<Vec<ExpandedRow>>, Rc<PartHeads>, &[Rc<Method>]) {
         let part_heads = self.part_heads.rows();
         (
             // Expanded frags
@@ -658,6 +686,8 @@ impl Spec {
                 .collect(),
             // Part heads
             self.part_heads.clone(),
+            // Methods
+            &self.methods,
         )
     }
 }
