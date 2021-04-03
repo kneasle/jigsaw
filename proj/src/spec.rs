@@ -332,42 +332,53 @@ impl Frag {
     /// [`Spec::expand`]
     fn expand(&self, part_heads: &[Row], methods: &[Rc<Method>]) -> Vec<ExpandedRow> {
         let mut last_method: Option<MethodRef> = None;
-        self.rows
-            .iter()
-            .enumerate()
-            .map(|(row_ind, r)| {
-                // A method splice should happen if this row points to a different method to the
-                // last one, or the methods are the same and there's a jump in row indices
-                // (ignoring wrapping over lead ends)
-                let is_continuation = match (last_method, r.method) {
-                    (Some(lm), Some(m)) => {
-                        lm.method_index == m.method_index
+        let mut exp_rows: Vec<ExpandedRow> = Vec::with_capacity(self.rows.len());
+        for (row_ind, r) in self.rows.iter().enumerate() {
+            // A method splice should happen if this row points to a different method to the
+            // last one, or the methods are the same and there's a jump in row indices
+            // (ignoring wrapping over lead ends).  Note the '!' to negate the output of the
+            // `match`
+            let is_splice = !match (last_method, r.method) {
+                (Some(lm), Some(m)) => {
+                    lm.method_index == m.method_index
                             // In order to be a continuation of the same method, we have to also
                             // check that the row indices are also consecutive (so that things like
                             // restarting a method cause a splice)
                             && (lm.sub_lead_index + 1) % methods[m.method_index].first_lead.len()
                                 == m.sub_lead_index
-                    }
-                    _ => false,
-                };
-                last_method = r.method;
-                ExpandedRow::new(
-                    &r.row,
-                    r.call_str.clone(),
-                    r.method
-                        .map(|m| {
-                            let new_method = &methods[m.method_index];
-                            MethodName::new(new_method.name.clone(), new_method.shorthand.clone())
-                        })
-                        .filter(|_| !is_continuation),
-                    r.method,
-                    r.is_lead_end,
-                    part_heads,
-                    // Figure out if this frag should be proved
-                    row_ind != self.len() && !self.is_muted,
-                )
-            })
-            .collect()
+                }
+                // Splicing to no method doesn't count as a splice (this will only make sense for
+                // leftover rows)
+                (_, cur_meth) => cur_meth.is_none(),
+            };
+            last_method = r.method;
+            // If there is a splice, then set the last row as a ruleoff (since ruleoffs determine
+            // which rows have lines placed _underneath_ them)
+            if is_splice {
+                exp_rows
+                    .last_mut()
+                    .map(|r: &mut ExpandedRow| r.set_ruleoff());
+            }
+            // Push the new ExpandedRow
+            exp_rows.push(ExpandedRow::new(
+                &r.row,
+                r.call_str.clone(),
+                r.method
+                    .map(|m| {
+                        let new_method = &methods[m.method_index];
+                        MethodName::new(new_method.name.clone(), new_method.shorthand.clone())
+                    })
+                    .filter(|_| is_splice),
+                r.method,
+                // Ruleoffs should happen at lead ends and whenever there is a splice
+                r.is_lead_end,
+                part_heads,
+                // If a row is leftover or contained in a muted frag, than it shouldn't be
+                // proven
+                row_ind != self.len() && !self.is_muted,
+            ));
+        }
+        exp_rows
     }
 
     /* Constructors */

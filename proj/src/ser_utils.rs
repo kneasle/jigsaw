@@ -1,7 +1,7 @@
 use proj_core::{Bell, Row};
 use serde::{ser::SerializeSeq, Serializer};
 
-/// Required so that we can omit `"is_lead_end": false` when serialising
+/// Required so that we can omit `"is_ruleoff": false` when serialising
 pub fn is_false(b: &bool) -> bool {
     !b
 }

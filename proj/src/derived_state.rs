@@ -96,7 +96,7 @@ pub struct ExpandedRow {
     #[serde(skip_serializing_if = "Option::is_none")]
     method_str: Option<MethodName>,
     #[serde(skip_serializing_if = "crate::ser_utils::is_false")]
-    is_lead_end: bool,
+    is_ruleoff: bool,
     #[serde(skip_serializing_if = "crate::ser_utils::is_true")]
     is_proved: bool,
     #[serde(skip)]
@@ -163,7 +163,7 @@ impl ExpandedRow {
         call_str: Option<String>,
         method_str: Option<MethodName>,
         method_ref: Option<MethodRef>,
-        is_lead_end: bool,
+        is_ruleoff: bool,
         part_heads: &[Row],
         is_proved: bool,
     ) -> Self {
@@ -172,11 +172,15 @@ impl ExpandedRow {
             call_str,
             method_str,
             method_ref,
-            is_lead_end,
+            is_ruleoff,
             music_highlights: Self::calculate_music(&all_rows, row.stage()),
             rows: all_rows,
             is_proved,
         }
+    }
+
+    pub fn set_ruleoff(&mut self) {
+        self.is_ruleoff = true;
     }
 }
 

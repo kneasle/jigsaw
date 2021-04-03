@@ -147,7 +147,7 @@ function draw_row(x, y, row) {
     }
     ctx.globalAlpha = 1;
     // Ruleoff
-    if (row.is_lead_end) {
+    if (row.is_ruleoff) {
         const ruleoff_y = Math.round(y + ROW_HEIGHT) - 0.5;
         ctx.beginPath();
         ctx.moveTo(x, ruleoff_y);
