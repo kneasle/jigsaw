@@ -290,31 +290,27 @@ impl Frag {
         }
     }
 
-    /// Returns a transposed copy of `self`, where the `row_ind`th [`Row`] is a given [`Row`]
+    /// Transposes `self` so that the `row_ind`th [`Row`] matches `target_row`
     pub fn transpose_row_to(
-        &self,
+        &mut self,
         row_ind: usize,
         target_row: &Row,
-    ) -> Result<Frag, IncompatibleStages> {
-        self.transposed(&(target_row * &!&self.rows[row_ind].row))
+    ) -> Result<(), IncompatibleStages> {
+        self.transpose(&(target_row * &!&self.rows[row_ind].row))
     }
 
-    /// Returns a copy of `self` in which all the rows are (pre)mulitplied by some other [`Row`].
-    pub fn transposed(&self, transposition: &Row) -> Result<Frag, IncompatibleStages> {
+    /// Transposes `self` - i.e. (pre)mulitplies all the [`Row`]s by some other [`Row`].
+    pub fn transpose(&mut self, transposition: &Row) -> Result<(), IncompatibleStages> {
         // Do the stage check once, rather than every time a row gets permuted
         IncompatibleStages::test_err(transposition.stage(), self.stage())?;
-        Ok(self.clone_with_new_rows(
-            self.rows
-                .iter()
-                .map(|r| {
-                    let mut new_row = r.clone();
-                    // The unsafety here is OK because we maintain an invariant that all the `Row`s
-                    // in this `Frag`
-                    new_row.row = unsafe { transposition.mul_unchecked(&r.row) };
-                    new_row
-                })
-                .collect(),
-        ))
+        let mut row_buf = Row::empty();
+        for r in Rc::make_mut(&mut self.rows) {
+            row_buf.clone_from(&r.row);
+            // The unsafety here is OK because we maintain an invariant that all the `Row`s
+            // in this `Frag` have the same `Stage`
+            unsafe { transposition.mul_into_unchecked(&row_buf, &mut r.row) };
+        }
+        Ok(())
     }
 
     /// Create a new `Frag` which is identical to `self`, except that it contains different

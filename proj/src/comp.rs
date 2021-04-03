@@ -266,7 +266,7 @@ impl Comp {
                 if let Ok(unpermuted_target_row) = &parsed_row {
                     let target_row = &inv_part_head * unpermuted_target_row;
                     self.make_action_frag(frag_ind, |f: &mut Frag| {
-                        *f = f.transpose_row_to(row_ind, &target_row).unwrap();
+                        f.transpose_row_to(row_ind, &target_row).unwrap();
                     });
                 }
                 parsed_row.is_ok()

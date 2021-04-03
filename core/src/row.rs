@@ -607,6 +607,42 @@ impl Row {
         Row::from_vec_unchecked(rhs.bells().map(|b| self[b.index()]).collect())
     }
 
+    /// Multiply two `Row`s (i.e. use the RHS to permute the LHS), storing the result in an
+    /// existing `Row` (thus making use of its allocation).
+    ///
+    /// # Safety
+    ///
+    /// This is safe if `self` and `rhs` both have the same [`Stage`].
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Bell, Row, Stage, IncompatibleStages};
+    ///
+    /// // Multiplying two Rows of the same Stage is OK, but still unsafe
+    /// assert_eq!(
+    ///     unsafe {
+    ///         Row::parse("13425678")?.mul_unchecked(&Row::parse("43217568")?)
+    ///     },
+    ///     Row::parse("24317568")?
+    /// );
+    /// // Multiplying two Rows of different Stages is not OK, and creates an invalid Row.
+    /// // Note how both sides of the `assert_eq` have to use unsafe to create an invalid Row.
+    /// assert_eq!(
+    ///     unsafe { Row::parse("13475628")?.mul_unchecked(&Row::parse("4321")?) },
+    ///     unsafe {Row::from_vec_unchecked(
+    ///         [7, 4, 3, 1].iter().map(|&x| Bell::from_number(x).unwrap()).collect()
+    ///     )}
+    /// );
+    /// # Ok::<(), proj_core::InvalidRowError>(())
+    /// ```
+    pub unsafe fn mul_into_unchecked(&self, rhs: &Row, out: &mut Row) {
+        // We bypass the validity check because if two Rows are valid, then so is their product.
+        // However, this function is also unsafe because permuting two rows of different Stages
+        // causes undefined behaviour
+        out.bells.clear();
+        out.bells.extend(rhs.bells().map(|b| self[b.index()]));
+    }
+
     /// All the `Row`s formed by repeatedly permuting a given `Row`.  The first item returned will
     /// always be the input `Row`, and the last will always be `rounds`.
     ///
