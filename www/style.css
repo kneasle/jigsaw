@@ -1,0 +1,45 @@
+/* document-wide styles */
+
+body {
+    margin: 0px;
+    font-family: monospace;
+}
+
+p {
+    margin: 5px;
+}
+
+.parse-err {
+    text-align: center;
+    color: red;
+}
+
+/* One-off styles */
+
+#comp-canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+}
+
+.top-left-hud {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background: #ffffffee;
+    border-radius: 0 0 5px 0;
+    font-family: monospace;
+}
+
+#transpose-box {
+    position: absolute;
+    top: 100px;
+    left: 100px;
+    background: #ffffffee;
+    border-radius: 5px;
+    font-family: monospace;
+    display: none;
+}

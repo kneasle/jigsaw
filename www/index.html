@@ -5,49 +5,36 @@
         <meta content="text/html;charset=utf-8" http-equiv="Content-Type"/>
         <script src="cookies.js"></script>
         <script src="colors.js"></script>
+        <link rel="stylesheet" href="style.css">
     </head>
-    <body style="margin: 0; width: 100%; height: 100%">
+    <body>
         <!-- Note the usage of `type=module` here as this is an ES6 module -->
         <script type="module">
             import { Comp, default as init } from './proj.js';
 
             async function run() {
                 await init('./proj_bg.wasm');
-
                 window.Comp = Comp;
-
                 start();
             }
-
             run();
         </script>
 
         <!-- Main canvas -->
-        <canvas id = "comp-canvas"
-                style="position: absolute;
-                       left: 0; top: 0;
-                       width: 100%; height: 100%;
-                       margin: 0;">
-        </canvas>
+        <canvas id="comp-canvas"></canvas>
 
         <!-- Top-left HUD -->
-        <div style="position: absolute;
-                    top: 0;
-                    left: 0;
-                    background: #ffffffee;
-                    border-radius: 0 0 5px 0;
-                    font-family: monospace;">
+        <div class="top-left-hud">
             <!-- Summary -->
-            <p style="margin: 5px;"><span id="part-len">0</span> rows * <span
+            <p><span id="part-len">0</span> rows * <span
                 id="num-parts">0</span> parts = <span id="num-rows">0</span> rows</p>
-            <p style="margin: 5px;"><span id="falseness-info">true</span></p>
+            <p><span id="falseness-info">true</span></p>
 
             <!-- Part Heads -->
             <hr/>
-            <p style="margin: 5px;"><input id="part-head-input"></input></p>
-            <p id="part-head-message"
-               style="margin: 5px; text-align: center; color: red;">Bell '2' repeated twice</p>
-            <p style="margin: 5px;">Viewing Part: <select name="part-head" id="part-head">
+            <p><input id="part-head-input"></input></p>
+            <p id="part-head-message" class="parse-err">Bell '2' repeated twice</p>
+            <p>Viewing Part: <select name="part-head" id="part-head">
                 <!-- The part heads are filled in only when the wasm is loaded, which is far enough
                      after page load to cause jank, so we fill this with a sensible default so that
                      hopefully the jank is less noticeable. -->
@@ -56,22 +43,14 @@
         </div>
 
         <!-- Transpose box -->
-        <div style="position: absolute;
-                    top: 100px;
-                    left: 100px;
-                    background: #ffffffee;
-                    border-radius: 5px;
-                    font-family: monospace;
-                    display: none;"
-              id="transpose-box">
-            <p style="margin: 5px;"><input id="transpose-input"></input></p>
-            <p id="transpose-message"
-               style="margin: 5px; text-align: center; color: red;">Bell '2' repeated twice</p>
+        <div id="transpose-box">
+            <p><input id="transpose-input"></input></p>
+            <p id="transpose-message" class="parse-err">Bell '2' repeated twice</p>
         </div>
 
-        <!-- Load the main JS code after the rest of the document has loaded.  We do this so that we
-             can initialise references to the HTML elements as global constants for the JS code to
-             re-use. -->
+        <!-- Load the main JS script after the rest of the document has loaded.  We do this so that
+             we can initialise references to the HTML elements as global constants for the JS code
+             to re-use. -->
         <script src="index.js"></script>
     </body>
 </html>
