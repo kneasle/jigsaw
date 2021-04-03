@@ -43,3 +43,18 @@ p {
     font-family: monospace;
     display: none;
 }
+
+#sidebar-right {
+    position: absolute;
+    right: 0px;
+    top: 0px;
+    height: 100%;
+}
+
+.method-box {
+    background: #ffffffee;
+    border-radius: 5px;
+    font-family: monospace;
+    margin: 5px;
+    padding: 5px;
+}

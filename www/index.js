@@ -582,6 +582,13 @@ function update_part_head_list() {
     elem_part_head_list.value = view.current_part;
 }
 
+function update_method_list() {
+    const text = derived_state.methods
+        .map((m) => `(${m.shorthand}) ${m.name}: ${m.num_proved_rows} rows`)
+        .join("\n");
+    document.getElementById("sidebar-right").children[0].innerText = text;
+}
+
 function on_part_head_spec_change() {
     const parse_error = comp.parse_part_head_spec(elem_part_head_input.value);
     if (parse_error === "") {
@@ -606,9 +613,8 @@ function init_comp() {
     if (view) {
         comp.set_view_from_json(view);
     }
-    // Update JS's local copies of the variables
-    sync_derived_state();
-    sync_view();
+    // Initialise the display
+    on_comp_change();
 }
 
 function start() {
@@ -625,8 +631,6 @@ function start() {
     elem_transpose_input.addEventListener("keydown", on_transpose_box_key_down);
     // Update all the parts of the display to initialise them
     on_window_resize();
-    update_part_head_list();
-    update_hud();
     request_frame();
 
     // Time how long it takes to sync the derived state
@@ -812,6 +816,7 @@ function on_comp_change() {
     sync_view();
     update_hud();
     update_part_head_list();
+    update_method_list();
     request_frame();
 }
 
