@@ -38,34 +38,36 @@ const VIEW_CULLING_EXTRA_SIZE = 20;
 
 /* ===== DISPLAY CONSTANTS ===== */
 
-const COL_WIDTH = 16;
-const ROW_HEIGHT = 22;
+const COL_WIDTH = 12; // px
+const ROW_HEIGHT = 16; // px
 const FALSENESS_BAR_WIDTH = COL_WIDTH * 1;
-const FRAG_BBOX_EXTRA_HEIGHT = FALSENESS_BAR_WIDTH * 0.5;
+const FRAG_BBOX_EXTRA_HEIGHT = ROW_HEIGHT * (5 / 16);
 
 const FOREGROUND_COL = "black";
 const ERROR_COL = "red";
 
 const BACKGROUND_COL = "white";
 const GRID_COL = "#eee";
-const GRID_SIZE = 200;
+const GRID_SIZE = 200; // px
 
 const DRAW_FRAG_LINK_LINES = true;
-const FRAG_LINK_WIDTH = 2;
+const FRAG_LINK_WIDTH = 2; // px
 const FRAG_LINK_MIN_OPACITY = 0.15;
 const FRAG_LINK_OPACITY_FALLOFF = 0.001;
-const FRAG_LINK_SELECTED_WIDTH_MULTIPLIER = 2;
-const FRAG_LINK_SELECTION_DIST = 20;
+const FRAG_LINK_SELECTED_WIDTH_MULTIPLIER = 2; // as a multiple of FRAG_LINK_WIDTH
+const FRAG_LINK_SELECTION_DIST = 20; // px
 
-const ROW_FONT = "20px monospace";
+const ROW_FONT = "monospace";
+const ROW_FONT_SIZE_MULTIPLIER = 0.9; // as a multiple of ROW_HEIGHT
+const ROW_FONT_BASELINE_LEVEL = 0.32; // moves font baseline down to make it look central
 const UNPROVEN_ROW_OPACITY = 0.3;
-const RULEOFF_LINE_WIDTH = 1;
+const RULEOFF_LINE_WIDTH = 1; // px
 const MUSIC_COL = "#5b5";
 const MUSIC_ONIONSKIN_OPACITY = 0.6;
 
 const FALSE_ROW_GROUP_NOTCH_WIDTH = 0.3;
-const FALSE_ROW_GROUP_NOTCH_HEIGHT = 0.3;
-const FALSE_ROW_GROUP_LINE_WIDTH = 3;
+const FALSE_ROW_GROUP_NOTCH_HEIGHT = 0.3; // multiple of the falseness margin width
+const FALSE_ROW_GROUP_LINE_WIDTH = 2.5; // px
 const FALSE_COUNT_COL_FALSE = "red";
 const FALSE_COUNT_COL_TRUE = "green";
 
@@ -86,8 +88,8 @@ let comp, derived_state, view;
 let mouse_coords = { x: 0, y: 0 };
 // Things that should be user config but currently are global vars
 let bell_lines = {
-    0: [1.5, "red"],
-    7: [2.5, "blue"],
+    0: [1, "red"],
+    7: [2, "blue"],
 };
 
 /* ===== DRAWING CODE ===== */
@@ -100,11 +102,12 @@ function draw_row(x, y, row) {
     }
     // Calculate some useful values
     const stage = derived_state.stage;
-    const text_baseline = y + ROW_HEIGHT * 0.75;
+    const text_baseline =
+        y + ROW_HEIGHT * (0.5 + ROW_FONT_BASELINE_LEVEL * ROW_FONT_SIZE_MULTIPLIER);
     const right = x + COL_WIDTH * stage;
     const opacity = row.is_proved === true ? 1 : UNPROVEN_ROW_OPACITY;
     // Set the font for the entire row
-    ctx.font = ROW_FONT;
+    ctx.font = `${Math.round(ROW_HEIGHT * ROW_FONT_SIZE_MULTIPLIER)}px ${ROW_FONT}`;
     // Bells
     ctx.textAlign = "center";
     for (let b = 0; b < stage; b++) {
