@@ -367,9 +367,7 @@ function on_mouse_down(e) {
         // Left-clicking a fragment should switch the UI into the dragging state
         if (get_button(e) === BTN_LEFT && frag) {
             comp.start_dragging(frag.index);
-            if (DBG_LOG_STATE_TRANSITIONS) {
-                console.log(`State change: Idle -> Dragging(${frag.index})`);
-            }
+            log_state_transition("Idle", `Dragging(${frag.index})`);
         }
     }
 }
@@ -381,9 +379,7 @@ function on_mouse_up(e) {
         const released_frag = derived_state.annot_frags[comp.frag_being_dragged()];
         comp.finish_dragging(released_frag.x, released_frag.y);
         on_comp_change();
-        if (DBG_LOG_STATE_TRANSITIONS) {
-            console.log("State change: Dragging -> Idle");
-        }
+        log_state_transition("Dragging", "Idle");
     }
     if (get_button(e) === BTN_MIDDLE) {
         comp.set_view_coords(view.view_x, view.view_y);
@@ -416,7 +412,6 @@ function on_key_down(e) {
             ) {
                 // Case 1: we're hovering over the leftover row of a fragment.  In this case, we
                 // add the new chunk onto the end of the existing one
-                console.log(`Adding to frag #${frag.index}.`);
                 comp.extend_frag(frag.index, adding_full_course);
                 on_comp_change();
             } else {
@@ -506,9 +501,7 @@ function on_key_down(e) {
 function start_transposition(frag_index, row_index) {
     // Switch to the transposing state
     const current_first_row = comp.start_transposing(frag_index, row_index);
-    if (DBG_LOG_STATE_TRANSITIONS) {
-        console.log(`State change: Idle -> Transposing(${frag_index}:${row_index})`);
-    }
+    log_state_transition("Idle", `Transposing(${frag_index}:${row_index})`);
     // Initialise the transpose box
     elem_transpose_box.style.display = "block";
     elem_transpose_box.style.left = mouse_coords.x.toString() + "px";
@@ -532,9 +525,7 @@ function on_transpose_box_key_down(e) {
         return;
     }
     if (comp.is_state_transposing() && comp.finish_transposing(elem_transpose_input.value)) {
-        if (DBG_LOG_STATE_TRANSITIONS) {
-            console.log(`State change: Transposing -> Idle`);
-        }
+        log_state_transition("Transposing", "Idle");
         stop_transposing();
     }
 }
@@ -849,4 +840,11 @@ function sync_view() {
     const v = comp.ser_view();
     setCookie(COOKIE_NAME_VIEW, v);
     view = JSON.parse(v);
+}
+
+// Debug log that a state transition has occurred
+function log_state_transition(from, to) {
+    if (DBG_LOG_STATE_TRANSITIONS) {
+        console.log(`Stage change: ${from} -> ${to}`);
+    }
 }
