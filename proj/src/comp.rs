@@ -39,15 +39,18 @@ pub enum State {
 /// The general data-flow is:
 /// - User generates some input (keypress, mouse click, etc.)
 /// - JS reads this input and calls one of the `#[wasm_bindgen]` methods on `Comp`
-/// - These call a `Comp::make_*action*` function which handles the undo history and makes a new
-///   [`Spec`] to represent the edit, and updates the `history_index` to point to the [`Spec`] we
-///   just created.
-/// - Because the [`Spec`] has changed, we rebuild the [`DerivedState`] from this new [`Spec`].
-///   This is necessary because JS can't access the [`Spec`] directly.
-/// - After every edit, JS will call [`Comp::ser_derived_state`] which passes a JSON serialisation
-///   of [`DerivedState`] to JS, which is parsed and used to overwrite the current `derived_state`
-///   variable.
-/// - A repaint is requested, so that the updated [`DerivedState`] gets rendered to the screen.
+/// - These call some `self.make_*action*` function which runs a given closure on the existing
+///   [`Spec`]
+///   - This also handles the undo history (i.e. doesn't overwrite old copies, and deallocates
+///     future redo steps that are now unreachable).
+///   - Because the [`Spec`] has changed, we rebuild the [`DerivedState`] from this new [`Spec`].
+///     This is necessary because JS can't access the [`Spec`] directly.
+/// - The following all happens during the call to the JS `on_comp_change()` method:
+///   - After every edit, JS will call [`Comp::ser_derived_state`] which returns a JSON serialisation
+///     of [`DerivedState`], which is parsed into a full-blown JS object and the global
+///     `derived_state` variable is overwritten with this new value.
+///   - A repaint is requested, so that the updated [`DerivedState`] gets rendered to the screen.
+///   - The rest of the UI (method list, row stats, music, etc.) are all updated too
 #[wasm_bindgen]
 #[derive(Debug, Clone)]
 pub struct Comp {
@@ -69,8 +72,16 @@ impl Comp {
         }
     }
 
+    /// Gets the [`Spec`] that is currently viewed by this `Comp`.
     fn spec(&self) -> &Spec {
         &self.undo_history[self.history_index]
+    }
+
+    /// Rebuild `self.derived_state` from `self.spec()`.  This should be called whenever
+    /// `self.spec()` changes, but does not actually check whether or not any change has occurred -
+    /// it will still do a full rebuild even if nothing has been changed.
+    fn rebuild_state(&mut self) {
+        self.derived_state = DerivedState::from_spec(self.spec());
     }
 
     /// Perform an action (some arbitrary function) on the current [`Spec`], maintaining the undo
@@ -130,20 +141,6 @@ impl Comp {
     /// Create an example composition
     pub fn example() -> Comp {
         Self::from_spec(Spec::cyclic_s8())
-    }
-
-    /// Rebuild the cached state, as though the [`Spec`] had changed.
-    pub fn rebuild_state(&mut self) {
-        self.derived_state = DerivedState::from_spec(self.spec());
-    }
-
-    /// Attempt to parse a [`String`] into a [`Row`] of the correct [`Stage`] for this `Comp`.
-    /// This returns `""` on success, and `"{error message}"` on failure.
-    pub fn row_parse_err(&self, row_str: String) -> String {
-        match Row::parse_with_stage(&row_str, self.spec().stage()) {
-            Err(e) => format!("{}", e),
-            Ok(_row) => "".to_owned(),
-        }
     }
 
     /// Attempt to parse a new part head specification [`String`].  If it successfully parses then
@@ -242,12 +239,23 @@ impl Comp {
         self.state = State::Transposing {
             frag_ind,
             row_ind,
+            // We only store the inverse of the currently viewed part head, because we'll need it
+            // in order to make the right transposition
             inv_part_head: !self.derived_state.get_part_head(part_ind).unwrap(),
         };
         self.derived_state
             .get_row(part_ind, frag_ind, row_ind)
             .unwrap()
             .to_string()
+    }
+
+    /// Attempt to parse a [`String`] into a [`Row`] of the correct [`Stage`] for this `Comp`.
+    /// This returns `""` on success, and `"{error message}"` on failure.
+    pub fn try_parse_transpose_row(&self, row_str: String) -> String {
+        match Row::parse_with_stage(&row_str, self.spec().stage()) {
+            Err(e) => format!("{}", e),
+            Ok(_row) => "".to_owned(),
+        }
     }
 
     /// Called to exit [`State::Transposing`], saving the changes.  If `row_str` parses to a valid
@@ -275,7 +283,7 @@ impl Comp {
         }
     }
 
-    /// Called to exit [`State::Transposing`], without saving the changes.  This `panic!`s if
+    /// Called to exit [`State::Transposing`], **without** saving the changes.  This `panic!`s if
     /// called from any state other than [`State::Transposing`].
     pub fn exit_transposing(&mut self) {
         assert!(self.is_state_transposing());

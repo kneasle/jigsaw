@@ -100,12 +100,12 @@ function draw_row(x, y, row) {
     if (y < v.min_y - VIEW_CULLING_EXTRA_SIZE || y > v.max_y + VIEW_CULLING_EXTRA_SIZE) {
         return;
     }
+    const opacity = row.is_proved === true ? 1 : UNPROVEN_ROW_OPACITY;
     // Calculate some useful values
     const stage = derived_state.stage;
     const text_baseline =
         y + ROW_HEIGHT * (0.5 + ROW_FONT_BASELINE_LEVEL * ROW_FONT_SIZE_MULTIPLIER);
     const right = x + COL_WIDTH * stage;
-    const opacity = row.is_proved === true ? 1 : UNPROVEN_ROW_OPACITY;
     // Set the font for the entire row
     ctx.font = `${Math.round(ROW_HEIGHT * ROW_FONT_SIZE_MULTIPLIER)}px ${ROW_FONT}`;
     // Bells
@@ -522,10 +522,10 @@ function start_transposition(frag_index, row_index) {
 }
 
 function on_transpose_box_change() {
-    const row_err = comp.row_parse_err(elem_transpose_input.value);
+    const row_err = comp.try_parse_transpose_row(elem_transpose_input.value);
     const success = row_err === "";
     elem_transpose_message.style.color = success ? FOREGROUND_COL : ERROR_COL;
-    elem_transpose_message.innerText = success ? "Press 'enter' to transpose." : row_err;
+    elem_transpose_message.innerText = success ? "Press 'enter' to finish." : row_err;
 }
 
 function on_transpose_box_key_down(e) {

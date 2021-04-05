@@ -268,9 +268,9 @@ impl Frag {
         let mut rows: Vec<AnnotatedRow> = vec![self.rows[0].clone()];
         // Repeatedly add `self` and permute until we return to the start row
         loop {
-            // Add a copy of `self` to rows (skipping the first row, since that will be provided as
-            // the leftover row of the last `Frag` we added)
+            // Remove the leftover row from the last iteration
             rows.pop();
+            // Add a copy of `self` to rows
             rows.extend(self.rows.iter().map(|r| {
                 let mut new_row = r.clone();
                 // This unsafety is OK because we are only ever transposing by rows taken from
