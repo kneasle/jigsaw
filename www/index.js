@@ -61,7 +61,7 @@ const ROW_FONT = "20px monospace";
 const UNPROVEN_ROW_OPACITY = 0.3;
 const RULEOFF_LINE_WIDTH = 1;
 const MUSIC_COL = "#5b5";
-const MUSIC_ONIONSKIN_OPACITY = 0.13;
+const MUSIC_ONIONSKIN_OPACITY = 0.6;
 
 const FALSE_ROW_GROUP_NOTCH_WIDTH = 0.3;
 const FALSE_ROW_GROUP_NOTCH_HEIGHT = 0.3;
@@ -115,8 +115,11 @@ function draw_row(x, y, row) {
             ctx.globalAlpha =
                 (row.music_highlights[b].includes(view.current_part)
                     ? 1
-                    : 1 - Math.pow(1 - MUSIC_ONIONSKIN_OPACITY, row.music_highlights[b].length)) *
-                opacity;
+                    : 1 -
+                      Math.pow(
+                          1 - MUSIC_ONIONSKIN_OPACITY,
+                          row.music_highlights[b].length / derived_state.part_heads.length
+                      )) * opacity;
             ctx.fillStyle = MUSIC_COL;
             ctx.fillRect(x + COL_WIDTH * b, y, COL_WIDTH, ROW_HEIGHT);
         }
