@@ -31,7 +31,22 @@ pub enum State {
         /// can edit the [`Row`] they see on-screen, despite the fact that the underlying [`Row`]
         /// being edited is different to what they see.
         inv_part_head: Row,
+        /// A [`Spec`] that has already implemented the transposition.  This will be displayed to
+        /// the user (without changing history) until the user presses 'Enter' at which point it
+        /// will be 'committed' as the next stage in the edit history.
+        spec: Spec,
     },
+}
+
+impl State {
+    /// If this `State` can edit the [`Spec`] in real time, then return the currently edited
+    /// [`Spec`].
+    fn spec(&self) -> Option<&Spec> {
+        match self {
+            State::Transposing { spec, .. } => Some(spec),
+            _ => None,
+        }
+    }
 }
 
 /// The complete state of the composition editor, complete with undo history and UI/view state.
@@ -74,7 +89,9 @@ impl Comp {
 
     /// Gets the [`Spec`] that is currently viewed by this `Comp`.
     fn spec(&self) -> &Spec {
-        &self.undo_history[self.history_index]
+        self.state
+            .spec()
+            .unwrap_or(&self.undo_history[self.history_index])
     }
 
     /// Rebuild `self.derived_state` from `self.spec()`.  This should be called whenever
@@ -242,45 +259,67 @@ impl Comp {
             // We only store the inverse of the currently viewed part head, because we'll need it
             // in order to make the right transposition
             inv_part_head: !self.derived_state.get_part_head(part_ind).unwrap(),
+            spec: self.spec().clone(),
         };
+        // Return the String representation of the currently visible Row at the specified location
         self.derived_state
             .get_row(part_ind, frag_ind, row_ind)
             .unwrap()
             .to_string()
     }
 
-    /// Attempt to parse a [`String`] into a [`Row`] of the correct [`Stage`] for this `Comp`.
-    /// This returns `""` on success, and `"{error message}"` on failure.
-    pub fn try_parse_transpose_row(&self, row_str: String) -> String {
-        match Row::parse_with_stage(&row_str, self.spec().stage()) {
-            Err(e) => format!("{}", e),
-            Ok(_row) => "".to_owned(),
+    /// Attempt to parse a [`String`] into a [`Row`] of the correct [`Stage`] for this `Comp`, to
+    /// be used in [`State::Transposing`].  There are two possible outcomes:
+    /// - **The string corresponds to a valid [`Row`]**: This parsed [`Row`] is used to modify
+    ///   the temporary [`Spec`] contained with in the [`State::Transposing`] enum.  The
+    ///   [`DerivedState`] is updated and `""` is returned.
+    /// - **The string creates a parse error**:  No modification is made, and a [`String`]
+    ///   representing the error is returned.
+    /// This `panic!`s if called from any state other than [`State::Transposing`].
+    pub fn try_parse_transpose_row(&mut self, row_str: String) -> String {
+        let parsed_row = Row::parse_with_stage(&row_str, self.spec().stage());
+        match &mut self.state {
+            State::Transposing {
+                spec,
+                inv_part_head,
+                frag_ind,
+                row_ind,
+            } => match parsed_row {
+                Err(e) => format!("{}", e),
+                Ok(unpermuted_target_row) => {
+                    let target_row = &*inv_part_head * &unpermuted_target_row;
+                    spec.get_frag_mut(*frag_ind)
+                        .unwrap()
+                        .transpose_row_to(*row_ind, &target_row)
+                        .unwrap();
+                    self.rebuild_state();
+                    "".to_owned()
+                }
+            },
+            _ => unreachable!(),
         }
     }
 
     /// Called to exit [`State::Transposing`], saving the changes.  If `row_str` parses to a valid
-    /// [`Row`] then this performs the desired transposition and returns the editor to
+    /// [`Row`] then this commits the desired transposition and returns the editor to
     /// [`State::Idle`] (returning `true`), otherwise no change occurs and this returns `false`.
     /// This `panic!`s if called from any state other than [`State::Transposing`].
     pub fn finish_transposing(&mut self, row_str: String) -> bool {
+        // Early return false if the
+        if Row::parse_with_stage(&row_str, self.spec().stage()).is_err() {
+            return false;
+        }
         // Switch the state to `State::Idle`, whilst also matching over the (moved) old state
         match std::mem::replace(&mut self.state, State::Idle) {
-            State::Transposing {
-                frag_ind,
-                row_ind,
-                inv_part_head,
-            } => {
-                let parsed_row = Row::parse_with_stage(&row_str, self.spec().stage());
-                if let Ok(unpermuted_target_row) = &parsed_row {
-                    let target_row = &inv_part_head * unpermuted_target_row;
-                    self.make_action_frag(frag_ind, |f: &mut Frag| {
-                        f.transpose_row_to(row_ind, &target_row).unwrap();
-                    });
-                }
-                parsed_row.is_ok()
+            State::Transposing { spec, .. } => {
+                // We are already displaying the resulting `Spec` to the user, so we don't need to
+                // perform the modification again, we just consume the value from `self.state` and
+                // finish the action
+                self.finish_action(spec);
             }
             _ => unreachable!(),
         }
+        true
     }
 
     /// Called to exit [`State::Transposing`], **without** saving the changes.  This `panic!`s if
@@ -288,6 +327,9 @@ impl Comp {
     pub fn exit_transposing(&mut self) {
         assert!(self.is_state_transposing());
         self.state = State::Idle;
+        // `State::Transposing` modifies its own `Spec`, so we have to rebuild the state when we
+        // are exiting transposing mode in order to revert the state of the display
+        self.rebuild_state();
     }
 
     /* Undo/redo */

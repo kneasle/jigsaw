@@ -669,6 +669,12 @@ impl Spec {
         self.frags.iter().map(|f| f.len()).sum::<usize>()
     }
 
+    /// Returns a mutable reference to the [`Frag`] at a given index in this composition, cloning
+    /// the underlying [`Frag`] if that allocation is shared between `Spec`s.
+    pub fn get_frag_mut(&mut self, frag_ind: usize) -> Option<&mut Frag> {
+        self.frags.get_mut(frag_ind).map(Rc::make_mut)
+    }
+
     /// Gets the [`Stage`] of this [`Spec`]
     #[inline]
     pub fn stage(&self) -> Stage {

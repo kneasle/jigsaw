@@ -526,6 +526,9 @@ function on_transpose_box_change() {
     const success = row_err === "";
     elem_transpose_message.style.color = success ? FOREGROUND_COL : ERROR_COL;
     elem_transpose_message.innerText = success ? "Press 'enter' to finish." : row_err;
+    // If the transposition was successful, then the composition we're viewing will have changed, so
+    // we update the screen
+    if (success) on_comp_change();
 }
 
 function on_transpose_box_key_down(e) {
