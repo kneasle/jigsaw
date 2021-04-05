@@ -51,7 +51,7 @@ const GRID_COL = "#eee";
 const GRID_SIZE = 200; // px
 
 const DRAW_FRAG_LINK_LINES = true;
-const FRAG_LINK_WIDTH = 2; // px
+const FRAG_LINK_WIDTH = 1.5; // px
 const FRAG_LINK_MIN_OPACITY = 0.15;
 const FRAG_LINK_OPACITY_FALLOFF = 0.001;
 const FRAG_LINK_SELECTED_WIDTH_MULTIPLIER = 2; // as a multiple of FRAG_LINK_WIDTH
