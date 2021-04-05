@@ -54,7 +54,7 @@ const DRAW_FRAG_LINK_LINES = true;
 const FRAG_LINK_WIDTH = 2;
 const FRAG_LINK_MIN_OPACITY = 0.15;
 const FRAG_LINK_OPACITY_FALLOFF = 0.001;
-const SELECTED_LINK_WIDTH_MULTIPLIER = 2;
+const FRAG_LINK_SELECTED_WIDTH_MULTIPLIER = 2;
 const FRAG_LINK_SELECTION_DIST = 20;
 
 const ROW_FONT = "20px monospace";
@@ -264,7 +264,7 @@ function draw_link(link, is_selected) {
         (1 - FRAG_LINK_MIN_OPACITY) * Math.exp(-length * FRAG_LINK_OPACITY_FALLOFF);
     // Draw the line
     ctx.strokeStyle = group_col(link.group);
-    ctx.lineWidth = FRAG_LINK_WIDTH * (is_selected ? SELECTED_LINK_WIDTH_MULTIPLIER : 1);
+    ctx.lineWidth = FRAG_LINK_WIDTH * (is_selected ? FRAG_LINK_SELECTED_WIDTH_MULTIPLIER : 1);
     ctx.beginPath();
     ctx.moveTo(l.from_x, l.from_y);
     ctx.lineTo(l.to_x, l.to_y);
