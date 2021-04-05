@@ -154,7 +154,10 @@ function draw_row(x, y, row) {
     ctx.globalAlpha = 1;
     // Ruleoff
     if (row.is_ruleoff) {
-        const ruleoff_y = Math.round(y + ROW_HEIGHT) - 0.5;
+        // Subtracting the tiny number here encourages the line rounding to round down rather than
+        // up and thus (where possible) avoid rendering the next row's music highlights on top of
+        // the ruleoff
+        const ruleoff_y = round_line_coord(y + ROW_HEIGHT - 0.00001);
         ctx.beginPath();
         ctx.moveTo(x, ruleoff_y);
         ctx.lineTo(right, ruleoff_y);
@@ -164,7 +167,8 @@ function draw_row(x, y, row) {
     }
 }
 
-function draw_falseness_indicator(x, min_y, max_y, notch_width, notch_height) {
+function draw_falseness_indicator(unrounded_x, min_y, max_y, notch_width, notch_height) {
+    const x = round_line_coord(unrounded_x);
     ctx.beginPath();
     ctx.moveTo(x + notch_width, min_y);
     ctx.lineTo(x, min_y + notch_height);
@@ -195,7 +199,7 @@ function draw_frag(frag) {
         ctx.beginPath();
         for (let i = 0; i < frag.exp_rows.length; i++) {
             const ind = frag.exp_rows[i].rows[view.current_part].findIndex((x) => x == l);
-            ctx.lineTo(x + (ind + 0.5) * COL_WIDTH, y + ROW_HEIGHT * (i + 0.5));
+            ctx.lineTo(round_line_coord(x + (ind + 0.5) * COL_WIDTH), y + ROW_HEIGHT * (i + 0.5));
         }
         ctx.lineWidth = width;
         ctx.strokeStyle = col;
@@ -226,17 +230,19 @@ function draw_frag(frag) {
     // Link group lines
     ctx.lineWidth = FRAG_LINK_WIDTH;
     if (frag.link_group_top !== undefined) {
+        const line_y = round_line_coord(rect.min_y);
         ctx.strokeStyle = group_col(frag.link_group_top);
         ctx.beginPath();
-        ctx.moveTo(rect.min_x, rect.min_y);
-        ctx.lineTo(rect.max_x, rect.min_y);
+        ctx.moveTo(rect.min_x, line_y);
+        ctx.lineTo(rect.max_x, line_y);
         ctx.stroke();
     }
     if (frag.link_group_bottom !== undefined) {
+        const line_y = round_line_coord(rect.max_y);
         ctx.strokeStyle = group_col(frag.link_group_bottom);
         ctx.beginPath();
-        ctx.moveTo(rect.min_x, rect.max_y);
-        ctx.lineTo(rect.max_x, rect.max_y);
+        ctx.moveTo(rect.min_x, line_y);
+        ctx.lineTo(rect.max_x, line_y);
         ctx.stroke();
     }
 }
@@ -248,15 +254,15 @@ function draw_grid() {
     // Vertical bars
     for (let x = Math.ceil(v.min_x / GRID_SIZE) * GRID_SIZE; x < v.max_x; x += GRID_SIZE) {
         ctx.beginPath();
-        ctx.moveTo(x + 0.5, v.min_y);
-        ctx.lineTo(x + 0.5, v.max_y);
+        ctx.moveTo(round_line_coord(x), v.min_y);
+        ctx.lineTo(round_line_coord(x), v.max_y);
         ctx.stroke();
     }
     // Horizontal bars
     for (let y = Math.ceil(v.min_y / GRID_SIZE) * GRID_SIZE; y < v.max_y; y += GRID_SIZE) {
         ctx.beginPath();
-        ctx.moveTo(v.min_x, y + 0.5);
-        ctx.lineTo(v.max_x, y + 0.5);
+        ctx.moveTo(v.min_x, round_line_coord(y));
+        ctx.lineTo(v.max_x, round_line_coord(y));
         ctx.stroke();
     }
 }
@@ -677,6 +683,20 @@ function is_button_pressed(e, button) {
     // Deal with Safari being ideosyncratic
     const button_mask = e.buttons === undefined ? e.which : e.buttons;
     return (button_mask & (1 << button)) != 0;
+}
+
+// Rounds a coordinate on a line of a given width so that:
+// - A vertical or horizontal line going through this point overflows pixel boundaries by as little
+//   as possible.
+// - The rendered line will overflow pixel boundaries by the same amount on either side of that
+//   horizontal or vertical line.
+// The solution to this is to have the following cases:
+// - `width` rounds down to an even number: round `coord` to pixel boundaries
+// - `width` rounds down to an odd number:  round `coord` to pixel centres
+function round_line_coord(coord, width) {
+    // What the fractional part of our rounded coord should be
+    const rounding_factor = Math.floor(width) === 0 ? 0 : 0.5;
+    return Math.round(coord - rounding_factor) + rounding_factor;
 }
 
 function world_space_cursor_pos() {
