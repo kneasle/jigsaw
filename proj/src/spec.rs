@@ -517,13 +517,10 @@ impl Spec {
         action(Rc::make_mut(&mut self.frags[frag_ind]));
     }
 
-    /// Add a new [`Frag`] to the composition, returning its index.  For the time being, we always
-    /// create the plain lead or course of the first specified method.  This doesn't directly do
-    /// any transposing but the JS code will immediately enter transposing mode after the frag has
-    /// been added, thus allowing the user to add arbitrary [`Frag`]s with minimal code
-    /// duplication.
-    pub fn add_frag(&mut self, x: f32, y: f32, add_course: bool) -> usize {
-        let method_ind = 0usize;
+    /// Helper function used to create a new [`Frag`], triggered by default by the user pressing
+    /// `a` (single lead) or `A` (full course).  This is used by [`Self::extend_frag`] and
+    /// [`Self::add_frag`].
+    fn new_frag(&self, x: f32, y: f32, add_course: bool, method_ind: usize) -> Frag {
         let new_frag = {
             // Generate the rows
             let mut rows: Vec<AnnotatedRow> = self.methods[method_ind]
@@ -546,11 +543,34 @@ impl Spec {
             // Create new frag
             Frag::new(rows, x, y, false)
         };
-        self.frags.push(Rc::new(if add_course {
+        if add_course {
             new_frag.expand_to_round_block()
         } else {
             new_frag
-        }));
+        }
+    }
+
+    /// Extends the end of a [`Frag`] with more leads of some method.  For the time being, this
+    /// method is always the first specified.
+    pub fn extend_frag(&mut self, frag_ind: usize, add_course: bool) {
+        let method_ind = 0usize;
+        // TODO: We can get away with **many** fewer allocations than this
+        let extend_frag = self.frags[frag_ind]
+            .joined_with(&self.new_frag(0.0, 0.0, add_course, method_ind))
+            .unwrap();
+        self.frags[frag_ind] = Rc::new(extend_frag);
+    }
+
+    /// Add a new [`Frag`] to the composition, returning its index.  For the time being, we always
+    /// create the plain lead or course of the first specified method.  This doesn't directly do
+    /// any transposing but the JS code will immediately enter transposing mode after the frag has
+    /// been added, thus allowing the user to add arbitrary [`Frag`]s with minimal code
+    /// duplication.
+    pub fn add_frag(&mut self, x: f32, y: f32, add_course: bool) -> usize {
+        // For the time being always add method #0
+        let method_ind = 0usize;
+        self.frags
+            .push(Rc::new(self.new_frag(x, y, add_course, method_ind)));
         // We always push the Frag to the end of the list, so its index is `self.frags.len()`
         self.frags.len() - 1
     }

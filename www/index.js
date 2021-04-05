@@ -405,13 +405,29 @@ function on_key_down(e) {
         // Detect which fragment is under the cursor
         const frag = hovered_frag();
         const cursor_pos = world_space_cursor_pos();
-        // add a lead of Plain Bob as a new fragment to the comp
+        // Add more rows to the composition
         if (e.key === "a" || e.key === "A") {
+            // Decide whether or not to insert a full course
             const adding_full_course = e.key === "A";
-            const new_frag_ind = comp.add_frag(cursor_pos.x, cursor_pos.y, adding_full_course);
-            on_comp_change();
-            // Immediately enter transposing mode to let the user specify what course they wanted
-            start_transposition(new_frag_ind, 0);
+            // Decide how to add the rows
+            if (
+                frag !== undefined &&
+                Math.floor(frag.row) == derived_state.annot_frags[frag.index].exp_rows.length - 1
+            ) {
+                // Case 1: we're hovering over the leftover row of a fragment.  In this case, we
+                // add the new chunk onto the end of the existing one
+                console.log(`Adding to frag #${frag.index}.`);
+                comp.extend_frag(frag.index, adding_full_course);
+                on_comp_change();
+            } else {
+                // Case 2: we're not hovering over the end of a fragment, so we add the course and
+                // switch to transposing mode so that the user can decide what row to start with
+                const new_frag_ind = comp.add_frag(cursor_pos.x, cursor_pos.y, adding_full_course);
+                on_comp_change();
+                // Immediately enter transposing mode to let the user specify what course they wanted
+                start_transposition(new_frag_ind, 0);
+            }
+            // TODO: Figure out why this is necessary...
             e.preventDefault();
         }
         // 'cut' a fragment into two at the mouse location
