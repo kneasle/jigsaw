@@ -552,8 +552,7 @@ impl Spec {
 
     /// Extends the end of a [`Frag`] with more leads of some method.  For the time being, this
     /// method is always the first specified.
-    pub fn extend_frag(&mut self, frag_ind: usize, add_course: bool) {
-        let method_ind = 0usize;
+    pub fn extend_frag_end(&mut self, frag_ind: usize, method_ind: usize, add_course: bool) {
         // TODO: We can get away with **many** fewer allocations than this
         let extend_frag = self.frags[frag_ind]
             .joined_with(&self.new_frag(0.0, 0.0, add_course, method_ind))
@@ -566,9 +565,7 @@ impl Spec {
     /// any transposing but the JS code will immediately enter transposing mode after the frag has
     /// been added, thus allowing the user to add arbitrary [`Frag`]s with minimal code
     /// duplication.
-    pub fn add_frag(&mut self, x: f32, y: f32, add_course: bool) -> usize {
-        // For the time being always add method #0
-        let method_ind = 0usize;
+    pub fn add_frag(&mut self, x: f32, y: f32, method_ind: usize, add_course: bool) -> usize {
         self.frags
             .push(Rc::new(self.new_frag(x, y, add_course, method_ind)));
         // We always push the Frag to the end of the list, so its index is `self.frags.len()`

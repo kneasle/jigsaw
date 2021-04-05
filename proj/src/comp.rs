@@ -351,17 +351,17 @@ impl Comp {
     /* Actions */
 
     /// See [`Spec::extend_frag`] for docs
-    pub fn extend_frag(&mut self, frag_ind: usize, add_course: bool) {
+    pub fn extend_frag(&mut self, frag_ind: usize, method_ind: usize, add_course: bool) {
         // `self.make_action` bubbles through the return value from `Spec::add_frag`, which will
         // make sure we return the index of the newly added Frag
-        self.make_action(|spec| spec.extend_frag(frag_ind, add_course));
+        self.make_action(|spec| spec.extend_frag_end(frag_ind, method_ind, add_course));
     }
 
     /// See [`Spec::add_frag`] for docs
-    pub fn add_frag(&mut self, x: f32, y: f32, add_course: bool) -> usize {
+    pub fn add_frag(&mut self, x: f32, y: f32, method_ind: usize, add_course: bool) -> usize {
         // `self.make_action` bubbles through the return value from `Spec::add_frag`, which will
         // make sure we return the index of the newly added Frag
-        self.make_action(|spec| spec.add_frag(x, y, add_course))
+        self.make_action(|spec| spec.add_frag(x, y, method_ind, add_course))
     }
 
     /// Deletes a [`Frag`]ment by index.

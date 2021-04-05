@@ -21,6 +21,8 @@ const elem_part_head_list = document.getElementById("part-head");
 const elem_part_head_message = document.getElementById("part-head-message");
 // Right sidebar
 const elem_right_sidebar = document.getElementById("right-sidebar");
+const elem_method_readout = document.getElementById("method-readout");
+const elem_selected_method = document.getElementById("selected-method");
 // Canvas elements
 const canv = document.getElementById("comp-canvas");
 const ctx = canv.getContext("2d");
@@ -412,6 +414,7 @@ function on_key_down(e) {
         // Detect which fragment is under the cursor
         const frag = hovered_frag();
         const cursor_pos = world_space_cursor_pos();
+        const selected_method = parseInt(elem_selected_method.value);
         // Add more rows to the composition
         if (e.key === "a" || e.key === "A") {
             // Decide whether or not to insert a full course
@@ -423,12 +426,17 @@ function on_key_down(e) {
             ) {
                 // Case 1: we're hovering over the leftover row of a fragment.  In this case, we
                 // add the new chunk onto the end of the existing one
-                comp.extend_frag(frag.index, adding_full_course);
+                comp.extend_frag(frag.index, selected_method, adding_full_course);
                 on_comp_change();
             } else {
                 // Case 2: we're not hovering over the end of a fragment, so we add the course and
                 // switch to transposing mode so that the user can decide what row to start with
-                const new_frag_ind = comp.add_frag(cursor_pos.x, cursor_pos.y, adding_full_course);
+                const new_frag_ind = comp.add_frag(
+                    cursor_pos.x,
+                    cursor_pos.y,
+                    selected_method,
+                    adding_full_course
+                );
                 on_comp_change();
                 // Immediately enter transposing mode to let the user specify what course they wanted
                 start_transposition(new_frag_ind, 0);
@@ -607,10 +615,16 @@ function update_part_head_list() {
 }
 
 function update_method_list() {
+    // Counter used in the `map` method (we'd use `.enumerate()` in Rust but alas, this is JS)
+    let i = 0;
     const text = derived_state.methods
-        .map((m) => `(${m.shorthand}) ${m.name}: ${m.num_proved_rows} rows`)
+        .map(function (m) {
+            let s = `(#${i}, ${m.shorthand}) ${m.name}: ${m.num_proved_rows} rows`;
+            i += 1;
+            return s;
+        })
         .join("\n");
-    elem_right_sidebar.children[0].innerText = text;
+    elem_method_readout.innerText = text;
 }
 
 function on_part_head_spec_change() {
