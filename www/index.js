@@ -19,7 +19,9 @@ const elem_falseness_info = document.getElementById("falseness-info");
 const elem_part_head_input = document.getElementById("part-head-input");
 const elem_part_head_list = document.getElementById("part-head");
 const elem_part_head_message = document.getElementById("part-head-message");
-// Variables set in the `start()` function
+// Right sidebar
+const elem_right_sidebar = document.getElementById("right-sidebar");
+// Canvas elements
 const canv = document.getElementById("comp-canvas");
 const ctx = canv.getContext("2d");
 
@@ -608,7 +610,7 @@ function update_method_list() {
     const text = derived_state.methods
         .map((m) => `(${m.shorthand}) ${m.name}: ${m.num_proved_rows} rows`)
         .join("\n");
-    document.getElementById("sidebar-right").children[0].innerText = text;
+    elem_right_sidebar.children[0].innerText = text;
 }
 
 function on_part_head_spec_change() {
