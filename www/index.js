@@ -497,7 +497,7 @@ function on_key_down(e) {
             on_comp_change();
         }
         // join the first frag 1 onto frag 0, but only if we aren't hovering a fragment
-        if (e.key === "j" && selected_link !== undefined) {
+        if (e.key === "c" && selected_link !== undefined) {
             const link_to_join = derived_state.frag_links[selected_link];
             comp.join_frags(link_to_join.from, link_to_join.to);
             on_comp_change();
@@ -507,7 +507,7 @@ function on_key_down(e) {
             comp.undo();
             on_comp_change();
         }
-        // shift-ctrl-Z or ctrl-y to redo
+        // shift-ctrl-Z or Z or ctrl-y to redo
         if (e.key === "Z" || (e.key === "y" && e.ctrlKey)) {
             comp.redo();
             on_comp_change();
