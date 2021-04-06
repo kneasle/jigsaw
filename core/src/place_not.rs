@@ -1,6 +1,6 @@
 //! Module for parsing and handling place notation
 
-use crate::{Bell, Block, IncompatibleStages, Row, Stage};
+use crate::{AnnotBlock, Bell, IncompatibleStages, Row, Stage};
 use itertools::Itertools;
 use std::{
     fmt::{Display, Formatter},
@@ -452,19 +452,26 @@ impl PnBlock {
     }
 
     /// Generates a [`Block`] specified by applying these `PlaceNot`s to a given starting [`Row`].
-    pub fn block_starting_with(&self, start_row: &Row) -> Result<Block, IncompatibleStages> {
+    /// This block will contain the default annotations
+    pub fn block_starting_with<A: Default>(
+        &self,
+        start_row: &Row,
+    ) -> Result<AnnotBlock<A>, IncompatibleStages> {
         IncompatibleStages::test_err(start_row.stage(), self.stage())?;
         // The rows which will make up the new Block
-        let mut rows = Vec::with_capacity(self.pns.len() + 1);
-        rows.push(start_row.clone());
+        let mut rows: Vec<(Row, A)> = Vec::with_capacity(self.pns.len() + 1);
+        rows.push((start_row.clone(), A::default()));
         for pn in &self.pns {
-            rows.push(unsafe { pn.permute_new_unchecked(rows.last().unwrap()) });
+            rows.push((
+                unsafe { pn.permute_new_unchecked(&rows.last().unwrap().0) },
+                A::default(),
+            ));
         }
         // This unsafety is OK, because:
         // - rows.len() >= 2, because it contains one copy of `start_row` and one Row per PN in
         //   this Block (and PnBlocks must have at least one PlaceNot)
         // - We've checked that the stages match at the top of this function
-        Ok(unsafe { Block::from_rows_unchecked(rows) })
+        Ok(unsafe { AnnotBlock::from_annot_rows_unchecked(rows) })
     }
 }
 
@@ -651,7 +658,7 @@ mod tests {
 
         for &(stage, pn, row, block) in &equal_blocks {
             println!("Parsing {}", pn);
-            let b1 = PnBlock::parse(pn, stage)
+            let b1: Block = PnBlock::parse(pn, stage)
                 .unwrap()
                 .block_starting_with(&Row::parse(row).unwrap())
                 .unwrap();
