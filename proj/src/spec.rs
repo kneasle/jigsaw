@@ -12,6 +12,8 @@ use crate::derived_state::DerivedState;
 // Pretend the `PartHeads` is contained within this module, not it's own minimodule
 pub use self::part_heads::PartHeads;
 
+/* ========== PART HEADS ========== */
+
 /// A module to hold the code for part head specification.  This is in its own module to hide the
 /// fields from the rest of the code and make sure that the only way to construct a [`PartHeads`]
 /// is to use the fallible constructors provided (which guarutee that the [`PartHeads`]s created
@@ -78,8 +80,29 @@ mod part_heads {
     }
 }
 
-/// The specification of where within a method a given row comes.  This is used to generate
-/// method splice text and calculate ATW stats.
+/* ========== METHOD HANDLING ========== */
+
+/// The specification of what a method is in this composition.
+#[derive(Debug, Clone)]
+pub struct MethodSpec {
+    shorthand: String,
+    method: Method,
+}
+
+impl MethodSpec {
+    #[inline]
+    pub fn name(&self) -> &str {
+        self.method.name()
+    }
+
+    #[inline]
+    pub fn shorthand(&self) -> &str {
+        &self.shorthand
+    }
+}
+
+/// The location of a [`Row`] within a method.  This is used to generate method splice text and
+/// calculate ATW stats.
 #[derive(Debug, Clone, Copy)]
 pub struct MethodRef {
     method_index: usize,
@@ -98,8 +121,10 @@ impl MethodRef {
     }
 }
 
-/// The specification of where within a [`Call`] a given row comes.  It is essentially a reference
-/// back to the calls list.
+/* ========== CALL HANDLING ========== */
+
+/// The specification of where within a [`Call`] a given row comes.  This is used to generate the
+/// call labels on the fly.
 #[derive(Debug, Clone, Copy)]
 pub struct CallRef {
     call_index: usize,
@@ -118,12 +143,17 @@ impl CallRef {
     }
 }
 
+/* ========== ROW ANNOTATIONS ========== */
+
+/// The information that every [`Row`] in a [`Frag`] is annotated with.
 #[derive(Debug, Clone, Default)]
 struct Annot {
     is_lead_end: bool,
     method: Option<MethodRef>,
     call: Option<CallRef>,
 }
+
+/* ========== FRAGMENTS ========== */
 
 /// The possible ways splitting a [`Frag`] could fail
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
@@ -469,23 +499,7 @@ impl Frag {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct MethodSpec {
-    shorthand: String,
-    method: Method,
-}
-
-impl MethodSpec {
-    #[inline]
-    pub fn name(&self) -> &str {
-        self.method.name()
-    }
-
-    #[inline]
-    pub fn shorthand(&self) -> &str {
-        &self.shorthand
-    }
-}
+/* ========== FULL SPECIFICATION ========== */
 
 /// The _specification_ for a composition, and corresponds to roughly the least information
 /// required to unambiguously represent the the state of a partial composition.  This on its own is
