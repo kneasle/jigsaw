@@ -140,17 +140,17 @@ function draw_row(x, y, row) {
     }
     ctx.globalAlpha = opacity;
     // Call string
-    if (row.call_str) {
+    if (row.call_label) {
         ctx.textAlign = "right";
         ctx.fillStyle = FOREGROUND_COL;
-        ctx.fillText(row.call_str, x - FALSENESS_BAR_WIDTH, text_baseline);
+        ctx.fillText(row.call_label, x - FALSENESS_BAR_WIDTH, text_baseline);
     }
     // Method string
-    if (row.method_str) {
+    if (row.method_label) {
         ctx.textAlign = "left";
         ctx.fillStyle = FOREGROUND_COL;
         ctx.fillText(
-            row.method_str.name,
+            row.method_label.name,
             x + stage * COL_WIDTH + FALSENESS_BAR_WIDTH,
             text_baseline
         );
@@ -233,17 +233,17 @@ function draw_frag(frag) {
     }
     // Link group lines
     ctx.lineWidth = FRAG_LINK_WIDTH;
-    if (frag.link_group_top !== undefined) {
+    if (frag.link_groups.top !== undefined) {
         const line_y = round_line_coord(rect.min_y);
-        ctx.strokeStyle = group_col(frag.link_group_top);
+        ctx.strokeStyle = group_col(frag.link_groups.top);
         ctx.beginPath();
         ctx.moveTo(rect.min_x, line_y);
         ctx.lineTo(rect.max_x, line_y);
         ctx.stroke();
     }
-    if (frag.link_group_bottom !== undefined) {
+    if (frag.link_groups.bottom !== undefined) {
         const line_y = round_line_coord(rect.max_y);
-        ctx.strokeStyle = group_col(frag.link_group_bottom);
+        ctx.strokeStyle = group_col(frag.link_groups.bottom);
         ctx.beginPath();
         ctx.moveTo(rect.min_x, line_y);
         ctx.lineTo(rect.max_x, line_y);
@@ -311,8 +311,8 @@ function draw() {
         draw_link(derived_state.frag_links[i], i === selected_link);
     }
     // Draw all the fragments
-    for (let f = 0; f < derived_state.annot_frags.length; f++) {
-        draw_frag(derived_state.annot_frags[f]);
+    for (let f = 0; f < derived_state.frags.length; f++) {
+        draw_frag(derived_state.frags[f]);
     }
 
     /* RESTORE CANVAS */
@@ -356,8 +356,8 @@ function on_mouse_move(e) {
         // Note that in this case, we allow `derived_state` to get out of sync with Rust's ground
         // truth.  We do this for performance reasons; if we didn't, then the whole composition
         // would be reproved every time the mouse is moved causing horrendous lag.
-        derived_state.annot_frags[frag_being_dragged].x += e.offsetX - mouse_coords.x;
-        derived_state.annot_frags[frag_being_dragged].y += e.offsetY - mouse_coords.y;
+        derived_state.frags[frag_being_dragged].x += e.offsetX - mouse_coords.x;
+        derived_state.frags[frag_being_dragged].y += e.offsetY - mouse_coords.y;
         // Request a repaint because so that the new frag position appears on screen
         request_frame();
     }
@@ -389,7 +389,7 @@ function on_mouse_up(e) {
     // If we have just released a fragment, then update Rust's 'ground truth' and force a resync
     // of JS's local copy of the state.  Also let go of whatever we were dragging.
     if (comp.is_state_dragging() && get_button(e) === BTN_LEFT) {
-        const released_frag = derived_state.annot_frags[comp.frag_being_dragged()];
+        const released_frag = derived_state.frags[comp.frag_being_dragged()];
         comp.finish_dragging(released_frag.x, released_frag.y);
         on_comp_change();
         log_state_transition("Dragging", "Idle");
@@ -422,7 +422,7 @@ function on_key_down(e) {
             // Decide how to add the rows
             if (
                 frag !== undefined &&
-                Math.floor(frag.row) == derived_state.annot_frags[frag.index].exp_rows.length - 1
+                Math.floor(frag.row) == derived_state.frags[frag.index].exp_rows.length - 1
             ) {
                 // Case 1: we're hovering over the leftover row of a fragment.  In this case, we
                 // add the new chunk onto the end of the existing one
@@ -450,7 +450,7 @@ function on_key_down(e) {
             // Make sure there's a 10px gap between the BBoxes of the two fragments (we add 1 to
             // `split_index` to take into account the existence of the leftover row)
             const new_y =
-                derived_state.annot_frags[frag.index].y +
+                derived_state.frags[frag.index].y +
                 (split_index + 1) * ROW_HEIGHT +
                 FRAG_BBOX_EXTRA_HEIGHT * 2 +
                 10;
@@ -734,8 +734,8 @@ function hovered_frag() {
     // opposite order to that which they are rendered, so that in the case of overlap the topmost
     // frag takes precidence.
     let hov_frag = undefined;
-    for (let i = derived_state.annot_frags.length - 1; i >= 0; i--) {
-        const frag = derived_state.annot_frags[i];
+    for (let i = derived_state.frags.length - 1; i >= 0; i--) {
+        const frag = derived_state.frags[i];
         const bbox = frag_bbox(frag);
         // Skip this frag if the mouse is outside its bbox
         if (c.x < bbox.min_x || c.x > bbox.max_x || c.y < bbox.min_y || c.y > bbox.max_y) {
@@ -774,8 +774,8 @@ function view_rect() {
 
 function frag_link_line(link) {
     // Calculate bboxes of the frags we're joining
-    const bbox_from = frag_bbox(derived_state.annot_frags[link.from]);
-    const bbox_to = frag_bbox(derived_state.annot_frags[link.to]);
+    const bbox_from = frag_bbox(derived_state.frags[link.from]);
+    const bbox_to = frag_bbox(derived_state.frags[link.to]);
     // If the boxes are offset left/right, then join them up using the shortest possible distance
     if (bbox_from.max_x < bbox_to.min_x) {
         var from_x = bbox_from.max_x;

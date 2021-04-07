@@ -92,9 +92,9 @@ impl From<&MethodSpec> for DerivedMethod {
 #[derive(Serialize, Debug, Clone)]
 pub struct ExpandedRow {
     #[serde(skip_serializing_if = "Option::is_none")]
-    call_str: Option<char>,
+    call_label: Option<char>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    method_str: Option<MethodName>,
+    method_label: Option<MethodName>,
     #[serde(skip_serializing_if = "crate::ser_utils::is_false")]
     is_ruleoff: bool,
     #[serde(skip_serializing_if = "crate::ser_utils::is_true")]
@@ -169,8 +169,8 @@ impl ExpandedRow {
     ) -> Self {
         let all_rows: Vec<Row> = part_heads.iter().map(|ph| ph * row).collect();
         ExpandedRow {
-            call_str,
-            method_str,
+            call_label: call_str,
+            method_label: method_str,
             method_ref,
             is_ruleoff,
             music_highlights: Self::calculate_music(&all_rows, row.stage()),
@@ -199,9 +199,9 @@ pub struct FalseRowRange {
 #[derive(Serialize, Debug, Clone, Default)]
 pub struct FragLinkGroups {
     #[serde(skip_serializing_if = "Option::is_none")]
-    link_group_top: Option<usize>,
+    top: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    link_group_bottom: Option<usize>,
+    bottom: Option<usize>,
 }
 
 /// The information required for JS to render a [`Frag`]
@@ -210,7 +210,6 @@ pub struct AnnotFrag {
     false_row_ranges: Vec<FalseRowRange>,
     exp_rows: Vec<ExpandedRow>,
     is_proved: bool,
-    #[serde(flatten)]
     link_groups: FragLinkGroups,
     x: f32,
     y: f32,
@@ -236,7 +235,7 @@ pub struct FragLink {
 
 #[derive(Serialize, Debug, Clone)]
 pub struct DerivedState {
-    annot_frags: Vec<AnnotFrag>,
+    frags: Vec<AnnotFrag>,
     frag_links: Vec<FragLink>,
     stats: DerivedStats,
     #[serde(flatten)]
@@ -250,7 +249,7 @@ impl DerivedState {
     /// location doesn't correspond to a [`Row`].
     pub fn get_row(&self, part_ind: usize, frag_ind: usize, row_ind: usize) -> Option<&Row> {
         Some(
-            self.annot_frags
+            self.frags
                 .get(frag_ind)?
                 .exp_rows
                 .get(row_ind)?
@@ -286,7 +285,7 @@ impl DerivedState {
         DerivedState {
             frag_links,
             part_heads,
-            annot_frags: generated_rows
+            frags: generated_rows
                 .into_iter()
                 .zip(frag_link_groups.into_iter())
                 .enumerate()
@@ -347,8 +346,8 @@ fn gen_frag_links(generated_rows: &[Vec<ExpandedRow>]) -> (Vec<FragLink>, Vec<Fr
                     to: j,
                     group,
                 });
-                frag_link_groups[i].link_group_bottom = Some(group);
-                frag_link_groups[j].link_group_top = Some(group);
+                frag_link_groups[i].bottom = Some(group);
+                frag_link_groups[j].top = Some(group);
             }
         }
     }
