@@ -1,5 +1,5 @@
 use crate::derived_state::{ExpandedRow, MethodName};
-use proj_core::{Block, IncompatibleStages, PnBlock, Row, Stage};
+use proj_core::{AnnotBlock, Block, IncompatibleStages, PnBlock, Row, Stage};
 use std::{
     fmt::{Display, Formatter},
     rc::Rc,
@@ -98,31 +98,11 @@ impl MethodRef {
     }
 }
 
-#[derive(Debug, Clone)]
-struct AnnotatedRow {
+#[derive(Debug, Clone, Default)]
+struct Annot {
     is_lead_end: bool,
     method: Option<MethodRef>,
     call_str: Option<String>,
-    row: Row,
-}
-
-impl AnnotatedRow {
-    /// Creates an [`AnnotatedRow`] representing a given [`Row`] with no annotations
-    pub fn unannotated(row: Row) -> AnnotatedRow {
-        AnnotatedRow {
-            is_lead_end: false,
-            method: None,
-            call_str: None,
-            row,
-        }
-    }
-
-    /// Mutates this `AnnotatedRow` so that it has no annotations.
-    pub fn clear_annotations(&mut self) {
-        self.method = None;
-        self.call_str = None;
-        self.is_lead_end = false;
-    }
 }
 
 /// The possible ways splitting a [`Frag`] could fail
@@ -152,9 +132,8 @@ impl Display for FragSplitError {
 /// A single unexpanded fragment of a composition
 #[derive(Clone, Debug)]
 pub struct Frag {
-    /// Note that this [`Vec`] stores all the rows that should be displayed in this fragment,
-    /// including the leftover row (which has to be displayed, but won't be used for proving)
-    rows: Rc<Vec<AnnotatedRow>>,
+    start_row: Row,
+    block: Rc<AnnotBlock<Annot>>,
     is_muted: bool,
     x: f32,
     y: f32,
@@ -167,7 +146,7 @@ impl Frag {
 
     /// Returns the [`Stage`] of this `Frag`
     pub fn stage(&self) -> Stage {
-        self.first_row().row.stage()
+        self.first_row().0.stage()
     }
 
     /// Returns the (x, y) coordinates of this `Frag`
@@ -178,22 +157,15 @@ impl Frag {
     /// The number of rows in this `Frag` (**not including the leftover row**)
     #[inline]
     pub fn len(&self) -> usize {
-        self.rows.len() - 1
+        self.block.len()
     }
 
     /// Returns the first [`AnnotatedRow`] of this `Frag`.  This does not return an [`Option`]
     /// because `Frag`s must have length at least 1, meaning that there is always a first
     /// [`AnnotatedRow`].
     #[inline]
-    fn first_row(&self) -> &AnnotatedRow {
-        &self.rows[0]
-    }
-
-    /// Returns the leftover row of this `Frag` (as an [`AnnotatedRow`]).  This does not return an
-    /// [`Option`] because all `Frag`s must have a leftover row.
-    #[inline]
-    fn leftover_row(&self) -> &AnnotatedRow {
-        self.rows.last().unwrap()
+    fn first_row(&self) -> &(Row, Annot) {
+        self.block.first_annot_row()
     }
 
     /* Setters/mutating operations */
@@ -214,48 +186,24 @@ impl Frag {
     /// Splits this fragment into two pieces so that the first one has length `split_index`.  Both
     /// `Frag`s will inherit all values from `self`, except that the 2nd one will have y-coordinate
     /// specified by `new_y`.
-    pub fn split(&self, split_index: usize, new_y: f32) -> Result<(Frag, Frag), FragSplitError> {
-        // Panic if splitting would create a 0-size fragment
-        if split_index == 0 || split_index >= self.len() {
-            return Err(FragSplitError::ZeroLengthFrag);
-        }
-        // Generate the rows for each subfragment
-        let mut rows1 = self.rows[..split_index + 1].to_vec();
-        let rows2 = self.rows[split_index..].to_vec();
-        // Make sure that the leftover row of the 1st subfragment has no annotations
-        rows1.last_mut().unwrap().clear_annotations();
-        // Build new fragments out of the cloned rows
-        Ok((
-            Frag::new(rows1, self.x, self.y, self.is_muted),
-            Frag::new(rows2, self.x, new_y, self.is_muted),
+    pub fn split(&mut self, split_index: usize, new_y: f32) -> Result<Frag, FragSplitError> {
+        let (split_row, block) = Rc::make_mut(&mut self.block)
+            .split(split_index)
+            .ok_or(FragSplitError::ZeroLengthFrag)?;
+        Ok(Self::new(
+            &self.start_row * &split_row,
+            block,
+            self.x,
+            new_y,
+            self.is_muted,
         ))
     }
 
     /// Create a new `Frag` of `other` onto the end of `self`, transposing `other` if necessary.
     /// Both `self` and `other` will be cloned in the process.
-    fn joined_with(&self, other: &Frag) -> Result<Frag, IncompatibleStages> {
-        IncompatibleStages::test_err(self.stage(), other.stage())?;
-        // Figure out which rows we're trying to join together
-        let end_row = &self.leftover_row().row;
-        let start_row = &other.first_row().row;
-        // Create a Vec with enough space for both Frags, and insert this Frag (minus its leftover
-        // row)
-        let mut rows = Vec::with_capacity(self.len() + other.len() + 1);
-        rows.extend_from_slice(&self.rows[..self.len()]);
-        // If the joining rows are the same then we do a simple clone, otherwise
-        if end_row == start_row {
-            rows.extend(other.rows.iter().cloned());
-        } else {
-            // All the unsafety in this block is OK because we have already asserted that the
-            // stages of these `Frag`s match, and by invariant all the `Row`s must be valid
-            let transposition = unsafe { end_row.mul_unchecked(&!start_row) };
-            rows.extend(other.rows.iter().map(|r| {
-                let mut new_row = r.clone();
-                new_row.row = unsafe { transposition.mul_unchecked(&r.row) };
-                new_row
-            }));
-        }
-        Ok(self.clone_with_new_rows(rows))
+    fn join_with(&mut self, other: &Frag) -> Result<(), IncompatibleStages> {
+        Rc::make_mut(&mut self.block).extend_with_cloned(&other.block)?;
+        Ok(())
     }
 
     /// Creates a new `Frag` which contains `self` joined to itself repeatedly until a round block
@@ -263,29 +211,33 @@ impl Frag {
     /// method.  All other properties (location, mutedness, etc.) are inherited (and cloned) from
     /// `self`.
     pub fn expand_to_round_block(&self) -> Frag {
-        let own_start_row = &self.first_row().row;
+        // PERF: This function causes way too many unnecessary allocations
+        let own_start_row = &self.first_row().0;
         let mut current_start_row = own_start_row.clone();
-        let mut rows: Vec<AnnotatedRow> = vec![self.rows[0].clone()];
+        let mut rows: Vec<(Row, Annot)> = vec![self.block.first_annot_row().clone()];
         // Repeatedly add `self` and permute until we return to the start row
         loop {
             // Remove the leftover row from the last iteration
             rows.pop();
             // Add a copy of `self` to rows
-            rows.extend(self.rows.iter().map(|r| {
+            rows.extend(self.block.iter().map(|r| {
                 let mut new_row = r.clone();
                 // This unsafety is OK because we are only ever transposing by rows taken from
                 // `self`, which by invariant all share the same stage
-                new_row.row = unsafe { current_start_row.mul_unchecked(&r.row) };
+                new_row.0 = unsafe { current_start_row.mul_unchecked(&r.0) };
                 new_row
             }));
             // Make sure that the next row starts with the last row generated so far (i.e. the
             // leftover row of the Block we've built so far)
-            current_start_row = rows.last().unwrap().row.clone();
+            current_start_row = rows.last().unwrap().0.clone();
             // If we've reached the first row again, then return.  This must terminate because the
             // permutation group over any finite stage is always finite, so no element can have
             // infinite order.
             if own_start_row == &current_start_row {
-                return self.clone_with_new_rows(rows);
+                return self.clone_with_new_block(
+                    own_start_row.clone(),
+                    AnnotBlock::from_annot_rows(rows).unwrap(),
+                );
             }
         }
     }
@@ -296,28 +248,25 @@ impl Frag {
         row_ind: usize,
         target_row: &Row,
     ) -> Result<(), IncompatibleStages> {
-        self.transpose(&(target_row * &!&self.rows[row_ind].row))
+        // PERF: Possibly cache the results of this, since we are allocating a lot of temporary
+        // values here)
+        self.transpose(&(target_row * &!(&self.start_row * self.block.get_row(row_ind).unwrap())))
     }
 
-    /// Transposes `self` - i.e. (pre)mulitplies all the [`Row`]s by some other [`Row`].
+    /// Transposes `self` - i.e. (pre)mulitplies all the [`Row`]s by some other [`Row`].  This will
+    /// clone the underlying [`AnnotBlock`] the first time this is called, but every other time
+    /// will not reallocate the [`AnnotBlock`].
     pub fn transpose(&mut self, transposition: &Row) -> Result<(), IncompatibleStages> {
-        // Do the stage check once, rather than every time a row gets permuted
-        IncompatibleStages::test_err(transposition.stage(), self.stage())?;
-        let mut row_buf = Row::empty();
-        for r in Rc::make_mut(&mut self.rows) {
-            row_buf.clone_from(&r.row);
-            // The unsafety here is OK because we maintain an invariant that all the `Row`s
-            // in this `Frag` have the same `Stage`
-            unsafe { transposition.mul_into_unchecked(&row_buf, &mut r.row) };
-        }
+        self.start_row = transposition.mul(&self.start_row)?;
         Ok(())
     }
 
     /// Create a new `Frag` which is identical to `self`, except that it contains different
-    /// [`AnnotatedRow`]s
-    fn clone_with_new_rows(&self, rows: Vec<AnnotatedRow>) -> Frag {
+    /// [`Row`]s
+    fn clone_with_new_block(&self, start_row: Row, block: AnnotBlock<Annot>) -> Frag {
         Frag {
-            rows: Rc::new(rows),
+            start_row,
+            block: Rc::new(block),
             x: self.x,
             y: self.y,
             is_muted: self.is_muted,
@@ -328,26 +277,26 @@ impl Frag {
     /// [`Spec::expand`]
     fn expand(&self, part_heads: &[Row], methods: &[Rc<Method>]) -> Vec<ExpandedRow> {
         let mut last_method: Option<MethodRef> = None;
-        let mut exp_rows: Vec<ExpandedRow> = Vec::with_capacity(self.rows.len());
-        for (row_ind, r) in self.rows.iter().enumerate() {
+        let mut exp_rows: Vec<ExpandedRow> = Vec::with_capacity(self.block.len());
+        for (row_ind, (row, annot)) in self.block.iter().enumerate() {
             // A method splice should happen if this row points to a different method to the
             // last one, or the methods are the same and there's a jump in row indices
             // (ignoring wrapping over lead ends).  Note the '!' to negate the output of the
             // `match`
-            let is_splice = !match (last_method, r.method) {
+            let is_splice = match (last_method, annot.method) {
                 (Some(lm), Some(m)) => {
-                    lm.method_index == m.method_index
+                    lm.method_index != m.method_index
                             // In order to be a continuation of the same method, we have to also
                             // check that the row indices are also consecutive (so that things like
                             // restarting a method cause a splice)
-                            && (lm.sub_lead_index + 1) % methods[m.method_index].first_lead.len()
-                                == m.sub_lead_index
+                            || (lm.sub_lead_index + 1) % methods[m.method_index].first_lead.len()
+                                != m.sub_lead_index
                 }
                 // Splicing to no method doesn't count as a splice (this will only make sense for
                 // leftover rows)
-                (_, cur_meth) => cur_meth.is_none(),
+                (_, cur_meth) => cur_meth.is_some(),
             };
-            last_method = r.method;
+            last_method = annot.method;
             // If there is a splice, then set the last row as a ruleoff (since ruleoffs determine
             // which rows have lines placed _underneath_ them)
             if is_splice {
@@ -357,17 +306,18 @@ impl Frag {
             }
             // Push the new ExpandedRow
             exp_rows.push(ExpandedRow::new(
-                &r.row,
-                r.call_str.clone(),
-                r.method
+                &(&self.start_row * row),
+                annot.call_str.clone(),
+                annot
+                    .method
                     .map(|m| {
                         let new_method = &methods[m.method_index];
                         MethodName::new(new_method.name.clone(), new_method.shorthand.clone())
                     })
                     .filter(|_| is_splice),
-                r.method,
+                annot.method,
                 // Ruleoffs should happen at lead ends and whenever there is a splice
-                r.is_lead_end,
+                annot.is_lead_end,
                 part_heads,
                 // If a row is leftover or contained in a muted frag, than it shouldn't be
                 // proven
@@ -380,25 +330,42 @@ impl Frag {
     /* Constructors */
 
     /// Create a new `Frag` from its parts (creating [`Rc`]s where necessary)
-    fn new(rows: Vec<AnnotatedRow>, x: f32, y: f32, is_muted: bool) -> Frag {
+    fn new(start_row: Row, block: AnnotBlock<Annot>, x: f32, y: f32, is_muted: bool) -> Frag {
         Frag {
-            rows: Rc::new(rows),
+            start_row,
+            block: Rc::new(block),
             x,
             y,
             is_muted,
         }
     }
 
-    fn from_rows(rows: Vec<AnnotatedRow>) -> Frag {
-        Self::new(rows, 0.0, 0.0, false)
+    /// Creates a new `Frag` from a sequence of annotated [`Row`]s.
+    fn from_rows(mut rows: Vec<(Row, Annot)>, x: f32, y: f32, is_muted: bool) -> Frag {
+        // TODO: Move this code into `core`
+        // Keep the first row and its inverse
+        let first_row = rows[0].0.clone();
+        let inv_first_row = !&first_row;
+        // Transpose all the rows so that the block starts with rounds
+        let mut row_buf = Row::empty();
+        rows.iter_mut().for_each(|(r, _annot)| {
+            row_buf.clone_from(r);
+            *r = unsafe { inv_first_row.mul_unchecked(&row_buf) };
+        });
+        Self::new(
+            first_row,
+            AnnotBlock::from_annot_rows(rows).unwrap(),
+            x,
+            y,
+            is_muted,
+        )
     }
 
     /// Generates an example fragment (in this case, it's https://complib.org/composition/75822)
     fn cyclic_s8() -> (Frag, Vec<Rc<Method>>) {
         let mut rows: Vec<_> = include_str!("cyclic-s8")
             .lines()
-            .map(|x| Row::parse(x).unwrap())
-            .map(AnnotatedRow::unannotated)
+            .map(|x| (Row::parse(x).unwrap(), Annot::default()))
             .collect();
         let methods: Vec<Rc<Method>> = [
             ("Deva", "V", "-58-14.58-58.36-14-58-36-18,18"),
@@ -414,10 +381,7 @@ impl Frag {
             Rc::new(Method {
                 name: String::from(*name),
                 shorthand: String::from(*shorthand),
-                first_lead: PnBlock::parse(pn, Stage::MAJOR)
-                    .unwrap()
-                    .block_starting_with(&Row::rounds(Stage::MAJOR))
-                    .unwrap(),
+                first_lead: PnBlock::parse(pn, Stage::MAJOR).unwrap().to_block(),
             })
         })
         .collect();
@@ -427,20 +391,20 @@ impl Frag {
         // Method names and LE ruleoffs
         for i in 0..rows.len() / 32 {
             for j in 0..32 {
-                rows[i * 32 + j].method = Some(MethodRef {
+                rows[i * 32 + j].1.method = Some(MethodRef {
                     method_index: meths[i],
                     sub_lead_index: j,
                 });
             }
-            rows[i * 32 + 31].is_lead_end = true;
+            rows[i * 32 + 31].1.is_lead_end = true;
         }
         // Calls
-        rows[31].call_str = Some("sB".to_owned());
-        rows[63].call_str = Some("sB".to_owned());
-        rows[223].call_str = Some("sH".to_owned());
-        rows[255].call_str = Some("sH".to_owned());
+        rows[31].1.call_str = Some("sB".to_owned());
+        rows[63].1.call_str = Some("sB".to_owned());
+        rows[223].1.call_str = Some("sH".to_owned());
+        rows[255].1.call_str = Some("sH".to_owned());
         // Create the fragment and return
-        (Self::from_rows(rows), methods)
+        (Self::from_rows(rows, 0.0, 0.0, false), methods)
     }
 }
 
@@ -492,8 +456,8 @@ impl Spec {
         stage: Stage,
     ) -> Spec {
         // Check that all the stages match
-        for annot_r in frag.rows.iter() {
-            assert_eq!(annot_r.row.stage(), stage);
+        for (r, _annot) in frag.block.iter() {
+            assert_eq!(r.stage(), stage);
         }
         Spec {
             frags: vec![Rc::new(frag)],
@@ -522,26 +486,33 @@ impl Spec {
     /// [`Self::add_frag`].
     fn new_frag(&self, x: f32, y: f32, add_course: bool, method_ind: usize) -> Frag {
         let new_frag = {
-            // Generate the rows
-            let mut rows: Vec<AnnotatedRow> = self.methods[method_ind]
-                .first_lead
-                .rows()
-                .cloned()
-                .map(AnnotatedRow::unannotated)
-                .collect();
-            // Annotate the rows with method indices
-            for (i, r) in rows.iter_mut().enumerate() {
-                r.method = Some(MethodRef {
-                    method_index: method_ind,
-                    sub_lead_index: i,
-                });
-            }
-            // Handle the last row separately
-            let row_len = rows.len();
-            rows[row_len - 2].is_lead_end = true;
-            rows.last_mut().unwrap().method = None;
+            let method = &self.methods[method_ind];
+            let lead_len = method.first_lead.len();
+            let mut block = AnnotBlock::from_annot_rows(
+                method
+                    .first_lead
+                    .annot_rows()
+                    .iter()
+                    .enumerate()
+                    .map(|(i, (r, _annot))| {
+                        (
+                            r.clone(),
+                            Annot {
+                                is_lead_end: i == lead_len - 1,
+                                method: Some(MethodRef {
+                                    method_index: method_ind,
+                                    sub_lead_index: i,
+                                }),
+                                call_str: None,
+                            },
+                        )
+                    })
+                    .collect(),
+            )
+            .unwrap();
+            block.leftover_annot_mut().method = None;
             // Create new frag
-            Frag::new(rows, x, y, false)
+            Frag::new(Row::rounds(self.stage), block, x, y, false)
         };
         if add_course {
             new_frag.expand_to_round_block()
@@ -553,11 +524,12 @@ impl Spec {
     /// Extends the end of a [`Frag`] with more leads of some method.  For the time being, this
     /// method is always the first specified.
     pub fn extend_frag_end(&mut self, frag_ind: usize, method_ind: usize, add_course: bool) {
-        // TODO: We can get away with **many** fewer allocations than this
-        let extend_frag = self.frags[frag_ind]
-            .joined_with(&self.new_frag(0.0, 0.0, add_course, method_ind))
+        // PERF: It would be much better to not generate a whole new frag, but instead to the
+        // addition in-place
+        let new_frag = self.new_frag(0.0, 0.0, add_course, method_ind);
+        Rc::make_mut(&mut self.frags[frag_ind])
+            .join_with(&new_frag)
             .unwrap();
-        self.frags[frag_ind] = Rc::new(extend_frag);
     }
 
     /// Add a new [`Frag`] to the composition, returning its index.  For the time being, we always
@@ -582,11 +554,18 @@ impl Spec {
     /// and location of `frag_1_ind`, and the [`Frag`] at `frag_2_ind` is removed.  All properties
     /// of the resulting [`Frag`] are inherited from the `frag_1_ind`.
     pub fn join_frags(&mut self, frag_1_ind: usize, frag_2_ind: usize) {
-        let joined_frag = self.frags[frag_1_ind]
-            .joined_with(&self.frags[frag_2_ind])
+        assert_ne!(frag_1_ind, frag_2_ind);
+        // First step, remove the 2nd frag and keep it in a temp variable.  We have to do this
+        // first, because otherwise we would borrow `self.frags`s twice which the borrow checker
+        // doesn't allow (because that would be a terrible bug if `frag_1_ind` == `frag_2_ind`).
+        let frag_2 = self.frags.remove(frag_2_ind);
+        // Because we've removed the frag at `frag_2_ind`, `self.frags[frag_1_ind]` might have
+        // moved if `frag_2_ind < frag_1_ind`
+        let corrected_frag_1_ind = frag_1_ind - if frag_2_ind < frag_1_ind { 1 } else { 0 };
+        // Now it's safe to do the join without tripping the borrow checker
+        Rc::make_mut(&mut self.frags[corrected_frag_1_ind])
+            .join_with(&frag_2)
             .unwrap();
-        self.frags[frag_1_ind] = Rc::new(joined_frag);
-        self.frags.remove(frag_2_ind);
     }
 
     /// Split a [`Frag`] into two pieces at a given `split_index`, moving the 2nd of these to
@@ -596,23 +575,20 @@ impl Spec {
         frag_ind: usize,
         split_index: usize,
         new_y: f32,
-    ) -> Result<Self, FragSplitError> {
+    ) -> Result<Spec, FragSplitError> {
         // Perform the split **before** cloning `self`, short-circuiting the function if the
         // splitting fails
-        let (f1, f2) = self
-            .frags
-            .get(frag_ind)
-            .ok_or_else(|| FragSplitError::IndexOutOfRange {
+        let mut new_self = self.clone();
+        let new_frag = Rc::make_mut(new_self.frags.get_mut(frag_ind).ok_or_else(|| {
+            FragSplitError::IndexOutOfRange {
                 index: frag_ind,
                 num_frags: self.frags.len(),
-            })?
-            .split(split_index, new_y)?;
+            }
+        })?)
+        .split(split_index, new_y)?;
         // Replace the 1st frag in-place, and append the 2nd (this stops fragments from jumping
         // to the top of the stack when split).
-        let mut new_self = self.clone();
-        new_self.frags[frag_ind] = Rc::new(f1);
-        new_self.frags.push(Rc::new(f2));
-        // Return empty string for success
+        new_self.frags.push(Rc::new(new_frag));
         Ok(new_self)
     }
 

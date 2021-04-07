@@ -260,6 +260,51 @@ impl<A> AnnotBlock<A> {
         }
     }
 
+    /// Splits this `AnnotBlock` into two separate `AnnotBlock`s at a specified index.  This makes
+    /// `self` shorter, whilst returning the remainder as a new `AnnotBlock` (along with its first
+    /// [`Row`]).  This returns `None` without mutation if either of the blocks would have zero
+    /// length.  During the course of this, the row at the split point will be used twice so the
+    /// annotation is moved to the second block (and the leftover row of `self` is annotated with
+    /// a default value).
+    #[must_use]
+    pub fn split(&mut self, index: usize) -> Option<(Row, Self)>
+    where
+        A: Default,
+    {
+        // Early return
+        if index == 0 || index >= self.len() - 1 {
+            return None;
+        }
+        // Firstly, record the first Row of the 2nd block and cache its inverse to avoid
+        // recalculation
+        let other_block_first_row = self.rows[index].0.clone();
+        let inv_first_row = !&other_block_first_row;
+        // Now, drain the rows out of `self`, transpose them and collect them in a new `Vec` to be
+        // turned into the new `AnnotBlock`
+        let new_rows: Vec<(Row, A)> = self
+            .rows
+            .drain(index..)
+            .map(|(r, annot)| (&inv_first_row * &r, annot))
+            .collect();
+        // The drain will have left `self` without a leftover Row, so we add it back in by cloning
+        // `other_block_first_row`
+        self.rows
+            .push((other_block_first_row.clone(), A::default()));
+        // Finally, construct the new Block.  The unsafety here is OK because we have two
+        // invariants to satisfy:
+        // - The new block has length >= 2, which is checked by the early return
+        // - All the `Row`s have the same stage:
+        //       all Rows in `self` have the same stage (by invariant)
+        //    => all permuted copies of rows in `self` have the same stage (because permuting a Row
+        //       can't change its stage)
+        //    => all rows in `new_rows` must have the same stage
+        // - new_rows[0] must start in rounds, because the first row is multiplied it by its own
+        //   inverse, which always generates rounds
+        Some((other_block_first_row, unsafe {
+            Self::from_annot_rows_unchecked(new_rows)
+        }))
+    }
+
     /// Extend this `AnnotBlock` with the contents of another `AnnotBlock`.  This modifies `self`
     /// to have the effect of ringing `self` then `other`.  Note that this overwrites the
     /// leftover [`Row`] of `self`, replacing its annotation with that of `other`'s first [`Row`].
