@@ -92,7 +92,7 @@ impl From<&MethodSpec> for DerivedMethod {
 #[derive(Serialize, Debug, Clone)]
 pub struct ExpandedRow {
     #[serde(skip_serializing_if = "Option::is_none")]
-    call_str: Option<String>,
+    call_str: Option<char>,
     #[serde(skip_serializing_if = "Option::is_none")]
     method_str: Option<MethodName>,
     #[serde(skip_serializing_if = "crate::ser_utils::is_false")]
@@ -160,7 +160,7 @@ impl ExpandedRow {
     /// Create a new `ExpandedRow` from its constituent parts
     pub fn new(
         row: &Row,
-        call_str: Option<String>,
+        call_str: Option<char>,
         method_str: Option<MethodName>,
         method_ref: Option<MethodRef>,
         is_ruleoff: bool,

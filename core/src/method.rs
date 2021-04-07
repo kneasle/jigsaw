@@ -1,7 +1,7 @@
 use crate::{AnnotBlock, PnBlock};
 
 /// A standard label name used for denoting the 'lead end' of a method
-const LABEL_LEAD_END: &str = "LE";
+pub const LABEL_LEAD_END: &str = "LE";
 
 /// The definition of a 'method' within Change Ringing.  This struct follows quite a loose
 /// definition, which allows the `Method` struct to represent things that may not count as methods

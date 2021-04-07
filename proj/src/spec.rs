@@ -1,5 +1,5 @@
 use crate::derived_state::{ExpandedRow, MethodName};
-use proj_core::{AnnotBlock, AnnotRow, IncompatibleStages, Method, PnBlock, Row, Stage};
+use proj_core::{AnnotBlock, AnnotRow, Call, IncompatibleStages, Method, PnBlock, Row, Stage};
 use std::{
     fmt::{Display, Formatter},
     rc::Rc,
@@ -98,11 +98,31 @@ impl MethodRef {
     }
 }
 
+/// The specification of where within a [`Call`] a given row comes.  It is essentially a reference
+/// back to the calls list.
+#[derive(Debug, Clone, Copy)]
+pub struct CallRef {
+    call_index: usize,
+    row_index: usize,
+}
+
+impl CallRef {
+    #[inline]
+    pub fn call_index(&self) -> usize {
+        self.call_index
+    }
+
+    #[inline]
+    pub fn sub_lead_index(&self) -> usize {
+        self.row_index
+    }
+}
+
 #[derive(Debug, Clone, Default)]
 struct Annot {
     is_lead_end: bool,
     method: Option<MethodRef>,
-    call_str: Option<String>,
+    call: Option<CallRef>,
 }
 
 /// The possible ways splitting a [`Frag`] could fail
@@ -275,12 +295,22 @@ impl Frag {
 
     /// Expand this `Frag` into the [`ExpandedRow`]s that make it up.  Only intended for use in
     /// [`Spec::expand`]
-    fn expand(&self, part_heads: &[Row], methods: &[Rc<MethodSpec>]) -> Vec<ExpandedRow> {
+    fn expand(
+        &self,
+        part_heads: &[Row],
+        methods: &[Rc<MethodSpec>],
+        calls: &[Rc<Call>],
+    ) -> Vec<ExpandedRow> {
         let mut last_method: Option<MethodRef> = None;
         let mut exp_rows: Vec<ExpandedRow> = Vec::with_capacity(self.block.len());
         for (row_ind, annot_row) in self.block.iter().enumerate() {
+            /* Destruct the values from `annot_row` for convenience */
             let row = annot_row.row();
             let annot = annot_row.annot();
+
+            /* METHOD SPLICE LOGIC:
+             * This detects method splices and adds labels & ruleoffs accordingly
+             */
             // A method splice should happen if this row points to a different method to the
             // last one, or the methods are the same and there's a jump in row indices
             // (ignoring wrapping over lead ends).  Note the '!' to negate the output of the
@@ -298,28 +328,42 @@ impl Frag {
                 // leftover rows)
                 (_, cur_meth) => cur_meth.is_some(),
             };
+            // Update `last_method` for the next iteration
             last_method = annot.method;
             // If there is a splice, then set the last row as a ruleoff (since ruleoffs determine
-            // which rows have lines placed _underneath_ them)
-            if is_splice {
+            // which rows have lines placed _underneath_ them).  Also, calculate what methd label
+            // to use.
+            let method_label = if is_splice {
+                // Make the last row into a ruleoff (if it exists)
                 exp_rows
                     .last_mut()
                     .map(|r: &mut ExpandedRow| r.set_ruleoff());
-            }
-            // Push the new ExpandedRow
+                // Return the method name to use as a label for this Row
+                annot.method.map(|m| {
+                    let new_method = &methods[m.method_index];
+                    MethodName::new(
+                        String::from(new_method.method.name()),
+                        new_method.shorthand.clone(),
+                    )
+                })
+            } else {
+                None
+            };
+
+            /* Calculate what call string to attach to this [`Row`] */
+            let call = annot
+                .call
+                .filter(|call_ref| call_ref.row_index == 0)
+                .map(|call_ref| calls[call_ref.call_index].as_ref());
+
+            /* Construct and push an `ExpandedRow` */
             exp_rows.push(ExpandedRow::new(
+                // PERF: This causes more allocations than we need, because `ExpandedRow::new` does
+                // not consume the row given to it.  Even using a persistent buffer for the value
+                // of `self.start_row * row` would improve things
                 &(&self.start_row * row),
-                annot.call_str.clone(),
-                annot
-                    .method
-                    .map(|m| {
-                        let new_method = &methods[m.method_index];
-                        MethodName::new(
-                            String::from(new_method.method.name()),
-                            new_method.shorthand.clone(),
-                        )
-                    })
-                    .filter(|_| is_splice),
+                call.map(|c| c.notation()),
+                method_label,
                 annot.method,
                 // Ruleoffs should happen at lead ends and whenever there is a splice
                 annot.is_lead_end,
@@ -367,7 +411,7 @@ impl Frag {
     }
 
     /// Generates an example fragment (in this case, it's https://complib.org/composition/75822)
-    fn cyclic_s8() -> (Frag, Vec<Rc<MethodSpec>>) {
+    fn cyclic_s8() -> (Frag, Vec<Rc<MethodSpec>>, Vec<Rc<Call>>) {
         let mut rows: Vec<AnnotRow<Annot>> = include_str!("cyclic-s8")
             .lines()
             .map(|x| AnnotRow::with_default(Row::parse(x).unwrap()))
@@ -392,6 +436,12 @@ impl Frag {
             })
         })
         .collect();
+        let calls: Vec<Rc<Call>> = vec![
+            Rc::new(Call::le_bob(PnBlock::parse("14", Stage::MAJOR).unwrap())),
+            Rc::new(Call::le_single(
+                PnBlock::parse("1234", Stage::MAJOR).unwrap(),
+            )),
+        ];
 
         /* ANNOTATIONS */
         let meths = [0, 1, 2, 3, 4, 5, 6, 1];
@@ -406,12 +456,16 @@ impl Frag {
             rows[i * 32 + 31].annot_mut().is_lead_end = true;
         }
         // Calls
-        rows[31].annot_mut().call_str = Some("s".to_owned());
-        rows[63].annot_mut().call_str = Some("s".to_owned());
-        rows[223].annot_mut().call_str = Some("s".to_owned());
-        rows[255].annot_mut().call_str = Some("s".to_owned());
+        let single_ref = Some(CallRef {
+            call_index: 1,
+            row_index: 0,
+        });
+        rows[31].annot_mut().call = single_ref;
+        rows[63].annot_mut().call = single_ref;
+        rows[223].annot_mut().call = single_ref;
+        rows[255].annot_mut().call = single_ref;
         // Create the fragment and return
-        (Self::from_rows(rows, 0.0, 0.0, false), methods)
+        (Self::from_rows(rows, 0.0, 0.0, false), methods, calls)
     }
 }
 
@@ -443,6 +497,7 @@ pub struct Spec {
     frags: Vec<Rc<Frag>>,
     part_heads: Rc<PartHeads>,
     methods: Vec<Rc<MethodSpec>>,
+    calls: Vec<Rc<Call>>,
     stage: Stage,
 }
 
@@ -451,13 +506,14 @@ impl Spec {
 
     /// Creates an example Spec
     pub fn cyclic_s8() -> Spec {
-        let (frag, methods) = Frag::cyclic_s8();
-        Self::single_frag(frag, methods, "81234567", Stage::MAJOR)
+        let (frag, methods, calls) = Frag::cyclic_s8();
+        Self::single_frag(frag, methods, calls, "81234567", Stage::MAJOR)
     }
 
     fn single_frag(
         frag: Frag,
         methods: Vec<Rc<MethodSpec>>,
+        calls: Vec<Rc<Call>>,
         part_head_spec: &str,
         stage: Stage,
     ) -> Spec {
@@ -469,6 +525,7 @@ impl Spec {
             frags: vec![Rc::new(frag)],
             part_heads: Rc::new(PartHeads::parse(part_head_spec, stage).unwrap()),
             methods,
+            calls,
             stage,
         }
     }
@@ -509,7 +566,7 @@ impl Spec {
                                     method_index: method_ind,
                                     sub_lead_index: i,
                                 }),
-                                call_str: None,
+                                call: None,
                             },
                         )
                     })
@@ -690,7 +747,7 @@ impl Spec {
             // Expanded frags
             self.frags
                 .iter()
-                .map(|f| f.expand(part_heads, &self.methods))
+                .map(|f| f.expand(part_heads, &self.methods, &self.calls))
                 .collect(),
             // Part heads
             self.part_heads.clone(),
