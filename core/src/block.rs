@@ -46,9 +46,10 @@ impl Block {
     }
 }
 
-/// An `AnnotBlock` is an ordered sequence of [`Row`]s, which are usually meant to be rung
-/// contiguously.  Each of these [`Row`]s have an attached 'annotation' of any type `A`, which will
-/// be stored alongside that [`Row`].
+/// An `AnnotBlock` is in essence a multi-permutation: it describes the transposition of a single
+/// start [`Row`] into many [`Row`]s, the first of which is always the one supplied.  The last
+/// [`Row`] of an `AnnotBlock` is considered 'left-over', and represents the first [`Row`] that
+/// should be rung after this `AnnotBlock`.
 ///
 /// A few things to note about `Block`s:
 /// - All `Block`s must have non-zero length.  Zero-length blocks cannot be created with `safe`
@@ -66,6 +67,7 @@ pub struct AnnotBlock<A> {
     /// 1. `Block::rows` contains at least two [`Row`]s.  Zero-length `Block`s cannot be created
     ///    using `safe` code.
     /// 2. All the [`Row`]s in `Block::rows` must have the same [`Stage`].
+    /// 3. The first [`Row`] should always equal `rounds`
     rows: Vec<(Row, A)>,
 }
 
@@ -83,26 +85,30 @@ impl<A> AnnotBlock<A> {
         // We store the _inverse_ of the first Row, because for each row R we are solving the
         // equation `FX = R` where F is the first Row.  The solution to this is `X = F^-1 * R`, so
         // it makes sense to invert F once and then use that in all subsequent calculations.
+        let mut inv_first_row: Option<Row> = None;
         let mut annot_rows: Vec<(Row, A)> = Vec::new();
-        let mut first_stage: Option<Stage> = None;
         for (i, l) in s.lines().enumerate() {
             // Parse the line into a Row, and fail if its either invalid or doesn't match the stage
             let parsed_row =
                 Row::parse(l).map_err(|err| ParseError::InvalidRow { line: i, err })?;
-            if let Some(first_stage) = first_stage {
-                if first_stage != parsed_row.stage() {
+            if let Some(inv_first_row) = &inv_first_row {
+                if inv_first_row.stage() != parsed_row.stage() {
                     return Err(ParseError::IncompatibleStages {
                         line: i,
-                        first_stage,
+                        first_stage: inv_first_row.stage(),
                         different_stage: parsed_row.stage(),
                     });
                 }
+                // If all the checks passed, push the row
+                annot_rows.push((
+                    unsafe { inv_first_row.mul_unchecked(&parsed_row) },
+                    A::default(),
+                ));
             } else {
-                // Set `first_stage` if we're parsing the first Row
-                first_stage = Some(parsed_row.stage());
+                // If this is the first Row, then push rounds and set the inverse first row
+                inv_first_row = Some(!&parsed_row);
+                annot_rows.push((Row::rounds(parsed_row.stage()), A::default()));
             }
-            // If all the checks passed, push the row
-            annot_rows.push((parsed_row, A::default()));
         }
         // Return an error if the rows would form a zero-length block
         if annot_rows.len() <= 1 {
@@ -116,6 +122,7 @@ impl<A> AnnotBlock<A> {
     /// Creates a new `AnnotBlock` from a [`Vec`] of annotated [`Row`]s, checking that the result
     /// is valid.
     pub fn from_annot_rows(annot_rows: Vec<(Row, A)>) -> Result<Self, ParseError> {
+        assert!(annot_rows[0].0.is_rounds());
         if annot_rows.len() <= 1 {
             return Err(ParseError::ZeroLengthBlock);
         }
@@ -123,7 +130,7 @@ impl<A> AnnotBlock<A> {
         for (i, (r, _annot)) in annot_rows.iter().enumerate().skip(1) {
             if r.stage() != first_stage {
                 return Err(ParseError::IncompatibleStages {
-                    row_index: i,
+                    line: i,
                     first_stage,
                     different_stage: r.stage(),
                 });

@@ -451,16 +451,12 @@ impl PnBlock {
         self.pns.len()
     }
 
-    /// Generates a [`Block`] specified by applying these `PlaceNot`s to a given starting [`Row`].
-    /// This block will contain the default annotations
-    pub fn block_starting_with<A: Default>(
-        &self,
-        start_row: &Row,
-    ) -> Result<AnnotBlock<A>, IncompatibleStages> {
-        IncompatibleStages::test_err(start_row.stage(), self.stage())?;
+    /// Generates a [`Block`] specified by these [`PlaceNot`]s.  This [`Block`] will contain only
+    /// default annotations.
+    pub fn to_block<A: Default>(&self) -> AnnotBlock<A> {
         // The rows which will make up the new Block
         let mut rows: Vec<(Row, A)> = Vec::with_capacity(self.pns.len() + 1);
-        rows.push((start_row.clone(), A::default()));
+        rows.push((Row::rounds(self.stage()), A::default()));
         for pn in &self.pns {
             rows.push((
                 unsafe { pn.permute_new_unchecked(&rows.last().unwrap().0) },
@@ -470,8 +466,9 @@ impl PnBlock {
         // This unsafety is OK, because:
         // - rows.len() >= 2, because it contains one copy of `start_row` and one Row per PN in
         //   this Block (and PnBlocks must have at least one PlaceNot)
-        // - We've checked that the stages match at the top of this function
-        Ok(unsafe { AnnotBlock::from_annot_rows_unchecked(rows) })
+        // - These place notations must all have the same stage, so therefore the resulting Rows
+        //   must too
+        unsafe { AnnotBlock::from_annot_rows_unchecked(rows) }
     }
 }
 
@@ -502,7 +499,7 @@ impl From<char> for CharMeaning {
 #[cfg(test)]
 mod tests {
     use super::ParseError;
-    use crate::{Block, PlaceNot, PnBlock, Row, Stage};
+    use crate::{Block, PlaceNot, PnBlock, Stage};
 
     #[test]
     fn parse_ok() {
@@ -639,29 +636,15 @@ mod tests {
             (
                 Stage::MINOR,
                 "34-36.14-12-36.14-14.36,12",
-                "156342",
                 include_str!("alnwick"),
             ), // Alnwick Surprise Minor
-            (
-                Stage::MINOR,
-                "34-3.4-2-3.4-4.3,+2",
-                "156342",
-                include_str!("alnwick"),
-            ), // Alnwick Surprise Minor
-            (
-                Stage::MAJOR,
-                "x18x18x18x18,12",
-                "12345678",
-                include_str!("pb-8"),
-            ), // Plain Bob Major
+            (Stage::MINOR, "34-3.4-2-3.4-4.3,+2", include_str!("alnwick")), // Alnwick Surprise Minor
+            (Stage::MAJOR, "x18x18x18x18,12", include_str!("pb-8")),        // Plain Bob Major
         ];
 
-        for &(stage, pn, row, block) in &equal_blocks {
+        for &(stage, pn, block) in &equal_blocks {
             println!("Parsing {}", pn);
-            let b1: Block = PnBlock::parse(pn, stage)
-                .unwrap()
-                .block_starting_with(&Row::parse(row).unwrap())
-                .unwrap();
+            let b1: Block = PnBlock::parse(pn, stage).unwrap().to_block();
             let b2 = Block::parse(block).unwrap();
             assert_eq!(b1, b2);
         }
