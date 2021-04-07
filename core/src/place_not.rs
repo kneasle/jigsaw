@@ -1,6 +1,6 @@
 //! Module for parsing and handling place notation
 
-use crate::{AnnotBlock, Bell, IncompatibleStages, Row, Stage};
+use crate::{AnnotBlock, AnnotRow, Bell, IncompatibleStages, Row, Stage};
 use itertools::Itertools;
 use std::{
     fmt::{Display, Formatter},
@@ -455,13 +455,12 @@ impl PnBlock {
     /// default annotations.
     pub fn to_block<A: Default>(&self) -> AnnotBlock<A> {
         // The rows which will make up the new Block
-        let mut rows: Vec<(Row, A)> = Vec::with_capacity(self.pns.len() + 1);
-        rows.push((Row::rounds(self.stage()), A::default()));
+        let mut rows: Vec<AnnotRow<A>> = Vec::with_capacity(self.pns.len() + 1);
+        rows.push(AnnotRow::with_default(Row::rounds(self.stage())));
         for pn in &self.pns {
-            rows.push((
-                unsafe { pn.permute_new_unchecked(&rows.last().unwrap().0) },
-                A::default(),
-            ));
+            rows.push(AnnotRow::with_default(unsafe {
+                pn.permute_new_unchecked(&rows.last().unwrap().row())
+            }));
         }
         // This unsafety is OK, because:
         // - rows.len() >= 2, because it contains one copy of `start_row` and one Row per PN in
