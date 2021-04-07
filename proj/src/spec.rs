@@ -1,5 +1,5 @@
 use crate::derived_state::{ExpandedRow, MethodName};
-use proj_core::{AnnotBlock, Block, IncompatibleStages, PnBlock, Row, Stage};
+use proj_core::{AnnotBlock, IncompatibleStages, Method, PnBlock, Row, Stage};
 use std::{
     fmt::{Display, Formatter},
     rc::Rc,
@@ -275,7 +275,7 @@ impl Frag {
 
     /// Expand this `Frag` into the [`ExpandedRow`]s that make it up.  Only intended for use in
     /// [`Spec::expand`]
-    fn expand(&self, part_heads: &[Row], methods: &[Rc<Method>]) -> Vec<ExpandedRow> {
+    fn expand(&self, part_heads: &[Row], methods: &[Rc<MethodSpec>]) -> Vec<ExpandedRow> {
         let mut last_method: Option<MethodRef> = None;
         let mut exp_rows: Vec<ExpandedRow> = Vec::with_capacity(self.block.len());
         for (row_ind, (row, annot)) in self.block.iter().enumerate() {
@@ -289,7 +289,7 @@ impl Frag {
                             // In order to be a continuation of the same method, we have to also
                             // check that the row indices are also consecutive (so that things like
                             // restarting a method cause a splice)
-                            || (lm.sub_lead_index + 1) % methods[m.method_index].first_lead.len()
+                            || (lm.sub_lead_index + 1) % methods[m.method_index].method.lead_len()
                                 != m.sub_lead_index
                 }
                 // Splicing to no method doesn't count as a splice (this will only make sense for
@@ -312,7 +312,10 @@ impl Frag {
                     .method
                     .map(|m| {
                         let new_method = &methods[m.method_index];
-                        MethodName::new(new_method.name.clone(), new_method.shorthand.clone())
+                        MethodName::new(
+                            String::from(new_method.method.name()),
+                            new_method.shorthand.clone(),
+                        )
                     })
                     .filter(|_| is_splice),
                 annot.method,
@@ -362,12 +365,12 @@ impl Frag {
     }
 
     /// Generates an example fragment (in this case, it's https://complib.org/composition/75822)
-    fn cyclic_s8() -> (Frag, Vec<Rc<Method>>) {
+    fn cyclic_s8() -> (Frag, Vec<Rc<MethodSpec>>) {
         let mut rows: Vec<_> = include_str!("cyclic-s8")
             .lines()
             .map(|x| (Row::parse(x).unwrap(), Annot::default()))
             .collect();
-        let methods: Vec<Rc<Method>> = [
+        let methods: Vec<Rc<MethodSpec>> = [
             ("Deva", "V", "-58-14.58-58.36-14-58-36-18,18"),
             ("Bristol", "B", "-58-14.58-58.36.14-14.58-14-18,18"),
             ("Lessness", "E", "-38-14-56-16-12-58-14-58,12"),
@@ -378,10 +381,12 @@ impl Frag {
         ]
         .iter()
         .map(|(name, shorthand, pn)| {
-            Rc::new(Method {
-                name: String::from(*name),
+            Rc::new(MethodSpec {
                 shorthand: String::from(*shorthand),
-                first_lead: PnBlock::parse(pn, Stage::MAJOR).unwrap().to_block(),
+                method: Method::with_lead_end(
+                    String::from(*name),
+                    &PnBlock::parse(pn, Stage::MAJOR).unwrap(),
+                ),
             })
         })
         .collect();
@@ -399,26 +404,25 @@ impl Frag {
             rows[i * 32 + 31].1.is_lead_end = true;
         }
         // Calls
-        rows[31].1.call_str = Some("sB".to_owned());
-        rows[63].1.call_str = Some("sB".to_owned());
-        rows[223].1.call_str = Some("sH".to_owned());
-        rows[255].1.call_str = Some("sH".to_owned());
+        rows[31].1.call_str = Some("s".to_owned());
+        rows[63].1.call_str = Some("s".to_owned());
+        rows[223].1.call_str = Some("s".to_owned());
+        rows[255].1.call_str = Some("s".to_owned());
         // Create the fragment and return
         (Self::from_rows(rows, 0.0, 0.0, false), methods)
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct Method {
-    name: String,
+pub struct MethodSpec {
     shorthand: String,
-    first_lead: Block,
+    method: Method,
 }
 
-impl Method {
+impl MethodSpec {
     #[inline]
     pub fn name(&self) -> &str {
-        &self.name
+        self.method.name()
     }
 
     #[inline]
@@ -436,7 +440,7 @@ impl Method {
 pub struct Spec {
     frags: Vec<Rc<Frag>>,
     part_heads: Rc<PartHeads>,
-    methods: Vec<Rc<Method>>,
+    methods: Vec<Rc<MethodSpec>>,
     stage: Stage,
 }
 
@@ -451,7 +455,7 @@ impl Spec {
 
     fn single_frag(
         frag: Frag,
-        methods: Vec<Rc<Method>>,
+        methods: Vec<Rc<MethodSpec>>,
         part_head_spec: &str,
         stage: Stage,
     ) -> Spec {
@@ -486,19 +490,19 @@ impl Spec {
     /// [`Self::add_frag`].
     fn new_frag(&self, x: f32, y: f32, add_course: bool, method_ind: usize) -> Frag {
         let new_frag = {
-            let method = &self.methods[method_ind];
-            let lead_len = method.first_lead.len();
+            let method_spec = &self.methods[method_ind];
             let mut block = AnnotBlock::from_annot_rows(
-                method
-                    .first_lead
+                method_spec
+                    .method
+                    .lead()
                     .annot_rows()
                     .iter()
                     .enumerate()
-                    .map(|(i, (r, _annot))| {
+                    .map(|(i, (r, label))| {
                         (
                             r.clone(),
                             Annot {
-                                is_lead_end: i == lead_len - 1,
+                                is_lead_end: label.is_some(),
                                 method: Some(MethodRef {
                                     method_index: method_ind,
                                     sub_lead_index: i,
@@ -678,7 +682,7 @@ impl Spec {
     ///     Vec<Row>, // Part heads; one per part
     /// )
     /// ```
-    pub fn expand(&self) -> (Vec<Vec<ExpandedRow>>, Rc<PartHeads>, &[Rc<Method>]) {
+    pub fn expand(&self) -> (Vec<Vec<ExpandedRow>>, Rc<PartHeads>, &[Rc<MethodSpec>]) {
         let part_heads = self.part_heads.rows();
         (
             // Expanded frags

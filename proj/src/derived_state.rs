@@ -1,4 +1,4 @@
-use crate::spec::{Method, MethodRef, PartHeads, Spec};
+use crate::spec::{MethodRef, MethodSpec, PartHeads, Spec};
 use proj_core::{run_len, Row, Stage};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -75,8 +75,8 @@ pub struct DerivedMethod {
     num_rows: usize,
 }
 
-impl From<&Method> for DerivedMethod {
-    fn from(method: &Method) -> Self {
+impl From<&MethodSpec> for DerivedMethod {
+    fn from(method: &MethodSpec) -> Self {
         DerivedMethod {
             name: String::from(method.name()),
             shorthand: String::from(method.shorthand()),
@@ -531,7 +531,7 @@ fn add_ranges(
 }
 
 /// Derive statistics about each [`Method`] using the [`ExpandedRow`]s of the composition
-fn derive_methods(methods: &[Rc<Method>], exp_rows: &[Vec<ExpandedRow>]) -> Vec<DerivedMethod> {
+fn derive_methods(methods: &[Rc<MethodSpec>], exp_rows: &[Vec<ExpandedRow>]) -> Vec<DerivedMethod> {
     // Initialise list of empty methods (which are indexed in the same order as the original
     // methods list
     let mut der_methods: Vec<DerivedMethod> = methods
