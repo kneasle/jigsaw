@@ -7,6 +7,10 @@ use std::{
     ops::Range,
 };
 
+// Imports used solely for doc comments
+#[allow(unused_imports)]
+use crate::Block;
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum ParseError {
     PlaceOutOfStage { place: usize, stage: Stage },
@@ -215,7 +219,8 @@ impl PlaceNot {
     /// to preserve the old [`Row`], then use [`permute_new`](Self::permute_new).
     pub fn permute(&self, row: &mut Row) -> Result<(), IncompatibleStages> {
         IncompatibleStages::test_err(row.stage(), self.stage)?;
-        Ok(unsafe { self.permute_unchecked(row) })
+        unsafe { self.permute_unchecked(row) };
+        Ok(())
     }
 
     /// Uses this `PlaceNot` to perform an in-place permutation of a given [`Row`], **without**
@@ -308,6 +313,8 @@ pub struct PnBlock {
     pns: Vec<PlaceNot>,
 }
 
+// PnBlocks can't have zero length, so `is_empty` is unnecessary
+#[allow(clippy::len_without_is_empty)]
 impl PnBlock {
     /// Parse a string slice into a `PnBlock`, checking for ambiguity and correctness.  This also
     /// expands symmetric blocks and implicit places.

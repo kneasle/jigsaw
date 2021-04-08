@@ -350,7 +350,7 @@ impl Comp {
 
     /* Actions */
 
-    /// See [`Spec::extend_frag`] for docs
+    /// See [`Spec::extend_frag_end`] for docs
     pub fn extend_frag(&mut self, frag_ind: usize, method_ind: usize, add_course: bool) {
         // `self.make_action` bubbles through the return value from `Spec::add_frag`, which will
         // make sure we return the index of the newly added Frag

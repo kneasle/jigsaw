@@ -20,7 +20,7 @@ pub use self::part_heads::PartHeads;
 /// fields from the rest of the code and make sure that the only way to construct a [`PartHeads`]
 /// is to use the fallible constructors provided (which guarutee that the [`PartHeads`]s created
 /// uphold all the required invariants).
-mod part_heads {
+pub mod part_heads {
     use proj_core::{InvalidRowError, Row, Stage};
     use serde::Serialize;
 
@@ -410,9 +410,9 @@ impl Frag {
             // to use.
             let method_label = if is_splice {
                 // Make the last row into a ruleoff (if it exists)
-                exp_rows
-                    .last_mut()
-                    .map(|r: &mut ExpandedRow| r.set_ruleoff());
+                if let Some(r) = exp_rows.last_mut() {
+                    r.set_ruleoff()
+                }
                 // Return the method name to use as a label for this Row
                 annot.method.map(|m| {
                     let new_method = &methods[m.method_index];

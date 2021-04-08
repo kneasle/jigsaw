@@ -1,5 +1,9 @@
 use crate::{AnnotBlock, PnBlock};
 
+// Imports used solely for doc comments
+#[allow(unused_imports)]
+use crate::{Block, Row};
+
 /// A standard label name used for denoting the 'lead end' of a method
 pub const LABEL_LEAD_END: &str = "LE";
 

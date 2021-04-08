@@ -2,6 +2,10 @@
 
 use crate::{Bell, Stage};
 
+// Imports used solely for doc comments
+#[allow(unused_imports)]
+use crate::Block;
+
 /// All the possible ways that a [`Row`] could be invalid.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum InvalidRowError {
@@ -305,6 +309,7 @@ impl Row {
     ///
     /// # Ok::<(), InvalidRowError>(())
     /// ```
+    #[allow(clippy::should_implement_trait)]
     pub fn from_iter<I>(iter: I) -> RowResult
     where
         I: Iterator<Item = Bell>,
@@ -315,6 +320,12 @@ impl Row {
     /// Utility function that creates a `Row` from an iterator of [`Bell`]s, **without** performing
     /// the validity check.  This function is `unsafe`; only use it if you can guarantee that the
     /// resulting `Row` is valid.
+    ///
+    /// # Safety
+    ///
+    /// This function is safe if `iter` yields a valid `Row` according to the CC's Framework.  This
+    /// means that each [`Bell`] is unique, and has [`index`](Bell::index) smaller than the number
+    /// of items yeilded by `iter`.
     ///
     /// # Example
     /// ```
@@ -372,6 +383,12 @@ impl Row {
     /// Creates a `Row` from a [`Vec`] of [`Bell`]s, **without** checking that the the resulting
     /// `Row` is valid.  Only use this if you're certain that the input is valid, since performing
     /// invalid operations on `Row`s is undefined behaviour.
+    ///
+    /// # Safety
+    ///
+    /// This function is safe if `bells` corresponds to a valid `Row` according to the CC's
+    /// Framework.  This means that each [`Bell`] is unique, and has [`index`](Bell::index) smaller
+    /// than the `bells.len()`.
     ///
     /// # Example
     /// ```
@@ -600,6 +617,11 @@ impl Row {
     /// [`Stage`]s are compatible.  This is slighlty faster than using `*` or [`Row::mul`], but is
     /// `unsafe`: the output is not guaruteed to be valid unless both inputs have the same
     /// [`Stage`].
+    ///
+    /// # Safety
+    ///
+    /// This is safe if the two `Row`s have the same [`Stage`] (which is often an invariant
+    /// enforced by other datatypes, such as [`Block`]).
     ///
     /// # Example
     /// ```
