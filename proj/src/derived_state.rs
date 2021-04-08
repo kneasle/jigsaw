@@ -8,6 +8,8 @@ use std::rc::Rc;
 #[allow(unused_imports)]
 use crate::spec::Frag;
 
+/* ========== UTIL STRUCTS TO LINK EXPANDED ROWS BACK TO THEIR LOCATIONS ========== */
+
 /// A small datatype that represents **where** a given row comes from in the composition.  This is
 /// useful because the composition contains many fragments, and each row of each fragment could
 /// expand into multiple actual rows (one for each part).
@@ -54,6 +56,8 @@ impl From<RowOrigin> for RowLocation {
     }
 }
 
+/* ========== DERIVED STATE OF EACH ROW ========== */
+
 /// A data structure to store a method splice label
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize)]
 pub struct MethodLabel {
@@ -80,26 +84,6 @@ impl CallLabel {
         CallLabel {
             notation,
             positions,
-        }
-    }
-}
-
-/// The derived state of a single method definition.
-#[derive(Debug, Clone, Serialize)]
-pub struct DerivedMethod {
-    name: String,
-    shorthand: String,
-    num_proved_rows: usize,
-    num_rows: usize,
-}
-
-impl From<&MethodSpec> for DerivedMethod {
-    fn from(method: &MethodSpec) -> Self {
-        DerivedMethod {
-            name: String::from(method.name()),
-            shorthand: String::from(method.shorthand()),
-            num_proved_rows: 0,
-            num_rows: 0,
         }
     }
 }
@@ -195,10 +179,13 @@ impl ExpandedRow {
         }
     }
 
+    /// Marks this `ExpandedRow` as a ruleoff
     pub fn set_ruleoff(&mut self) {
         self.is_ruleoff = true;
     }
 }
+
+/* ========== DERIVED STATE OF FRAGMENTS (AND THEIR LINKS) ========== */
 
 /// A range of rows which should be highlighted as all false in the same way.  This is supposed to
 /// cover `start..=end` rows (i.e. the ranges are **inclusive**).
@@ -206,6 +193,16 @@ impl ExpandedRow {
 pub struct FalseRowRange {
     start: usize,
     end: usize,
+    group: usize,
+}
+
+/// A struct that says that [`Frag`] #`to` can be linked onto the end of [`Frag`] #`from`.  This
+/// will be stored in a `Vec`, representing a non-symmetric relation over the [`Frag`]s in the
+/// composition.
+#[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct FragLink {
+    from: usize,
+    to: usize,
     group: usize,
 }
 
@@ -231,6 +228,28 @@ pub struct AnnotFrag {
     y: f32,
 }
 
+/* ========== DERIVED STATE NOT SPECIFIC TO EACH FRAGMENTS ========== */
+
+/// The derived state of a single method definition.
+#[derive(Debug, Clone, Serialize)]
+pub struct DerivedMethod {
+    name: String,
+    shorthand: String,
+    num_proved_rows: usize,
+    num_rows: usize,
+}
+
+impl From<&MethodSpec> for DerivedMethod {
+    fn from(method: &MethodSpec) -> Self {
+        DerivedMethod {
+            name: String::from(method.name()),
+            shorthand: String::from(method.shorthand()),
+            num_proved_rows: 0,
+            num_rows: 0,
+        }
+    }
+}
+
 /// General statistics about the composition, to be displayed in the top-left corner of the screen
 #[derive(Serialize, Debug, Clone)]
 pub struct DerivedStats {
@@ -239,16 +258,13 @@ pub struct DerivedStats {
     num_false_groups: usize,
 }
 
-/// A struct that says that [`Frag`] #`to` can be linked onto the end of [`Frag`] #`from`.  This
-/// will be stored in a `Vec`, representing a non-symmetric relation over the [`Frag`]s in the
-/// composition.
-#[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct FragLink {
-    from: usize,
-    to: usize,
-    group: usize,
-}
+/* ========== FULL DERIVED STATE ========== */
 
+/// The full `DerivedState` of a composition.  This is (almost) the only information that the
+/// JavaScript rendering code gets access to - every time the viewed [`Spec`] is updated, a new
+/// `DerivedState` is built then serialised to JSON (which is then deserialised into a native JS
+/// object).  Essentially this means that JavaScript's `derived_state` global variable is a
+/// read-only copy of `DerivedState`, complete with private fields.
 #[derive(Serialize, Debug, Clone)]
 pub struct DerivedState {
     frags: Vec<AnnotFrag>,
@@ -329,6 +345,8 @@ impl DerivedState {
         }
     }
 }
+
+/* ========== HELPER FUNCTIONS FOR Spec -> DerivedState CONVERSION ========== */
 
 /// Given the expanded rows from each [`Frag`] of the composition, find which pairs of
 /// [`Frag`]s should be connected (i.e. [`Frag`]s (x, y) are linked x -> y iff the leftover row
