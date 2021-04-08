@@ -54,19 +54,37 @@ impl From<RowOrigin> for RowLocation {
     }
 }
 
-/// A convenient data structure of the long and short method names
+/// A data structure to store a method splice label
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize)]
-pub struct MethodName {
+pub struct MethodLabel {
     name: String,
     shorthand: String,
 }
 
-impl MethodName {
+impl MethodLabel {
     pub fn new(name: String, shorthand: String) -> Self {
-        MethodName { name, shorthand }
+        MethodLabel { name, shorthand }
     }
 }
 
+/// A data structure to store a point on the comp where a call is labelled
+#[derive(Debug, Clone, Serialize)]
+pub struct CallLabel {
+    notation: char,
+    /// What label should this call be given in each part
+    positions: Vec<String>,
+}
+
+impl CallLabel {
+    pub fn new(notation: char, positions: Vec<String>) -> Self {
+        CallLabel {
+            notation,
+            positions,
+        }
+    }
+}
+
+/// The derived state of a single method definition.
 #[derive(Debug, Clone, Serialize)]
 pub struct DerivedMethod {
     name: String,
@@ -92,9 +110,9 @@ impl From<&MethodSpec> for DerivedMethod {
 #[derive(Serialize, Debug, Clone)]
 pub struct ExpandedRow {
     #[serde(skip_serializing_if = "Option::is_none")]
-    call_label: Option<char>,
+    call_label: Option<CallLabel>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    method_label: Option<MethodName>,
+    method_label: Option<MethodLabel>,
     #[serde(skip_serializing_if = "crate::ser_utils::is_false")]
     is_ruleoff: bool,
     #[serde(skip_serializing_if = "crate::ser_utils::is_true")]
@@ -159,21 +177,19 @@ impl ExpandedRow {
 
     /// Create a new `ExpandedRow` from its constituent parts
     pub fn new(
-        row: &Row,
-        call_str: Option<char>,
-        method_str: Option<MethodName>,
+        all_rows: Vec<Row>,
+        call_label: Option<CallLabel>,
+        method_str: Option<MethodLabel>,
         method_ref: Option<MethodRef>,
         is_ruleoff: bool,
-        part_heads: &[Row],
         is_proved: bool,
     ) -> Self {
-        let all_rows: Vec<Row> = part_heads.iter().map(|ph| ph * row).collect();
         ExpandedRow {
-            call_label: call_str,
+            call_label,
             method_label: method_str,
             method_ref,
             is_ruleoff,
-            music_highlights: Self::calculate_music(&all_rows, row.stage()),
+            music_highlights: Self::calculate_music(&all_rows, all_rows[0].stage()),
             rows: all_rows,
             is_proved,
         }

@@ -1,4 +1,4 @@
-use crate::{method::LABEL_LEAD_END, Block, PnBlock};
+use crate::{method::LABEL_LEAD_END, Block, PnBlock, Row};
 
 pub const NOTATION_BOB: char = '-';
 pub const NOTATION_SINGLE: char = 's';
@@ -47,5 +47,13 @@ impl Call {
     #[inline]
     pub fn notation(&self) -> char {
         self.notation
+    }
+
+    /// Returns a [`Row`] representing the overall transposition of this `Call` (i.e. the
+    /// permutation which maps the [`Row`] where this `Call` starts to the [`Row`] where it ends).
+    /// This is useful for generating things such as calling positions.
+    #[inline]
+    pub fn transposition(&self) -> &Row {
+        self.block.leftover_row()
     }
 }

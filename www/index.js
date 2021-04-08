@@ -90,7 +90,10 @@ let selected_link = undefined;
 let comp, derived_state, view;
 // Mouse variables that the browser should keep track of but doesn't
 let mouse_coords = { x: 0, y: 0 };
-// Things that should be user config but currently are global vars
+
+/* THINGS THAT SHOULD BE USER CONFIG BUT CURRENTLY ARE GLOBAL VARS */
+// What widths and colours should be assigned to bells.  There is no way to render both bell names
+// and lines at the same time (because IMO it looks awful)
 let bell_lines = {
     0: [1, "red"],
     7: [2, "blue"],
@@ -141,9 +144,11 @@ function draw_row(x, y, row) {
     ctx.globalAlpha = opacity;
     // Call string
     if (row.call_label) {
+        const notation = row.call_label.notation;
+        const position = row.call_label.positions[view.current_part];
         ctx.textAlign = "right";
         ctx.fillStyle = FOREGROUND_COL;
-        ctx.fillText(row.call_label, x - FALSENESS_BAR_WIDTH, text_baseline);
+        ctx.fillText(`${notation}${position || "?"}`, x - FALSENESS_BAR_WIDTH, text_baseline);
     }
     // Method string
     if (row.method_label) {

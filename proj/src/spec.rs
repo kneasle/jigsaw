@@ -1,5 +1,7 @@
-use crate::derived_state::{ExpandedRow, MethodName};
-use proj_core::{AnnotBlock, AnnotRow, Call, IncompatibleStages, Method, PnBlock, Row, Stage};
+use crate::derived_state::{CallLabel, ExpandedRow, MethodLabel};
+use proj_core::{
+    AnnotBlock, AnnotRow, Bell, Call, IncompatibleStages, Method, PnBlock, Row, Stage,
+};
 use std::{
     fmt::{Display, Formatter},
     rc::Rc,
@@ -9,7 +11,7 @@ use std::{
 #[allow(unused_imports)]
 use crate::derived_state::DerivedState;
 
-// Pretend the `PartHeads` is contained within this module, not it's own minimodule
+// Pretend the `PartHeads` is contained within this module, not it's own submodule
 pub use self::part_heads::PartHeads;
 
 /* ========== PART HEADS ========== */
@@ -122,6 +124,39 @@ impl MethodRef {
 }
 
 /* ========== CALL HANDLING ========== */
+
+/// A wrapper around [`Call`], which adds extra information required by this project
+#[derive(Debug, Clone)]
+pub struct CallSpec {
+    call: Call,
+    calling_positions: Vec<char>,
+}
+
+impl CallSpec {
+    /// Generates the [`CallLabel`] which represents this call placed at a given [`Row`]
+    fn to_label(&self, start_rows: &[Row]) -> CallLabel {
+        let tenor = Bell::tenor(start_rows[0].stage()).unwrap();
+        CallLabel::new(
+            self.call.notation(),
+            start_rows
+                .iter()
+                .map(|r| {
+                    // Get the place of the tenor at the _start_ of the call
+                    let place_at_start = r.place_of(tenor).unwrap();
+                    // Use the transposition of the call to generate where the tenor will be at the
+                    // _end_ of the call
+                    let place_at_end = self
+                        .call
+                        .transposition()
+                        .place_of(Bell::from_index(place_at_start))
+                        .unwrap();
+                    // Use this resulting place as an index find the call label
+                    self.calling_positions[place_at_end].to_string()
+                })
+                .collect(),
+        )
+    }
+}
 
 /// The specification of where within a [`Call`] a given row comes.  This is used to generate the
 /// call labels on the fly.
@@ -329,7 +364,7 @@ impl Frag {
         &self,
         part_heads: &[Row],
         methods: &[Rc<MethodSpec>],
-        calls: &[Rc<Call>],
+        calls: &[Rc<CallSpec>],
     ) -> Vec<ExpandedRow> {
         let mut last_method: Option<MethodRef> = None;
         let mut exp_rows: Vec<ExpandedRow> = Vec::with_capacity(self.block.len());
@@ -337,6 +372,16 @@ impl Frag {
             /* Destruct the values from `annot_row` for convenience */
             let row = annot_row.row();
             let annot = annot_row.annot();
+
+            /* Expand all the rows */
+            let all_rows: Vec<Row> = part_heads
+                .iter()
+                // PERF: This causes more allocations than we need, because `ExpandedRow::new` does
+                // not consume the row given to it.  Even using a persistent buffer for the value
+                // of `self.start_row * row` would improve things.  Even better would be to use a
+                // 'RowAccum' to accumulate the values without causing reallocations.
+                .map(|ph| &(ph * &self.start_row) * row)
+                .collect();
 
             /* METHOD SPLICE LOGIC:
              * This detects method splices and adds labels & ruleoffs accordingly
@@ -371,7 +416,7 @@ impl Frag {
                 // Return the method name to use as a label for this Row
                 annot.method.map(|m| {
                     let new_method = &methods[m.method_index];
-                    MethodName::new(
+                    MethodLabel::new(
                         String::from(new_method.method.name()),
                         new_method.shorthand.clone(),
                     )
@@ -381,23 +426,22 @@ impl Frag {
             };
 
             /* Calculate what call string to attach to this [`Row`] */
-            let call = annot
+            let call_label = annot
                 .call
+                // Only label the first row of a call
                 .filter(|call_ref| call_ref.row_index == 0)
-                .map(|call_ref| calls[call_ref.call_index].as_ref());
+                // Turn the call reference into a label by first getting the `CallSpec` to which it
+                // belongs, and then generating the label from that
+                .map(|call_ref| calls[call_ref.call_index].as_ref().to_label(&all_rows));
 
             /* Construct and push an `ExpandedRow` */
             exp_rows.push(ExpandedRow::new(
-                // PERF: This causes more allocations than we need, because `ExpandedRow::new` does
-                // not consume the row given to it.  Even using a persistent buffer for the value
-                // of `self.start_row * row` would improve things
-                &(&self.start_row * row),
-                call.map(|c| c.notation()),
+                all_rows,
+                call_label,
                 method_label,
                 annot.method,
                 // Ruleoffs should happen at lead ends and whenever there is a splice
                 annot.is_lead_end,
-                part_heads,
                 // If a row is leftover or contained in a muted frag, than it shouldn't be
                 // proven
                 row_ind != self.len() && !self.is_muted,
@@ -441,7 +485,7 @@ impl Frag {
     }
 
     /// Generates an example fragment (in this case, it's https://complib.org/composition/75822)
-    fn cyclic_s8() -> (Frag, Vec<Rc<MethodSpec>>, Vec<Rc<Call>>) {
+    fn cyclic_s8() -> (Frag, Vec<Rc<MethodSpec>>, Vec<Rc<CallSpec>>) {
         let mut rows: Vec<AnnotRow<Annot>> = include_str!("cyclic-s8")
             .lines()
             .map(|x| AnnotRow::with_default(Row::parse(x).unwrap()))
@@ -466,11 +510,15 @@ impl Frag {
             })
         })
         .collect();
-        let calls: Vec<Rc<Call>> = vec![
-            Rc::new(Call::le_bob(PnBlock::parse("14", Stage::MAJOR).unwrap())),
-            Rc::new(Call::le_single(
-                PnBlock::parse("1234", Stage::MAJOR).unwrap(),
-            )),
+        let calls = vec![
+            Rc::new(CallSpec {
+                call: Call::le_bob(PnBlock::parse("14", Stage::MAJOR).unwrap()),
+                calling_positions: "LIBFVMWH".chars().collect(),
+            }),
+            Rc::new(CallSpec {
+                call: Call::le_single(PnBlock::parse("1234", Stage::MAJOR).unwrap()),
+                calling_positions: "LBTFVMWH".chars().collect(),
+            }),
         ];
 
         /* ANNOTATIONS */
@@ -511,7 +559,7 @@ pub struct Spec {
     frags: Vec<Rc<Frag>>,
     part_heads: Rc<PartHeads>,
     methods: Vec<Rc<MethodSpec>>,
-    calls: Vec<Rc<Call>>,
+    calls: Vec<Rc<CallSpec>>,
     stage: Stage,
 }
 
@@ -527,7 +575,7 @@ impl Spec {
     fn single_frag(
         frag: Frag,
         methods: Vec<Rc<MethodSpec>>,
-        calls: Vec<Rc<Call>>,
+        calls: Vec<Rc<CallSpec>>,
         part_head_spec: &str,
         stage: Stage,
     ) -> Spec {

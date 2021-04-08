@@ -1,5 +1,7 @@
 //! A type-safe representation of a bell.
 
+use crate::Stage;
+
 /// A lookup string of the bell names
 // - E, T stand for 11 and 12 and therefore feel out of place
 // - I could be confused with 1
@@ -84,6 +86,26 @@ impl Bell {
     /// ```
     pub fn from_number(number: usize) -> Option<Bell> {
         number.checked_sub(1).map(Bell::from_index)
+    }
+
+    /// Creates the `Bell` representing the tenor or heaviest bell on a given [`Stage`].  This
+    /// could fail if the [`Stage`] has no `Bell`s, so in that case [`None`] is returned.
+    ///
+    /// # Example
+    /// ```
+    /// # fn test() -> Option<()> {
+    /// use proj_core::{Bell, Stage};
+    ///
+    /// // The **5** is the 'tenor' when ringing Doubles
+    /// assert_eq!(Bell::tenor(Stage::DOUBLES)?, Bell::from_number(5)?);
+    /// // The 12 is the tenor on maximus
+    /// assert_eq!(Bell::tenor(Stage::MAXIMUS)?, Bell::from_number(12)?);
+    /// # Some(())
+    /// # }
+    /// # fn main() { test().unwrap() }
+    /// ```
+    pub fn tenor(stage: Stage) -> Option<Bell> {
+        Self::from_number(stage.as_usize())
     }
 
     /// A [`Bell`] representing the 'treble' on any stage.  Equivalent to

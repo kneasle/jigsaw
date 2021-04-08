@@ -501,6 +501,28 @@ impl Row {
         self.bells.as_slice()
     }
 
+    /// Gets the **0-indexed** place at which a given [`Bell`] appears in this `Row`, returning
+    /// `None` if the [`Bell`] is out of the stage.  This performs a linear search of the `Row`.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Bell, Row};
+    ///
+    /// # fn test() -> Option<()> {
+    /// let tittums = Row::parse("15263748").unwrap();
+    /// // The treble is leading in position 0
+    /// assert_eq!(tittums.place_of(Bell::from_name('1')?)?, 0);
+    /// // The '5' is at index `1`, because indices always start from zero
+    /// assert_eq!(tittums.place_of(Bell::from_name('5')?)?, 1);
+    /// # Some(())
+    /// # }
+    /// # fn main() { test().unwrap() }
+    /// ```
+    #[inline]
+    pub fn place_of(&self, bell: Bell) -> Option<usize> {
+        self.bells.iter().position(|b| *b == bell)
+    }
+
     /// Swap two [`Bell`]s round in this `Row`, panicking if either of the indices point out of
     /// bounds.
     ///

@@ -296,12 +296,21 @@ impl<A> AnnotBlock<A> {
         Ok(())
     }
 
-    /// Returns the 'left-over' [`Row`] of this `Block`.  This [`Row`] represents the overall
-    /// effect of the `Block`, and should not be used when generating rows for truth checking.
+    /// Returns the 'left-over' [`Row`] of this `Block`, along with its annotation.  This [`Row`]
+    /// represents the overall transposition of the `Block`, and should not be used when generating
+    /// rows for truth checking.
     #[inline]
-    pub fn leftover_row(&self) -> &AnnotRow<A> {
+    pub fn leftover_annot_row(&self) -> &AnnotRow<A> {
         // We can safely unwrap here, because we enforce an invariant that `self.rows.len() > 0`
         self.rows.last().unwrap()
+    }
+
+    /// Returns the 'left-over' [`Row`] of this `Block`.  This [`Row`] represents the overall
+    /// transposition of the `Block`, and should not be used when generating rows for truth
+    /// checking.
+    #[inline]
+    pub fn leftover_row(&self) -> &Row {
+        &self.leftover_annot_row().row
     }
 
     /// Returns a mutable reference to the annotation of the 'left-over' [`Row`] of this `Block`.
