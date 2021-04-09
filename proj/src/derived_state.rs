@@ -1,4 +1,4 @@
-use crate::spec::{MethodRef, MethodSpec, PartHeads, Spec};
+use crate::spec::{CallSpec, MethodRef, MethodSpec, PartHeads, Spec};
 use proj_core::{run_len, Row, Stage};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -77,12 +77,16 @@ pub struct CallLabel {
     notation: char,
     /// What label should this call be given in each part
     positions: Vec<String>,
+    // This is not needed by JS code but is needed to generate statistics about how calls are used.
+    #[serde(skip)]
+    call_index: usize,
 }
 
 impl CallLabel {
-    pub fn new(notation: char, positions: Vec<String>) -> Self {
+    pub fn new(notation: char, call_index: usize, positions: Vec<String>) -> Self {
         CallLabel {
             notation,
+            call_index,
             positions,
         }
     }
@@ -101,6 +105,8 @@ pub struct ExpandedRow {
     is_ruleoff: bool,
     #[serde(skip_serializing_if = "crate::ser_utils::is_true")]
     is_proved: bool,
+    // This is not needed by JS code but is needed to generate statistics about how methods are
+    // used in the composition (e.g. row counts, ATW etc).
     #[serde(skip)]
     method_ref: Option<MethodRef>,
     /// One [`Row`] for each part of the composition
@@ -250,6 +256,27 @@ impl From<&MethodSpec> for DerivedMethod {
     }
 }
 
+/// The derived state of a single call definition
+#[derive(Debug, Clone, Serialize)]
+pub struct DerivedCall {
+    notation: char,
+    location: String,
+    count: usize,
+    proved_count: usize,
+}
+
+impl DerivedCall {
+    /// Creates a new `DerivedCall` with no instances.
+    pub fn new(notation: char, location: String) -> Self {
+        DerivedCall {
+            notation,
+            location,
+            count: 0,
+            proved_count: 0,
+        }
+    }
+}
+
 /// General statistics about the composition, to be displayed in the top-left corner of the screen
 #[derive(Serialize, Debug, Clone)]
 pub struct DerivedStats {
@@ -273,6 +300,7 @@ pub struct DerivedState {
     #[serde(flatten)]
     part_heads: Rc<PartHeads>,
     methods: Vec<DerivedMethod>,
+    calls: Vec<DerivedCall>,
     stage: usize,
 }
 
@@ -299,8 +327,11 @@ impl DerivedState {
 
     /// Given a [`Spec`]ification, derive a new `DerivedState` from it.
     pub fn from_spec(spec: &Spec) -> DerivedState {
+        // PERF: This whole function could be improved by reusing the storage from an existing
+        // `DerivedState` rather than creating a new one fully from scratch
+
         // Fully expand the comp from the [`Spec`]
-        let (generated_rows, part_heads, methods) = spec.expand();
+        let (generated_rows, part_heads, methods, calls) = spec.expand();
 
         // Truth proving pipeline
         let (flat_proved_rows, part_len) = flatten_proved_rows(&generated_rows, spec.len());
@@ -312,6 +343,7 @@ impl DerivedState {
 
         // Derive stats about the methods
         let der_methods = derive_methods(methods, &generated_rows);
+        let der_calls = derive_calls(calls, &generated_rows);
 
         // Compile all of the derived state into one struct
         DerivedState {
@@ -341,6 +373,7 @@ impl DerivedState {
                 num_false_rows,
             },
             methods: der_methods,
+            calls: der_calls,
             stage: spec.stage().as_usize(),
         }
     }
@@ -590,6 +623,33 @@ fn derive_methods(methods: &[Rc<MethodSpec>], exp_rows: &[Vec<ExpandedRow>]) -> 
     }
     // Return the methods
     der_methods
+}
+
+/// Derive statistics about each [`Call`] using the [`ExpandedRow`]s of the composition
+fn derive_calls(calls: &[Rc<CallSpec>], exp_rows: &[Vec<ExpandedRow>]) -> Vec<DerivedCall> {
+    // Initialise a set of calls with no instances
+    let mut der_calls: Vec<DerivedCall> = calls
+        .iter()
+        .map(|call_spec| call_spec.to_derived_call())
+        .collect();
+    // Count instances by iterating over all the expanded rows
+    for frag_rows in exp_rows {
+        for exp_row in frag_rows {
+            if let Some(CallLabel { call_index, .. }) = exp_row.call_label {
+                // If this expanded row contains a call, then each part will contain the same call.
+                // So we can update the counter once without looking at the rows directly.
+                // `exp_row.rows.len()` will always be equal to the number of parts, but that isn't
+                // accessible here so this is more convenient (and doesn't require any pointer
+                // look-ups)
+                der_calls[call_index].count += exp_row.rows.len();
+                if exp_row.is_proved {
+                    der_calls[call_index].proved_count += exp_row.rows.len();
+                }
+            }
+        }
+    }
+    // Return the modified calls
+    der_calls
 }
 
 #[cfg(test)]

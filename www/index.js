@@ -23,6 +23,8 @@ const elem_part_head_message = document.getElementById("part-head-message");
 const elem_right_sidebar = document.getElementById("right-sidebar");
 const elem_method_readout = document.getElementById("method-readout");
 const elem_selected_method = document.getElementById("selected-method");
+const elem_call_readout = document.getElementById("call-readout");
+const elem_selected_call = document.getElementById("selected-call");
 // Canvas elements
 const canv = document.getElementById("comp-canvas");
 const ctx = canv.getContext("2d");
@@ -92,6 +94,7 @@ let comp, derived_state, view;
 let mouse_coords = { x: 0, y: 0 };
 
 /* THINGS THAT SHOULD BE USER CONFIG BUT CURRENTLY ARE GLOBAL VARS */
+
 // What widths and colours should be assigned to bells.  There is no way to render both bell names
 // and lines at the same time (because IMO it looks awful)
 let bell_lines = {
@@ -619,17 +622,35 @@ function update_part_head_list() {
     elem_part_head_list.value = view.current_part;
 }
 
-function update_method_list() {
-    // Counter used in the `map` method (we'd use `.enumerate()` in Rust but alas, this is JS)
+function update_sidebar() {
+    /* METHOD LIST */
+
+    // Counter used in the `map` methods (we'd use `.enumerate()` in Rust but alas, this is JS)
     let i = 0;
-    const text = derived_state.methods
+    elem_method_readout.innerText = derived_state.methods
         .map(function (m) {
-            let s = `(#${i}, ${m.shorthand}) ${m.name}: ${m.num_proved_rows} rows`;
+            let row_summary =
+                m.num_proved_rows === m.num_rows
+                    ? `${m.num_rows}`
+                    : `${m.num_proved_rows}/${m.num_rows}`;
+            let s = `(#${i}, ${m.shorthand}) ${m.name}: ${row_summary} rows`;
             i += 1;
             return s;
         })
         .join("\n");
-    elem_method_readout.innerText = text;
+
+    /* CALL LIST */
+
+    i = 1;
+    elem_call_readout.innerText = derived_state.calls
+        .map(function (c) {
+            let unproved_count = c.count - c.proved_count;
+            let unproved_str = unproved_count === 0 ? "" : ` (${unproved_count} muted)`;
+            let s = `(#${i}) ${c.location} ${c.notation}: ${c.proved_count}${unproved_str}`;
+            i += 1;
+            return s;
+        })
+        .join("\n");
 }
 
 function on_part_head_spec_change() {
@@ -873,7 +894,7 @@ function on_comp_change() {
     sync_view();
     update_hud();
     update_part_head_list();
-    update_method_list();
+    update_sidebar();
     request_frame();
 }
 

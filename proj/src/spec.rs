@@ -1,4 +1,4 @@
-use crate::derived_state::{CallLabel, ExpandedRow, MethodLabel};
+use crate::derived_state::{CallLabel, DerivedCall, ExpandedRow, MethodLabel};
 use proj_core::{
     AnnotBlock, AnnotRow, Bell, Call, IncompatibleStages, Method, PnBlock, Row, Stage,
 };
@@ -134,10 +134,11 @@ pub struct CallSpec {
 
 impl CallSpec {
     /// Generates the [`CallLabel`] which represents this call placed at a given [`Row`]
-    fn to_label(&self, start_rows: &[Row]) -> CallLabel {
+    fn to_label(&self, index: usize, start_rows: &[Row]) -> CallLabel {
         let tenor = Bell::tenor(start_rows[0].stage()).unwrap();
         CallLabel::new(
             self.call.notation(),
+            index,
             start_rows
                 .iter()
                 .map(|r| {
@@ -155,6 +156,11 @@ impl CallSpec {
                 })
                 .collect(),
         )
+    }
+
+    /// Generates a [`DerivedCall`] from this `CallSpec`
+    pub fn to_derived_call(&self) -> DerivedCall {
+        DerivedCall::new(self.call.notation(), self.call.location().to_owned())
     }
 }
 
@@ -432,7 +438,11 @@ impl Frag {
                 .filter(|call_ref| call_ref.row_index == 0)
                 // Turn the call reference into a label by first getting the `CallSpec` to which it
                 // belongs, and then generating the label from that
-                .map(|call_ref| calls[call_ref.call_index].as_ref().to_label(&all_rows));
+                .map(|call_ref| {
+                    calls[call_ref.call_index]
+                        .as_ref()
+                        .to_label(call_ref.call_index, &all_rows)
+                });
 
             /* Construct and push an `ExpandedRow` */
             exp_rows.push(ExpandedRow::new(
@@ -803,18 +813,23 @@ impl Spec {
     ///     Vec<Row>, // Part heads; one per part
     /// )
     /// ```
-    pub fn expand(&self) -> (Vec<Vec<ExpandedRow>>, Rc<PartHeads>, &[Rc<MethodSpec>]) {
+    pub fn expand(
+        &self,
+    ) -> (
+        Vec<Vec<ExpandedRow>>,
+        Rc<PartHeads>,
+        &[Rc<MethodSpec>],
+        &[Rc<CallSpec>],
+    ) {
         let part_heads = self.part_heads.rows();
         (
-            // Expanded frags
             self.frags
                 .iter()
                 .map(|f| f.expand(part_heads, &self.methods, &self.calls))
                 .collect(),
-            // Part heads
             self.part_heads.clone(),
-            // Methods
             &self.methods,
+            &self.calls,
         )
     }
 }

@@ -6,7 +6,7 @@ pub const NOTATION_SINGLE: char = 's';
 #[derive(Debug, Clone)]
 pub struct Call {
     notation: char,
-    loc: String,
+    location: String,
     replaces: usize,
     block: Block,
 }
@@ -14,10 +14,10 @@ pub struct Call {
 impl Call {
     /// Creates a new `Call` from its parts
     #[inline]
-    pub fn new(notation: char, loc: String, replaces: usize, block: Block) -> Self {
+    pub fn new(notation: char, location: String, replaces: usize, block: Block) -> Self {
         Call {
             notation,
-            loc,
+            location,
             replaces,
             block,
         }
@@ -47,6 +47,12 @@ impl Call {
     #[inline]
     pub fn notation(&self) -> char {
         self.notation
+    }
+
+    /// Gets the lead location that this `Call` occupies
+    #[inline]
+    pub fn location(&self) -> &str {
+        &self.location
     }
 
     /// Returns a [`Row`] representing the overall transposition of this `Call` (i.e. the
