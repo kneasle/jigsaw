@@ -410,7 +410,7 @@ impl<A> AnnotBlock<A> {
     /// them so that the first new [`Row`] matches `self.leftover_row()`.
     pub fn extend_from_iter_transposed(
         &mut self,
-        annot_rows: impl Iterator<Item = AnnotRow<A>>,
+        annot_rows: impl IntoIterator<Item = AnnotRow<A>>,
     ) -> Result<(), IncompatibleStages> {
         let mut transposition: Option<Row> = None;
         for annot_r in annot_rows {

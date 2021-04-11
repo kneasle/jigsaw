@@ -484,9 +484,11 @@ impl PnBlock {
     /// Creates a new `PnBlock` from an [`Iterator`] of [`PlaceNot`]s, checking that the resulting
     /// `PnBlock` is valid (i.e. all the stages match and the `PnBlock` contains at least one
     /// [`PlaceNot`]).
-    pub fn from_iter(iter: impl Iterator<Item = PlaceNot>) -> Result<Self, InvalidPnBlockError> {
+    pub fn from_iter(
+        iter: impl IntoIterator<Item = PlaceNot>,
+    ) -> Result<Self, InvalidPnBlockError> {
         // PERF: We could possibly avoid allocating if `iter` turns out to be invalid
-        Self::from_vec(iter.collect())
+        Self::from_vec(iter.into_iter().collect())
     }
 
     /// Creates a new `PnBlock` from a [`Vec`] of [`PlaceNot`]s, checking that the resulting
