@@ -58,7 +58,7 @@ impl Method {
     }
 
     /// Returns the label at a given index, panicking if the index is out of range
-    pub fn get_label(&mut self, index: usize) -> Option<&str> {
+    pub fn get_label(&self, index: usize) -> Option<&str> {
         if let Some(s) = self.first_lead.get_annot(index).unwrap() {
             Some(s.as_str())
         } else {

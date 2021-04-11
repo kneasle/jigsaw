@@ -505,6 +505,17 @@ function on_key_down(e) {
             comp.join_frags(link_to_join.from, link_to_join.to);
             on_comp_change();
         }
+        // set call under the cursor
+        if (e.key === "e" && frag) {
+            const err = comp.set_call(frag.index, frag.row, parseInt(elem_selected_call.value));
+            // If the split failed, then log the error.  Otherwise, resync the composition with
+            // `on_comp_change`.
+            if (err) {
+                console.warn("Error setting call: " + err);
+            } else {
+                on_comp_change();
+            }
+        }
         // reset the composition (ye too dangerous I know but good enough for now)
         if (e.key === "R") {
             comp.reset();
@@ -641,7 +652,7 @@ function update_sidebar() {
 
     /* CALL LIST */
 
-    i = 1;
+    i = 0;
     elem_call_readout.innerText = derived_state.calls
         .map(function (c) {
             let unproved_count = c.count - c.proved_count;

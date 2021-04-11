@@ -4,6 +4,7 @@ use crate::{
     view::View,
 };
 use proj_core::Row;
+use std::convert::TryFrom;
 use wasm_bindgen::prelude::*;
 
 // Imports used solely for doc comments
@@ -384,6 +385,16 @@ impl Comp {
             .map_or(String::new(), |e| e.to_string())
     }
 
+    /// Replace the call at the end of a composition.  Calls are referenced by their index, and any
+    /// negative number will correspond to removing a call.  See [`Spec::set_call`] for more docs.
+    pub fn set_call(&mut self, frag_ind: usize, row_ind: usize, call_ind: isize) -> String {
+        self.make_fallible_action(|spec: &Spec| {
+            spec.set_call(frag_ind, row_ind, usize::try_from(call_ind).ok())
+        })
+        .err()
+        .map_or(String::new(), |e| e.to_string())
+    }
+
     /// Toggle whether or not a given [`Frag`] is muted
     pub fn toggle_frag_mute(&mut self, frag_ind: usize) {
         self.make_action_frag(frag_ind, Frag::toggle_mute);
@@ -421,7 +432,13 @@ mod tests {
     use super::Comp;
 
     #[test]
-    fn test() {
+    fn example_doesnt_crash() {
         let _c = Comp::example();
+    }
+
+    #[test]
+    fn replace_call() {
+        let mut c = Comp::example();
+        c.set_call(0, 31, -1);
     }
 }

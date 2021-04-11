@@ -7,18 +7,18 @@ pub const NOTATION_SINGLE: char = 's';
 pub struct Call {
     notation: char,
     location: String,
-    replaces: usize,
+    covers: usize,
     block: Block,
 }
 
 impl Call {
     /// Creates a new `Call` from its parts
     #[inline]
-    pub fn new(notation: char, location: String, replaces: usize, block: Block) -> Self {
+    pub fn new(notation: char, location: String, covers: usize, block: Block) -> Self {
         Call {
             notation,
             location,
-            replaces,
+            covers,
             block,
         }
     }
@@ -41,6 +41,24 @@ impl Call {
             pn_block.len(),
             pn_block.to_block(),
         )
+    }
+
+    /// Gets an [`Iterator`] over the rows in this `Call`
+    #[inline]
+    pub fn rows(&self) -> impl Iterator<Item = &Row> {
+        self.block.rows()
+    }
+
+    /// Gets the number of [`Row`]s that will be covered by this `Call`
+    #[inline]
+    pub fn cover_len(&self) -> usize {
+        self.covers
+    }
+
+    /// Gets the number of [`Row`]s that will be **generated** by this `Call`
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.block.len()
     }
 
     /// Gets the [`char`] that represents this `Call`.

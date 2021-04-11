@@ -220,6 +220,77 @@ impl Display for FragSplitError {
     }
 }
 
+/// The possible ways setting/removing a [`Call`] could fail
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum SetCallError {
+    /// The index we were given by JS points outside the bounds of the [`Frag`] array
+    FragOutOfRange {
+        index: usize,
+        num_frags: usize,
+    },
+    MethodOutOfRange {
+        index: usize,
+        num_methods: usize,
+    },
+    RowOutOfRange {
+        index: usize,
+        num_rows: usize,
+    },
+    CallOutOfRange {
+        index: usize,
+        num_calls: usize,
+    },
+    NoMethodAtRow(usize),
+    WrongLocation {
+        call_loc: String,
+        actual_loc: String,
+    },
+    ReplacingIncompleteCall,
+    NoCallLocation,
+    NoChange,
+}
+
+impl Display for SetCallError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SetCallError::FragOutOfRange { index, num_frags } => write!(
+                f,
+                "Editing frag #{} but there are only {} frags",
+                index, num_frags
+            ),
+            SetCallError::MethodOutOfRange { index, num_methods } => write!(
+                f,
+                "Editing method #{} but there are only {} methods",
+                index, num_methods
+            ),
+            SetCallError::RowOutOfRange { index, num_rows } => write!(
+                f,
+                "Trying to replace row {} but frag only has {} rows",
+                index, num_rows
+            ),
+            SetCallError::CallOutOfRange { index, num_calls } => write!(
+                f,
+                "Setting call #{} but there are only {} calls",
+                index, num_calls
+            ),
+            SetCallError::WrongLocation {
+                call_loc,
+                actual_loc,
+            } => write!(
+                f,
+                "Call want's location '{}' but true location is '{}'",
+                call_loc, actual_loc
+            ),
+            SetCallError::ReplacingIncompleteCall => write!(f, "Can't replace an incomplete call"),
+            SetCallError::NoMethodAtRow(ind) => write!(f, "No method annotation at row {}", ind),
+            SetCallError::NoCallLocation => write!(f, "Can't modify a row with no call location"),
+            SetCallError::NoChange => write!(f, "No change occured"),
+        }
+    }
+}
+
+impl std::error::Error for SetCallError {}
+
 /// A single unexpanded fragment of a composition
 #[derive(Clone, Debug)]
 pub struct Frag {
@@ -286,6 +357,161 @@ impl Frag {
             new_y,
             self.is_muted,
         ))
+    }
+
+    /// Sets or clears which [`Call`] is made at a given location
+    fn set_call(
+        &self,
+        row_ind: usize,
+        call: Option<&CallSpec>,
+        calls: &[Rc<CallSpec>],
+        methods: &[Rc<MethodSpec>],
+    ) -> Result<Frag, SetCallError> {
+        /* === UNPACK USEFUL VALUES WE'RE GOING TO NEED === */
+
+        let annotation =
+            self.block
+                .get_annot(row_ind)
+                .ok_or_else(|| SetCallError::RowOutOfRange {
+                    index: row_ind,
+                    num_rows: self.block.len(),
+                })?;
+        let method_ref = annotation
+            .method
+            .ok_or(SetCallError::NoMethodAtRow(row_ind))?;
+        let method_spec = methods
+            .get(method_ref.method_index)
+            .ok_or_else(|| SetCallError::MethodOutOfRange {
+                index: method_ref.method_index,
+                num_methods: methods.len(),
+            })?
+            .as_ref();
+        let location = method_spec
+            .method
+            .get_label(method_ref.sub_lead_index)
+            .ok_or(SetCallError::NoCallLocation)?;
+        let current_call = annotation.call.map(|c| calls[c.call_index].as_ref());
+
+        /* === EARLY RETURN FOR EASY TO CHECK ERRORS === */
+
+        // No effect will occur if `call` and `current_call` are equal up to pointer equality -
+        // i.e. they're either both `None` or they are `Some(a) and `Some(b)` where
+        // `std::ptr::eq(a, b)`.
+        if match (call, current_call) {
+            (None, None) => true,
+            (Some(a), Some(b)) => std::ptr::eq(a, b),
+            _ => false,
+        } {
+            return Err(SetCallError::NoChange);
+        }
+        // If the call requires a different location to the one we've got, then report that
+        call.filter(|c| c.call.location() != location)
+            .map_or(Ok(()), |c| {
+                Err(SetCallError::WrongLocation {
+                    call_loc: c.call.location().to_owned(),
+                    actual_loc: location.to_owned(),
+                })
+            })?;
+
+        /* === ACTUALLY CHANGE THE CALL ===
+         *
+         * This is easier said than done because calls are allowed to change the length of the lead
+         * that they exist in (and the fact that we could be replacing an existing call).  However,
+         * at its core, calls are simply removing a chunk of place notation and replacing it with a
+         * new chunk (the lengths don't have to match, but all calls must behave this way).
+         */
+
+        /* STEP 1: UNDO THE EXISTING CALL */
+
+        // This reports that, when doing the call substitution, the next `consumed_rows` after
+        // `row_ind` should be ignored and replaced by the next `exported_plain_rows` rows of the
+        // plain lead.  This has the effect of undoing the original call without cloning data.
+        let (consumed_rows, num_plain_rows) = match current_call {
+            Some(cur_c) => {
+                // Check that the call we're removing actually appears in full
+                let mut real_row_iter = self.block.annot_rows().iter().skip(row_ind);
+                for i in 0..cur_c.call.len() {
+                    let real_row = real_row_iter
+                        .next()
+                        .ok_or(SetCallError::ReplacingIncompleteCall)?;
+                    real_row
+                        .annot()
+                        .call
+                        .filter(|c| {
+                            // This row is valid to remove if it points to the right index within
+                            // the right call.
+                            std::ptr::eq(calls[c.call_index].as_ref(), cur_c) && c.row_index == i
+                        })
+                        .ok_or(SetCallError::ReplacingIncompleteCall)?;
+                }
+                // If the call does appear in full, then return it's covering behaviour but
+                // reversed
+                (cur_c.call.len(), cur_c.call.cover_len())
+            }
+            // If there's no call to undo, then no rows get replaced
+            None => (0, 0),
+        };
+
+        /* STEP 2: REBUILD THE BLOCK WITH THE NEW CALL
+         *
+         * Whilst doing this, we need to take into account the replacement done by step 1.  We also
+         * check that we aren't generating overlapping calls (e.g. we add a '14' LE bob to a lead
+         * of Grandsire which already has a call).
+         */
+
+        // Everything before this call happens is untouched by this operation
+        let mut new_block = self.block.prefix(row_ind);
+        if let Some(c) = call {
+            todo!();
+        } else {
+            // If we are replacing with a plain lead, then we only have to handle the
+            // pre-replacement
+            new_block
+                .extend_from_iter_transposed(
+                    // Get an iterator over the annotated rows ...
+                    method_spec
+                        .method
+                        .lead()
+                        .annot_rows()
+                        .iter()
+                        // ... along with their sub lead indices ...
+                        .enumerate()
+                        // ... which wraps around the lead ends ...
+                        .cycle()
+                        // ... then take the region that we want out of this ...
+                        .skip(method_ref.sub_lead_index)
+                        .take(num_plain_rows + 1)
+                        // ... and generate the correct annotations ...
+                        .map(|(sub_lead_index, r)| {
+                            r.clone_map_annot(|a| Annot {
+                                is_lead_end: a.is_some(),
+                                call: None,
+                                method: Some(MethodRef {
+                                    sub_lead_index,
+                                    ..method_ref
+                                }),
+                            })
+                        }), // ... then collect it into a Vec
+                )
+                // This unwrap is safe, because we make sure that the stages of all methods are the
+                // same as the stages of all the fragments
+                .unwrap();
+            // Now copy the remainder of the block, transposing as we go
+            new_block
+                .extend_from_iter_transposed(
+                    self.block
+                        .annot_rows()
+                        .iter()
+                        .skip(row_ind + consumed_rows)
+                        .cloned(),
+                )
+                // This unwrap is safe, because we make sure that the stages of all Frags are the
+                // same
+                .unwrap();
+        }
+
+        // Satisfy the type checker
+        Ok(self.clone_with_new_block(self.start_row.clone(), new_block))
     }
 
     /// Create a new `Frag` of `other` onto the end of `self`, transposing `other` if necessary.
@@ -724,6 +950,32 @@ impl Spec {
         // Replace the 1st frag in-place, and append the 2nd (this stops fragments from jumping
         // to the top of the stack when split).
         new_self.frags.push(Rc::new(new_frag));
+        Ok(new_self)
+    }
+
+    pub fn set_call(
+        &self,
+        frag_ind: usize,
+        row_ind: usize,
+        call_ind: Option<usize>,
+    ) -> Result<Spec, SetCallError> {
+        let call = if let Some(i) = call_ind {
+            Some(
+                self.calls
+                    .get(i)
+                    .ok_or_else(|| SetCallError::CallOutOfRange {
+                        index: i,
+                        num_calls: self.calls.len(),
+                    })?
+                    .as_ref(),
+            )
+        } else {
+            None
+        };
+        let new_frag = self.frags[frag_ind].set_call(row_ind, call, &self.calls, &self.methods)?;
+        // If the call replacement was successful, then clone self and update the new version
+        let mut new_self = self.clone();
+        new_self.frags[frag_ind] = Rc::new(new_frag);
         Ok(new_self)
     }
 
