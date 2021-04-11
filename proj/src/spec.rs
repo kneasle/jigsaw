@@ -609,11 +609,11 @@ impl Spec {
         self.part_heads = Rc::new(part_heads);
     }
 
-    /// Perform some `action` on a clone of a specific [`Frag`] in this `Spec`.  This has the
-    /// effect of performing the action whilst preserving the original `Spec` (to be used in the
-    /// undo history).
-    pub fn make_action_frag(&mut self, frag_ind: usize, action: impl Fn(&mut Frag)) {
-        action(Rc::make_mut(&mut self.frags[frag_ind]));
+    /// Perform some `action` on a clone of a specific [`Frag`] in this `Spec`, forwarding the
+    /// return value out of this function.  This has the effect of performing the action whilst
+    /// preserving the original `Spec` (to be used in the undo history).
+    pub fn make_action_frag<R>(&mut self, frag_ind: usize, action: impl Fn(&mut Frag) -> R) -> R {
+        action(Rc::make_mut(&mut self.frags[frag_ind]))
     }
 
     /// Helper function used to create a new [`Frag`], triggered by default by the user pressing
