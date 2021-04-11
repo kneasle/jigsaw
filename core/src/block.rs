@@ -81,6 +81,12 @@ impl<A> AnnotRow<A> {
         self.row.stage()
     }
 
+    /// Separates this `AnnotRow` into its raw parts
+    #[inline]
+    pub fn into_raw_parts(self) -> (Row, A) {
+        (self.row, self.annot)
+    }
+
     /// Sets the [`Row`] contained within this `AnnotRow`, without checking that the [`Stage`]s
     /// match.
     ///
@@ -120,6 +126,8 @@ impl<A> AnnotRow<A> {
 
 /// An `AnnotBlock` with no annotations.
 pub type Block = AnnotBlock<()>;
+
+pub type AnnotRowIter<'b, A> = std::slice::Iter<'b, AnnotRow<A>>;
 
 /// An `AnnotBlock` is in essence a multi-permutation: it describes the transposition of a single
 /// start [`Row`] into many [`Row`]s, the first of which is always the one supplied.  The last
@@ -276,7 +284,7 @@ impl<A> AnnotBlock<A> {
     /// Returns an [`Iterator`] over all the [`Row`]s in this `AnnotBlock`, along with their
     /// annotations.
     #[inline]
-    pub fn iter(&self) -> std::slice::Iter<'_, AnnotRow<A>> {
+    pub fn iter(&self) -> AnnotRowIter<'_, A> {
         self.rows.iter()
     }
 

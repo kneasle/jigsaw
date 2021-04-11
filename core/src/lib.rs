@@ -3,7 +3,7 @@
 mod bell;
 pub mod block;
 pub mod call;
-mod method;
+pub mod method;
 pub mod place_not;
 mod row;
 mod stage;
