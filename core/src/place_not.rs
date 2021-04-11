@@ -302,6 +302,44 @@ pub enum BlockParseError {
     EmptyBlock,
 }
 
+impl Display for BlockParseError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BlockParseError::EmptyBlock => write!(f, "`PnBlock`s can't be empty."),
+            BlockParseError::PnError(range, err) => {
+                write!(f, "Error parsing PN at index {}: {}", range.start, err)
+            }
+            BlockParseError::PlusNotAtBlockStart(index) => {
+                write!(f, "'+' at index {} is not at the start of a block.", index)
+            }
+        }
+    }
+}
+
+impl std::error::Error for BlockParseError {}
+
+/// The different ways a `PnBlock` could be found to be invalid
+#[derive(Clone, Debug, Copy, Eq, PartialEq, Hash)]
+pub enum InvalidPnBlockError {
+    IncompatibleStages(usize, IncompatibleStages),
+    EmptyBlock,
+}
+
+impl Display for InvalidPnBlockError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InvalidPnBlockError::IncompatibleStages(ind, e) => write!(
+                f,
+                "Incompatible stages: First PN has stage {}, whereas the {}th has {}",
+                e.lhs_stage, ind, e.rhs_stage
+            ),
+            InvalidPnBlockError::EmptyBlock => write!(f, "`PnBlock`s can't be empty."),
+        }
+    }
+}
+
+impl std::error::Error for InvalidPnBlockError {}
+
 /// A contiguous block of [`PlaceNot`]s.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct PnBlock {
@@ -441,6 +479,47 @@ impl PnBlock {
         }
 
         Ok(is_asymmetric)
+    }
+
+    /// Creates a new `PnBlock` from an [`Iterator`] of [`PlaceNot`]s, checking that the resulting
+    /// `PnBlock` is valid (i.e. all the stages match and the `PnBlock` contains at least one
+    /// [`PlaceNot`]).
+    pub fn from_iter(iter: impl Iterator<Item = PlaceNot>) -> Result<Self, InvalidPnBlockError> {
+        // PERF: We could possibly avoid allocating if `iter` turns out to be invalid
+        Self::from_vec(iter.collect())
+    }
+
+    /// Creates a new `PnBlock` from a [`Vec`] of [`PlaceNot`]s, checking that the resulting
+    /// `PnBlock` is valid (i.e. all the stages match and the `PnBlock` contains at least one
+    /// [`PlaceNot`]).
+    pub fn from_vec(pns: Vec<PlaceNot>) -> Result<Self, InvalidPnBlockError> {
+        // Get the first stage and check that the block isn't empty
+        let first_stage = pns.first().ok_or(InvalidPnBlockError::EmptyBlock)?.stage;
+        // Check that all of the stages match
+        for (i, pn) in pns.iter().enumerate().skip(1) {
+            IncompatibleStages::test_err(first_stage, pn.stage)
+                .map_err(|e| InvalidPnBlockError::IncompatibleStages(i, e))?;
+        }
+        // If all these checks pass, create a new block
+        Ok(unsafe { Self::from_vec_unchecked(pns) })
+    }
+
+    /// Creates a new `PnBlock` from a [`Vec`] of [`PlaceNot`]s, **without** checking that the resulting
+    /// `PnBlock` is valid.
+    ///
+    /// # Safety
+    ///
+    /// This is only safe if:
+    /// - All the [`Stage`]s of the [`PlaceNot`]s match
+    /// - The [`Vec`] is non-empty
+    pub unsafe fn from_vec_unchecked(pns: Vec<PlaceNot>) -> Self {
+        PnBlock { pns }
+    }
+
+    /// Returns an iterator over the [`PlaceNot`]s contained in this `PnBlock`
+    #[inline]
+    pub fn place_nots(&self) -> std::slice::Iter<PlaceNot> {
+        self.pns.iter()
     }
 
     /// The [`Stage`] of this `PnBlock`.
