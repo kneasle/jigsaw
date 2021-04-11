@@ -494,20 +494,20 @@ function on_key_down(e) {
             // Prevent this event causing the user to type 'T' into the newly focussed transposition box
             e.preventDefault();
         }
-        // reset the composition (ye too dangerous I know but good enough for now)
-        if (e.key === "R") {
-            comp.reset();
-            on_comp_change();
-        }
         // delete the fragment under the cursor (ye too dangerous I know but good enough for now)
         if (e.key === "d" && frag) {
             comp.delete_frag(frag.index);
             on_comp_change();
         }
-        // join the first frag 1 onto frag 0, but only if we aren't hovering a fragment
+        // join two fragments if we're hovering the link between them
         if (e.key === "c" && selected_link !== undefined) {
             const link_to_join = derived_state.frag_links[selected_link];
             comp.join_frags(link_to_join.from, link_to_join.to);
+            on_comp_change();
+        }
+        // reset the composition (ye too dangerous I know but good enough for now)
+        if (e.key === "R") {
+            comp.reset();
             on_comp_change();
         }
         // ctrl-z or simply z to undo (of course)

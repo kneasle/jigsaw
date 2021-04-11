@@ -152,7 +152,8 @@ impl Comp {
     }
 }
 
-// Stuff required specifically for JS
+/// Functions exported to JavaScript.  These functions are the _only_ way that Rust and JavaScript
+/// can interact directly.
 #[wasm_bindgen]
 impl Comp {
     /// Create an example composition
@@ -397,7 +398,9 @@ impl Comp {
 
     /// Resets the composition to the example
     pub fn reset(&mut self) {
-        self.make_action(|spec: &mut Spec| *spec = Spec::cyclic_s8());
+        // We directly finish the action because we are fully overwriting it, and  calling
+        // `self.make_action` would likely clone then immediately drop the current Spec
+        self.finish_action(Spec::cyclic_s8());
     }
 
     /* View Setters */

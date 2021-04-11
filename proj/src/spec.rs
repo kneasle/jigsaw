@@ -272,12 +272,10 @@ impl Frag {
         self.is_muted = !self.is_muted;
     }
 
-    /* Non-mutating operations */
-
     /// Splits this fragment into two pieces so that the first one has length `split_index`.  Both
     /// `Frag`s will inherit all values from `self`, except that the 2nd one will have y-coordinate
     /// specified by `new_y`.
-    pub fn split(&mut self, split_index: usize, new_y: f32) -> Result<Frag, FragSplitError> {
+    fn split(&mut self, split_index: usize, new_y: f32) -> Result<Frag, FragSplitError> {
         let (split_row, block) = Rc::make_mut(&mut self.block)
             .split(split_index)
             .ok_or(FragSplitError::ZeroLengthFrag)?;
@@ -296,6 +294,27 @@ impl Frag {
         Rc::make_mut(&mut self.block).extend_with_cloned(&other.block)?;
         Ok(())
     }
+
+    /// Transposes `self` so that the `row_ind`th [`Row`] matches `target_row`
+    pub fn transpose_row_to(
+        &mut self,
+        row_ind: usize,
+        target_row: &Row,
+    ) -> Result<(), IncompatibleStages> {
+        // PERF: Possibly cache the results of this, since we are allocating a lot of temporary
+        // values here)
+        self.transpose(&(target_row * &!(&self.start_row * self.block.get_row(row_ind).unwrap())))
+    }
+
+    /// Transposes `self` - i.e. (pre)mulitplies all the [`Row`]s by some other [`Row`].  This will
+    /// clone the underlying [`AnnotBlock`] the first time this is called, but every other time
+    /// will not reallocate the [`AnnotBlock`].
+    pub fn transpose(&mut self, transposition: &Row) -> Result<(), IncompatibleStages> {
+        self.start_row = transposition.mul(&self.start_row)?;
+        Ok(())
+    }
+
+    /* Non-mutating operations */
 
     /// Creates a new `Frag` which contains `self` joined to itself repeatedly until a round block
     /// is generated.  If `self` is a plain lead, then this will generate a whole course of that
@@ -331,25 +350,6 @@ impl Frag {
                 );
             }
         }
-    }
-
-    /// Transposes `self` so that the `row_ind`th [`Row`] matches `target_row`
-    pub fn transpose_row_to(
-        &mut self,
-        row_ind: usize,
-        target_row: &Row,
-    ) -> Result<(), IncompatibleStages> {
-        // PERF: Possibly cache the results of this, since we are allocating a lot of temporary
-        // values here)
-        self.transpose(&(target_row * &!(&self.start_row * self.block.get_row(row_ind).unwrap())))
-    }
-
-    /// Transposes `self` - i.e. (pre)mulitplies all the [`Row`]s by some other [`Row`].  This will
-    /// clone the underlying [`AnnotBlock`] the first time this is called, but every other time
-    /// will not reallocate the [`AnnotBlock`].
-    pub fn transpose(&mut self, transposition: &Row) -> Result<(), IncompatibleStages> {
-        self.start_row = transposition.mul(&self.start_row)?;
-        Ok(())
     }
 
     /// Create a new `Frag` which is identical to `self`, except that it contains different
@@ -810,9 +810,13 @@ impl Spec {
     ///             ExpandedRow // Contains one Row per part
     ///         >,
     ///     >,
-    ///     Vec<Row>, // Part heads; one per part
+    ///     ...
     /// )
     /// ```
+    /// This is only intended to by used by [`DerivedState::from_spec`].
+    // The return type of this function is a big tuple with fairly complex types, but that's OK -
+    // it's quite digestible and anyway is only used once as a utility function.
+    #[allow(clippy::type_complexity)]
     pub fn expand(
         &self,
     ) -> (
