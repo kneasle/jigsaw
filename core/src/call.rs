@@ -11,6 +11,9 @@ pub struct Call {
     block: Block,
 }
 
+// `Call`s can't have size 0 because it is backed by a `Block`, which enforces a non-zero size
+// invariant.
+#[allow(clippy::len_without_is_empty)]
 impl Call {
     /// Creates a new `Call` from its parts
     #[inline]

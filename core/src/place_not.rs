@@ -484,6 +484,9 @@ impl PnBlock {
     /// Creates a new `PnBlock` from an [`Iterator`] of [`PlaceNot`]s, checking that the resulting
     /// `PnBlock` is valid (i.e. all the stages match and the `PnBlock` contains at least one
     /// [`PlaceNot`]).
+    // This function returns a `Result`, so we can't use the `FromIterator` trait.  Anyway, I don't
+    // think this is too confusing because we won't implement `FromIterator` on `PnBlock` anyway.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_iter(
         iter: impl IntoIterator<Item = PlaceNot>,
     ) -> Result<Self, InvalidPnBlockError> {
