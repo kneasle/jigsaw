@@ -48,16 +48,34 @@
             <p id="transpose-message" class="parse-err">Bell '2' repeated twice</p>
         </div>
 
+        <!-- Templates (i.e. HTML trees which will get cloned and populated with data to generate
+             the sidebar).  These are very reminiscent of templates from Vue or React except that
+             the interactions we require are very simple and are easier managed without a
+             library. -->
+        <div style="display: none;" id="templates">
+            <!-- Template for a single method entry -->
+            <div id="template-method-entry">
+                <p>(<span id="shorthand">B</span>) <span id="name">Bristol</span>
+                <span style="float: right;"><span id="row-count">0</span> rows</span></p>
+            </div>
+        </div>
+
         <!-- Right sidebar -->
         <div id="right-sidebar">
-            <div class="method-box">
-                <h2 style="margin-top: 0; text-align: center;">TEMPORARY:</h2>
-
-                <p id="method-readout">&lt;Methods&gt;</p>
-
+            <div class="sidebar-box">
+                <h2>Methods (<span id="num-methods">0</span>)</h2>
+                <div id="method-box">
+                    <!-- Method entries will go here -->
+                </div>
                 <p>Select meth: <input id="selected-method"
-                    style="width: 2em;" type="number" value="0" min="0"></input>
-                </p>
+                                       style="width: 2em;"
+                                       type="number"
+                                       value="0"
+                                       min="0"/></p>
+            </div>
+
+            <div class="sidebar-box">
+                <h2 style="margin-top: 0; text-align: center;">TEMPORARY:</h2>
 
                 <p id="call-readout">&lt;Calls&gt;</p>
 

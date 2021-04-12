@@ -5,6 +5,11 @@ body {
     font-family: monospace;
 }
 
+h1, h2 {
+    text-align: center;
+    margin: 0 0 5px 0;
+}
+
 p {
     margin: 5px;
 }
@@ -45,12 +50,13 @@ p {
 }
 
 #right-sidebar {
+    min-width: 300px;
     position: absolute;
     right: 0px;
     top: 0px;
 }
 
-.method-box {
+.sidebar-box {
     background: #ffffffee;
     border-radius: 5px;
     font-family: monospace;

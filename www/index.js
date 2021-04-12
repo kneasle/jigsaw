@@ -21,10 +21,15 @@ const elem_part_head_list = document.getElementById("part-head");
 const elem_part_head_message = document.getElementById("part-head-message");
 // Right sidebar
 const elem_right_sidebar = document.getElementById("right-sidebar");
+const elem_num_methods = document.getElementById("num-methods");
+const elem_method_box = document.getElementById("method-box");
+
 const elem_method_readout = document.getElementById("method-readout");
 const elem_selected_method = document.getElementById("selected-method");
 const elem_call_readout = document.getElementById("call-readout");
 const elem_selected_call = document.getElementById("selected-call");
+// Templates
+const template_method_entry = document.getElementById("template-method-entry");
 // Canvas elements
 const canv = document.getElementById("comp-canvas");
 const ctx = canv.getContext("2d");
@@ -634,21 +639,32 @@ function update_part_head_list() {
 }
 
 function update_sidebar() {
-    /* METHOD LIST */
+    /* METHODS */
 
-    // Counter used in the `map` methods (we'd use `.enumerate()` in Rust but alas, this is JS)
-    let i = 0;
-    elem_method_readout.innerText = derived_state.methods
-        .map(function (m) {
-            let row_summary =
-                m.num_proved_rows === m.num_rows
-                    ? `${m.num_rows}`
-                    : `${m.num_proved_rows}/${m.num_rows}`;
-            let s = `(#${i}, ${m.shorthand}) ${m.name}: ${row_summary} rows`;
-            i += 1;
-            return s;
-        })
-        .join("\n");
+    // Set the number of methods in the title
+    const num_methods = derived_state.methods.length;
+    elem_num_methods.innerText = num_methods.toString();
+    // Make sure that the method box contains the right number of HTML entries
+    while (elem_method_box.children.length < num_methods) {
+        const new_entry = template_method_entry.cloneNode(true);
+        new_entry.removeAttribute("id"); // Remove the ID tag so it isn't a template any more
+        elem_method_box.appendChild(new_entry);
+    }
+    while (elem_method_box.children.length > num_methods) {
+        elem_method_box.removeChild(elem_method_box.lastChild);
+    }
+    // Now that we know that we have as many entries as methods, we can populate each entry in turn
+    const method_entries = elem_method_box.children;
+    for (let i = 0; i < num_methods; i++) {
+        const m = derived_state.methods[i];
+        const entry = method_entries[i];
+        entry.querySelector("#name").innerText = m.name;
+        entry.querySelector("#shorthand").innerText = `#${i}, ${m.shorthand}`;
+        entry.querySelector("#row-count").innerText =
+            m.num_proved_rows === m.num_rows
+                ? `${m.num_rows}`
+                : `${m.num_proved_rows}/${m.num_rows}`;
+    }
 
     /* CALL LIST */
 
