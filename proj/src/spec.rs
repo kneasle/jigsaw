@@ -942,6 +942,17 @@ pub struct Spec {
 impl Spec {
     /* Constructors */
 
+    /// Creates a `Spec` with a given [`Stage`] but no [`CallSpec`]s, [`MethodSpec`]s or [`Frag`]s.
+    pub fn empty(stage: Stage) -> Self {
+        Spec {
+            frags: Vec::new(),
+            part_heads: Rc::new(PartHeads::parse("", stage).unwrap()),
+            methods: Vec::new(),
+            calls: Vec::new(),
+            stage,
+        }
+    }
+
     /// Creates an example Spec
     pub fn cyclic_s8() -> Spec {
         let (frag, methods, calls) = Frag::cyclic_s8();
