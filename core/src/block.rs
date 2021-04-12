@@ -235,6 +235,25 @@ impl<A> AnnotBlock<A> {
         AnnotBlock { rows }
     }
 
+    /// Creates an empty `AnnotBlock` on a given [`Stage`] (i.e. an `AnnotBlock` containing only
+    /// rounds as the leftover row).  **This function is wildly unsafe**; it should only be used if
+    /// you are going to extend the block before passing it out of the `unsafe` boundary.
+    ///
+    /// # Safety
+    ///
+    /// This function is never safe on its own.  In order to make the result safe, you have to
+    /// push more [`AnnotRow`]s onto the `AnnotBlock` (using [`AnnotBlock::extend_with`],
+    /// [`AnnotBlock::extend_from_iter_transposed`], etc.).
+    #[inline]
+    pub unsafe fn empty(stage: Stage) -> Self
+    where
+        A: Default,
+    {
+        AnnotBlock {
+            rows: vec![AnnotRow::new(Row::rounds(stage), A::default())],
+        }
+    }
+
     /// Gets the [`Stage`] of this `Block`.
     #[inline]
     pub fn stage(&self) -> Stage {
