@@ -499,7 +499,7 @@ function on_key_down(e) {
             // Prevent this event causing the user to type 'T' into the newly focussed transposition box
             e.preventDefault();
         }
-        // delete the fragment under the cursor (ye too dangerous I know but good enough for now)
+        // delete the fragment under the cursor
         if (e.key === "d" && frag) {
             comp.delete_frag(frag.index);
             on_comp_change();
@@ -513,15 +513,13 @@ function on_key_down(e) {
         // set call under the cursor
         if (e.key === "e" && frag) {
             const err = comp.set_call(frag.index, frag.row, parseInt(elem_selected_call.value));
-            // If the split failed, then log the error.  Otherwise, resync the composition with
-            // `on_comp_change`.
             if (err) {
                 console.warn("Error setting call: " + err);
             } else {
                 on_comp_change();
             }
         }
-        // reset the composition (ye too dangerous I know but good enough for now)
+        // reset the composition
         if (e.key === "R") {
             comp.reset();
             on_comp_change();
@@ -646,8 +644,21 @@ function update_sidebar() {
     elem_num_methods.innerText = num_methods.toString();
     // Make sure that the method box contains the right number of HTML entries
     while (elem_method_box.children.length < num_methods) {
+        // This is used as a capture for the 'onclick' event listener
+        const index = elem_method_box.children.length;
         const new_entry = template_method_entry.cloneNode(true);
-        new_entry.removeAttribute("id"); // Remove the ID tag so it isn't a template any more
+        // Remove the ID tag so it can't be confused with the template version when debugging
+        new_entry.removeAttribute("id");
+        // Add a callback for clicking it
+        new_entry.querySelector("#delete-button").addEventListener("click", function () {
+            const err = comp.remove_method(index);
+            if (err) {
+                console.warn("Error removing method: " + err);
+            } else {
+                on_comp_change();
+            }
+        });
+        // Add it to the box
         elem_method_box.appendChild(new_entry);
     }
     while (elem_method_box.children.length > num_methods) {
@@ -659,11 +670,17 @@ function update_sidebar() {
         const m = derived_state.methods[i];
         const entry = method_entries[i];
         entry.querySelector("#name").innerText = m.name;
-        entry.querySelector("#shorthand").innerText = `#${i}, ${m.shorthand}`;
-        entry.querySelector("#row-count").innerText =
-            m.num_proved_rows === m.num_rows
+        entry.querySelector("#shorthand").innerText = `#${i}: ${m.shorthand}`;
+        // Swap between row counter and delete if the method is never used
+        const row_count = entry.querySelector("#row-count");
+        const delete_btn = entry.querySelector("#delete-button");
+        row_count.style.display = m.num_rows === 0 ? "none" : "inline";
+        delete_btn.style.display = m.num_rows === 0 ? "inline" : "none";
+        // Set delete text
+        row_count.innerText =
+            (m.num_proved_rows === m.num_rows
                 ? `${m.num_rows}`
-                : `${m.num_proved_rows}/${m.num_rows}`;
+                : `${m.num_proved_rows}/${m.num_rows}`) + " rows";
     }
 
     /* CALL LIST */

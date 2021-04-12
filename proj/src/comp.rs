@@ -388,7 +388,7 @@ impl Comp {
     /// Replace the call at the end of a composition.  Calls are referenced by their index, and any
     /// negative number will correspond to removing a call.  See [`Spec::set_call`] for more docs.
     pub fn set_call(&mut self, frag_ind: usize, row_ind: usize, call_ind: isize) -> String {
-        self.make_fallible_action(|spec: &Spec| {
+        self.make_fallible_action(|spec| {
             spec.set_call(frag_ind, row_ind, usize::try_from(call_ind).ok())
         })
         .err()
@@ -405,6 +405,20 @@ impl Comp {
     /// 2. `frag_ind` isn't the only unmuted [`Frag`], in which case we mute everything except it
     pub fn toggle_frag_solo(&mut self, frag_ind: usize) {
         self.make_action(|spec: &mut Spec| spec.solo_single_frag(frag_ind));
+    }
+
+    /// Remove a method from the list, if it doesn't appear in the composition
+    pub fn remove_method(&mut self, method_ind: usize) -> String {
+        match self.derived_state.is_method_used(method_ind) {
+            Some(false) => {
+                // Only perform the action if the method exists but isn't rung
+                self.make_action(|spec| spec.remove_method(method_ind));
+                ""
+            }
+            Some(true) => "Can't remove a method that's used in the composition.",
+            None => "Method index out of range",
+        }
+        .to_owned()
     }
 
     /// Resets the composition to the example

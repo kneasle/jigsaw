@@ -1140,6 +1140,33 @@ impl Spec {
         }
     }
 
+    /// Removes the [`MethodSpec`] at a given index.
+    pub fn remove_method(&mut self, method_ind: usize) {
+        self.methods.remove(method_ind);
+        // Update all the method references
+        for f in &mut self.frags {
+            // Before cloning, check if this Frag actually contains any references that need
+            // reindexing (I'm pretty sure that checking this is far far cheaper than cloning)
+            if f.block
+                .annots()
+                .filter_map(|a| a.method)
+                .all(|m_ref| m_ref.method_index < method_ind)
+            {
+                continue;
+            }
+            // If changes are required, perform those changes (whilst `Rc::make_mut`ing along the
+            // way)
+            for method_ref in Rc::make_mut(&mut Rc::make_mut(f).block)
+                .annots_mut()
+                .filter_map(|a| a.method.as_mut())
+            {
+                if method_ref.method_index > method_ind {
+                    method_ref.method_index -= 1;
+                }
+            }
+        }
+    }
+
     /* Getters */
 
     /// Returns `true` if this `Spec` contains any rows

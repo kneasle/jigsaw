@@ -319,6 +319,18 @@ impl<A> AnnotBlock<A> {
         self.iter().map(AnnotRow::row)
     }
 
+    /// Returns an [`Iterator`] over all the annotations in this `Block`.
+    #[inline]
+    pub fn annots(&self) -> impl Iterator<Item = &A> + '_ {
+        self.iter().map(AnnotRow::annot)
+    }
+
+    /// Returns an [`Iterator`] yielding mutable references to the annotations in this `Block`.
+    #[inline]
+    pub fn annots_mut(&mut self) -> impl Iterator<Item = &mut A> + '_ {
+        self.rows.iter_mut().map(AnnotRow::annot_mut)
+    }
+
     /// Pre-multiplies every [`Row`] in this `Block` by another [`Row`].  The resulting `Block` is
     /// equivalent to `self` (inasmuch as the relations between the [`Row`]s are identical), but it
     /// will start from a different [`Row`].

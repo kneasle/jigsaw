@@ -318,6 +318,13 @@ impl DerivedState {
         )
     }
 
+    /// Returns `true` if the specified method is used anywhere in the composition (even muted).
+    /// Returns `None` if the method index was out of range.
+    #[inline]
+    pub fn is_method_used(&self, method_ind: usize) -> Option<bool> {
+        self.methods.get(method_ind).map(|m| m.num_rows > 0)
+    }
+
     /// Gets the part head at a given index, or returning `None` if the index is bigger than the
     /// number of parts.
     #[inline]

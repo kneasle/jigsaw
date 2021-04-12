@@ -55,8 +55,15 @@
         <div style="display: none;" id="templates">
             <!-- Template for a single method entry -->
             <div id="template-method-entry">
-                <p>(<span id="shorthand">B</span>) <span id="name">Bristol</span>
-                <span style="float: right;"><span id="row-count">0</span> rows</span></p>
+                <!-- Shorthand & name on the left -->
+                <p>(<span id="shorthand">B</span>)
+                    <span id="name">Bristol</span>
+                    <!-- row counter/delete on the right -->
+                    <span style="float: right;">
+                        <span id="row-count" style="display: none;">0 rows</span>
+                        <span id="delete-button" style="color: #0000ff; text-decoration: underline;
+                            cursor: pointer;">remove</span>
+                    </span></p>
             </div>
         </div>
 
@@ -67,7 +74,7 @@
                 <div id="method-box">
                     <!-- Method entries will go here -->
                 </div>
-                <p>Select meth: <input id="selected-method"
+                <p>Select method: <input id="selected-method"
                                        style="width: 2em;"
                                        type="number"
                                        value="0"
