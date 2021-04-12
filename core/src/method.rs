@@ -92,7 +92,7 @@ impl Method {
     }
 }
 
-/// Type alias used for brevity in [`PlainCourseIter`]
+/// Type alias used for brevity in [`CourseIter`]
 type _InternalIter<'m> =
     std::iter::Peekable<std::iter::Enumerate<AnnotRowIter<'m, Option<String>>>>;
 

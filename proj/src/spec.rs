@@ -1,6 +1,7 @@
 use crate::derived_state::{CallLabel, DerivedCall, ExpandedRow, MethodLabel};
 use proj_core::{
-    AnnotBlock, AnnotRow, Bell, Call, IncompatibleStages, Method, PnBlock, Row, Stage,
+    place_not::BlockParseError, AnnotBlock, AnnotRow, Bell, Call, IncompatibleStages, Method,
+    PnBlock, Row, Stage,
 };
 use std::{
     fmt::{Display, Formatter},
@@ -92,6 +93,19 @@ pub struct MethodSpec {
 }
 
 impl MethodSpec {
+    /// Creates a new `MethodSpec` by parsing a string of place notation
+    pub fn from_pn(
+        name: String,
+        shorthand: String,
+        pn: &str,
+        stage: Stage,
+    ) -> Result<Self, BlockParseError> {
+        Ok(MethodSpec {
+            shorthand,
+            method: Method::with_lead_end(name, &PnBlock::parse(pn, stage)?),
+        })
+    }
+
     #[inline]
     pub fn name(&self) -> &str {
         self.method.name()
@@ -156,6 +170,28 @@ impl CallSpec {
                 })
                 .collect(),
         )
+    }
+
+    /// Creates a `14` lead-end bob, with calling positions
+    pub fn le_14_bob(stage: Stage) -> Self {
+        if stage != Stage::MAJOR {
+            unimplemented!();
+        }
+        CallSpec {
+            call: Call::le_bob(PnBlock::parse("14", stage).unwrap()),
+            calling_positions: "LIBFVMWH".chars().collect(),
+        }
+    }
+
+    /// Creates a `14` lead-end bob, with calling positions
+    pub fn le_1234_single(stage: Stage) -> Self {
+        if stage != Stage::MAJOR {
+            unimplemented!();
+        }
+        CallSpec {
+            call: Call::le_single(PnBlock::parse("1234", stage).unwrap()),
+            calling_positions: "LBTFVMWH".chars().collect(),
+        }
     }
 
     /// Generates a [`DerivedCall`] from this `CallSpec`
@@ -837,6 +873,7 @@ impl Frag {
 
     /// Generates an example fragment (in this case, it's https://complib.org/composition/75822)
     fn cyclic_s8() -> (Frag, Vec<Rc<MethodSpec>>, Vec<Rc<CallSpec>>) {
+        const STAGE: Stage = Stage::MAJOR;
         let mut rows: Vec<AnnotRow<Annot>> = include_str!("cyclic-s8")
             .lines()
             .map(|x| AnnotRow::with_default(Row::parse(x).unwrap()))
@@ -851,25 +888,13 @@ impl Frag {
             ("Cornwall", "W", "-56-14-56-38-14-58-14-58,18"),
         ]
         .iter()
-        .map(|(name, shorthand, pn)| {
-            Rc::new(MethodSpec {
-                shorthand: String::from(*shorthand),
-                method: Method::with_lead_end(
-                    String::from(*name),
-                    &PnBlock::parse(pn, Stage::MAJOR).unwrap(),
-                ),
-            })
+        .map(|&(name, shorthand, pn)| {
+            Rc::new(MethodSpec::from_pn(name.to_owned(), shorthand.to_owned(), pn, STAGE).unwrap())
         })
         .collect();
         let calls = vec![
-            Rc::new(CallSpec {
-                call: Call::le_bob(PnBlock::parse("14", Stage::MAJOR).unwrap()),
-                calling_positions: "LIBFVMWH".chars().collect(),
-            }),
-            Rc::new(CallSpec {
-                call: Call::le_single(PnBlock::parse("1234", Stage::MAJOR).unwrap()),
-                calling_positions: "LBTFVMWH".chars().collect(),
-            }),
+            Rc::new(CallSpec::le_14_bob(STAGE)),
+            Rc::new(CallSpec::le_1234_single(STAGE)),
         ];
 
         /* ANNOTATIONS */
