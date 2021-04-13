@@ -1,5 +1,8 @@
 //! A heap-allocated row of [`Bell`]s.  This is also used as a permutation.
 
+use std::cmp::Ordering;
+use std::collections::HashSet;
+
 use crate::{Bell, Stage};
 
 // Imports used solely for doc comments
@@ -657,34 +660,54 @@ impl Row {
     /// # Safety
     ///
     /// This is safe if `self` and `rhs` both have the same [`Stage`].
-    ///
-    /// # Example
-    /// ```
-    /// use proj_core::{Bell, Row, Stage, IncompatibleStages};
-    ///
-    /// // Multiplying two Rows of the same Stage is OK, but still unsafe
-    /// assert_eq!(
-    ///     unsafe {
-    ///         Row::parse("13425678")?.mul_unchecked(&Row::parse("43217568")?)
-    ///     },
-    ///     Row::parse("24317568")?
-    /// );
-    /// // Multiplying two Rows of different Stages is not OK, and creates an invalid Row.
-    /// // Note how both sides of the `assert_eq` have to use unsafe to create an invalid Row.
-    /// assert_eq!(
-    ///     unsafe { Row::parse("13475628")?.mul_unchecked(&Row::parse("4321")?) },
-    ///     unsafe {Row::from_vec_unchecked(
-    ///         [7, 4, 3, 1].iter().map(|&x| Bell::from_number(x).unwrap()).collect()
-    ///     )}
-    /// );
-    /// # Ok::<(), proj_core::InvalidRowError>(())
-    /// ```
     pub unsafe fn mul_into_unchecked(&self, rhs: &Row, out: &mut Row) {
         // We bypass the validity check because if two Rows are valid, then so is their product.
         // However, this function is also unsafe because permuting two rows of different Stages
         // causes undefined behaviour
         out.bells.clear();
         out.bells.extend(rhs.bells().map(|b| self[b.index()]));
+    }
+
+    /// Calculate the inverse of this `Row`, storing the result in an existing `Row` (thus making
+    /// use of its allocation).  This resizes `out` to make it the right [`Stage`] to take the
+    /// output value.
+    ///
+    /// # Example
+    /// ```
+    /// use proj_core::{Row, Stage};
+    ///
+    /// // Create a new row that will be overwritten to avoid reallocations
+    /// let mut row_buf = Row::empty();
+    /// // The inverse of Queens is Tittums
+    /// Row::parse("135246")?.inv_into(&mut row_buf);
+    /// assert_eq!(row_buf, Row::parse("142536")?);
+    /// // Backrounds is self-inverse
+    /// Row::backrounds(Stage::MAJOR).inv_into(&mut row_buf);
+    /// assert_eq!(row_buf, Row::backrounds(Stage::MAJOR));
+    /// // `1324` inverts to `1423`
+    /// Row::parse("1342")?.inv_into(&mut row_buf);
+    /// assert_eq!(row_buf, Row::parse("1423")?);
+    /// #
+    /// # Ok::<(), proj_core::InvalidRowError>(())
+    /// ```
+    pub fn inv_into(&self, out: &mut Row) {
+        // Make sure that `out` has the right stage
+        match out.stage().cmp(&self.stage()) {
+            Ordering::Less => {
+                out.bells.extend(
+                    std::iter::repeat(Bell::TREBLE).take(self.bells.len() - out.bells.len()),
+                );
+            }
+            Ordering::Greater => {
+                out.bells.drain(self.bells.len()..);
+            }
+            Ordering::Equal => {}
+        }
+        debug_assert_eq!(out.stage(), self.stage());
+        // Now perform the inversion
+        for (i, b) in self.bells().enumerate() {
+            out.bells[b.index()] = Bell::from_index(i);
+        }
     }
 
     /// All the `Row`s formed by repeatedly permuting a given `Row`.  The first item returned will
@@ -760,7 +783,7 @@ impl Row {
     }
 
     /// Concatenates the names of the [`Bell`]s in this `Row` to the end of a [`String`].  Using
-    /// `format!("{}", row)` will behave the same as this but will return an newly allocated
+    /// `row.to_string()` will behave the same as this but will return an newly allocated
     /// [`String`].
     ///
     /// # Example
@@ -768,7 +791,7 @@ impl Row {
     /// use proj_core::Row;
     ///
     /// let waterfall = Row::parse("6543217890")?;
-    /// let mut string = "Waterfall is: ".to_string();
+    /// let mut string = "Waterfall is: ".to_owned();
     /// waterfall.push_to_string(&mut string);
     /// assert_eq!(string, "Waterfall is: 6543217890");
     /// # Ok::<(), proj_core::InvalidRowError>(())
@@ -777,6 +800,53 @@ impl Row {
         for b in &self.bells {
             string.push_str(&b.name());
         }
+    }
+
+    /// Determines if the given set of [`Row`]s forms a group.  This performs `n^2` transpositions
+    /// and `n` inversions where `n` is the number of unique elements yeilded by `rows`.  See [this
+    /// Wikipedia page](https://en.wikipedia.org/wiki/Subgroup_test) for the algorithm used.
+    pub fn is_group<'a>(
+        rows: impl IntoIterator<Item = &'a Row>,
+    ) -> Result<bool, IncompatibleStages> {
+        // Build a hash set with the contents of `rows`
+        let row_set: HashSet<&Row> = rows.into_iter().collect();
+        // We early return here because if the set is empty then this cannot be a group but all the
+        // checks will be vacuously satisfied
+        if row_set.is_empty() {
+            return Ok(false);
+        }
+        // Check that stages match
+        let mut first_stage: Option<Stage> = None;
+        for r in &row_set {
+            if let Some(fs) = first_stage {
+                IncompatibleStages::test_err(fs, r.stage())?;
+            } else {
+                first_stage = Some(r.stage());
+            }
+        }
+        // Now perform the group check by verifying that `a * !b` is in the set for all a, b in
+        // `row_set`.
+        // PERF: We're multiplying every row by its inverse, which always gives rounds and
+        // therefore we can replace those checks with an in-place rounds check on the incoming rows
+        // and thus gain performance
+        // The buffers `b_inv` and `a_mul_b_inv` are reused in each loop iteration to avoid
+        // performing `n(n + 1)` allocations.
+        let mut b_inv = Row::empty();
+        let mut a_mul_b_inv = Row::empty();
+        for &b in &row_set {
+            b.inv_into(&mut b_inv);
+            for &a in &row_set {
+                // This unsafety is OK because we checked that all the stages match at the start of
+                // this function
+                unsafe { a.mul_into_unchecked(&b_inv, &mut a_mul_b_inv) }
+                // If `a * !b` is not in `row_set`, then this can't be a group so we return false
+                if !row_set.contains(&a_mul_b_inv) {
+                    return Ok(false);
+                }
+            }
+        }
+        // If all of the checks passed, then the set is a group
+        Ok(true)
     }
 }
 
@@ -887,7 +957,7 @@ impl std::ops::Not for &Row {
     /// # Ok::<(), proj_core::InvalidRowError>(())
     /// ```
     fn not(self) -> Self::Output {
-        let mut inv_bells = vec![Bell::from_index(0); self.stage().as_usize()];
+        let mut inv_bells = vec![Bell::TREBLE; self.stage().as_usize()];
         for (i, b) in self.bells().enumerate() {
             inv_bells[b.index()] = Bell::from_index(i);
         }
@@ -960,6 +1030,47 @@ mod tests {
                     Bell::from_name(*missing_bell).unwrap(),
                 ))
             );
+        }
+    }
+
+    #[test]
+    fn is_group() {
+        #[rustfmt::skip]
+        let groups = [
+            vec!["1234", "1342", "1423"],
+            vec!["1"],
+            vec!["1234", "1324"],
+            vec!["1234", "1234", "1234", "1324"],
+            vec!["1234", "4123", "3412", "2341"],
+            vec!["123456", "134256", "142356", "132456", "124356", "143256"],
+            vec![
+                "123456", "134562", "145623", "156234", "162345",
+                "165432", "126543", "132654", "143265", "154326",
+            ],
+            vec!["123456", "234561", "345612", "456123", "561234", "612345"],
+            vec![
+                "123456", "234561", "345612", "456123", "561234", "612345",
+                "654321", "165432", "216543", "321654", "432165", "543216",
+            ],
+        ];
+        let non_groups = [
+            vec!["21"],
+            vec!["123456", "134256", "142356", "132456", "124356"], // 143256 is missing
+            vec![], // The empty set doesn't contain an identity element
+            vec![
+                "123456", "134256", "142356", "132456", "124356", "143256", "213456",
+            ],
+        ];
+
+        for g in &groups {
+            let rows: Vec<Row> = g.iter().map(|s| Row::parse(s).unwrap()).collect();
+            println!("Is {:?} a group?", g);
+            assert!(Row::is_group(rows.iter()).unwrap());
+        }
+        for g in &non_groups {
+            let rows: Vec<Row> = g.iter().map(|s| Row::parse(s).unwrap()).collect();
+            println!("Is {:?} not a group?", g);
+            assert!(!Row::is_group(rows.iter()).unwrap());
         }
     }
 }
