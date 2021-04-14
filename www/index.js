@@ -22,7 +22,7 @@ const elem_part_head_message = document.getElementById("part-head-message");
 // Right sidebar
 const elem_right_sidebar = document.getElementById("right-sidebar");
 const elem_num_methods = document.getElementById("num-methods");
-const elem_method_box = document.getElementById("method-box");
+const elem_method_box = document.getElementById("method-list");
 
 const elem_method_readout = document.getElementById("method-readout");
 const elem_selected_method = document.getElementById("selected-method");
@@ -658,6 +658,9 @@ function update_sidebar() {
                 on_comp_change();
             }
         });
+        // Link the fold names together (a button with ID `<name>-fold` always folds `<name>-area`)
+        new_entry.querySelector("#method-info-fold").id = `method-info-${index}-fold`;
+        new_entry.querySelector("#method-info-area").id = `method-info-${index}-area`;
         // Add it to the box
         elem_method_box.appendChild(new_entry);
     }
@@ -669,18 +672,24 @@ function update_sidebar() {
     for (let i = 0; i < num_methods; i++) {
         const m = derived_state.methods[i];
         const entry = method_entries[i];
+        const is_used = m.num_rows !== 0;
+        // Populate title bar
         entry.querySelector("#name").innerText = m.name;
         entry.querySelector("#shorthand").innerText = `#${i}: ${m.shorthand}`;
         // Swap between row counter and delete if the method is never used
         const row_count = entry.querySelector("#row-count");
         const delete_btn = entry.querySelector("#delete-button");
-        row_count.style.display = m.num_rows === 0 ? "none" : "inline";
-        delete_btn.style.display = m.num_rows === 0 ? "inline" : "none";
-        // Set delete text
+        row_count.style.display = is_used ? "inline" : "none";
+        delete_btn.style.display = is_used ? "none" : "inline";
+        // Set row counter text
         row_count.innerText =
             (m.num_proved_rows === m.num_rows
                 ? `${m.num_rows}`
                 : `${m.num_proved_rows}/${m.num_rows}`) + " rows";
+        // Populate the fold-out part
+        entry.querySelector("#shorthand-input").value = m.shorthand;
+        entry.querySelector("#name-input").value = m.name;
+        entry.querySelector("#place-notation-input").disabled = is_used;
     }
 
     /* CALL LIST */

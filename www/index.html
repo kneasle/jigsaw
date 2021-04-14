@@ -19,6 +19,24 @@
             }
             run();
         </script>
+        <script>
+            // Callback used by all collapse buttons
+            function collapse(e) {
+                // Replace the '-fold' at the end of the ID with '-area'
+                const trimmed_id = e.id.slice(0, -"-fold".length);
+                const selector = `${trimmed_id}-area`;
+                // Find the element with this ID, returning and warning if it doesn't exist
+                const fold_area = document.getElementById(selector);
+                if (!fold_area) {
+                    console.warn(`No elements found with selector "${selector}"`);
+                    return;
+                }
+                // Update the state of this switch and the fold area
+                const is_collapsed = fold_area.style.display === "none";
+                e.innerText = is_collapsed ? "▼" : "▶";
+                fold_area.style.display = is_collapsed ? "block" : "none";
+            }
+        </script>
 
         <!-- Main canvas -->
         <canvas id="comp-canvas"></canvas>
@@ -48,37 +66,23 @@
             <p id="transpose-message" class="parse-err">Bell '2' repeated twice</p>
         </div>
 
-        <!-- Templates (i.e. HTML trees which will get cloned and populated with data to generate
-             the sidebar).  These are very reminiscent of templates from Vue or React except that
-             the interactions we require are very simple and are easier managed without a
-             library. -->
-        <div style="display: none;" id="templates">
-            <!-- Template for a single method entry -->
-            <div id="template-method-entry">
-                <!-- Shorthand & name on the left -->
-                <p>(<span id="shorthand">B</span>)
-                    <span id="name">Bristol</span>
-                    <!-- row counter/delete on the right -->
-                    <span style="float: right;">
-                        <span id="row-count" style="display: none;">0 rows</span>
-                        <span id="delete-button" style="color: #0000ff; text-decoration: underline;
-                            cursor: pointer;">remove</span>
-                    </span></p>
-            </div>
-        </div>
-
         <!-- Right sidebar -->
         <div id="right-sidebar">
             <div class="sidebar-box">
-                <h2>Methods (<span id="num-methods">0</span>)</h2>
-                <div id="method-box">
-                    <!-- Method entries will go here -->
+                <h2><span class="fold-button"
+                         id="method-box-fold"
+                         onclick="collapse(this);"
+                    >▼</span>Methods (<span id="num-methods">0</span>)</h2>
+                <div id="method-box-area">
+                    <div id="method-list">
+                        <!-- Method entries will go here -->
+                    </div>
+                    <p>Select method: <input id="selected-method"
+                                           style="width: 2em;"
+                                           type="number"
+                                           value="0"
+                                           min="0"/></p>
                 </div>
-                <p>Select method: <input id="selected-method"
-                                       style="width: 2em;"
-                                       type="number"
-                                       value="0"
-                                       min="0"/></p>
             </div>
 
             <div class="sidebar-box">
@@ -89,6 +93,55 @@
                 <p>Select call: <input id="selected-call"
                     style="width: 2em;" type="number" value="0" min="-1"></input>
                 </p>
+            </div>
+        </div>
+
+        <!-- Templates (i.e. HTML trees which will get cloned and populated with data to generate
+             the sidebar).  These are very reminiscent of templates from Vue or React except that
+             the interactions we require are very simple and are easier managed without a
+             library. -->
+        <div style="display: none;" id="templates">
+            <!-- Template for a single method entry -->
+            <div id="template-method-entry">
+                <!-- Title bar: Shorthand & name on the left -->
+                <p><span class="fold-button"
+                         id="method-info-fold"
+                         onclick="collapse(this);">▶</span>(<span id="shorthand">B</span>)
+                    <span id="name">Bristol</span>
+                    <!-- row counter/delete on the right -->
+                    <span style="float: right;">
+                        <span id="row-count" style="display: none;">0 rows</span>
+                        <span id="delete-button"
+                              style="color: #0000ff; text-decoration: underline; cursor: pointer;"
+                        >remove</span>
+                    </span>
+                </p>
+                <!-- Fold out section (hidden by default) -->
+                <div class="method-fold-out" id="method-info-area" style="display: none;">
+                    <table style="width: 100%;">
+                        <tr>
+                            <td style="display: flex; flex-direction: row;">
+                                <input id="shorthand-input"
+                                       value="V"
+                                       placeholder="Sym"
+                                       style="width: 2em; margin-right: 5px;" />
+                                <input id="name-input"
+                                       placeholder="Name"
+                                       value="Deva"
+                                       style="width: 12em; flex: 1;" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="display: flex; flex-direction: row;">
+                                <input id="place-notation-input"
+                                       value="<PLACE NOTATION>"
+                                       placeholder="Place Notation"
+                                       style="flex: 1;"
+                                       disabled />
+                            </td>
+                        </tr>
+                    </table>
+                </div>
             </div>
         </div>
 
