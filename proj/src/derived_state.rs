@@ -124,7 +124,8 @@ pub struct ExpandedRow {
     /// 5: 41567823
     /// 6: 31456782
     /// ```
-    /// and the highlights would be:
+    /// and (assuming that the music being scored is runs off either end of the row) the highlights
+    /// would be:
     /// ```ignore
     /// vec![
     ///     vec![],

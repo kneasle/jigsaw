@@ -649,7 +649,11 @@ function update_sidebar() {
         const new_entry = template_method_entry.cloneNode(true);
         // Remove the ID tag so it can't be confused with the template version when debugging
         new_entry.removeAttribute("id");
-        // Add a callback for clicking it
+        // Attach callbacks
+        new_entry.querySelector("#method-info-fold-btn").addEventListener("click", function () {
+            comp.toggle_method_fold(index);
+            on_comp_change();
+        });
         new_entry.querySelector("#delete-button").addEventListener("click", function () {
             const err = comp.remove_method(index);
             if (err) {
@@ -658,9 +662,6 @@ function update_sidebar() {
                 on_comp_change();
             }
         });
-        // Link the fold names together (a button with ID `<name>-fold` always folds `<name>-area`)
-        new_entry.querySelector("#method-info-fold").id = `method-info-${index}-fold`;
-        new_entry.querySelector("#method-info-area").id = `method-info-${index}-area`;
         // Add it to the box
         elem_method_box.appendChild(new_entry);
     }
@@ -673,6 +674,7 @@ function update_sidebar() {
         const m = derived_state.methods[i];
         const entry = method_entries[i];
         const is_used = m.num_rows !== 0;
+        const is_open = comp.is_method_panel_open(i);
         // Populate title bar
         entry.querySelector("#name").innerText = m.name;
         entry.querySelector("#shorthand").innerText = `#${i}: ${m.shorthand}`;
@@ -686,6 +688,9 @@ function update_sidebar() {
             (m.num_proved_rows === m.num_rows
                 ? `${m.num_rows}`
                 : `${m.num_proved_rows}/${m.num_rows}`) + " rows";
+        // Set the foldedness
+        entry.querySelector("#method-info-fold-btn").innerText = is_open ? "▼" : "▶";
+        entry.querySelector("#method-info-area").style.display = is_open ? "block" : "none";
         // Populate the fold-out part
         entry.querySelector("#shorthand-input").value = m.shorthand;
         entry.querySelector("#name-input").value = m.name;

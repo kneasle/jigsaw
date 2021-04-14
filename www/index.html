@@ -70,8 +70,8 @@
         <div id="right-sidebar">
             <div class="sidebar-box">
                 <h2><span class="fold-button"
-                         id="method-box-fold"
-                         onclick="collapse(this);"
+                          id="method-box-fold"
+                          onclick="collapse(this);"
                     >▼</span>Methods (<span id="num-methods">0</span>)</h2>
                 <div id="method-box-area">
                     <div id="method-list">
@@ -105,8 +105,7 @@
             <div id="template-method-entry">
                 <!-- Title bar: Shorthand & name on the left -->
                 <p><span class="fold-button"
-                         id="method-info-fold"
-                         onclick="collapse(this);">▶</span>(<span id="shorthand">B</span>)
+                         id="method-info-fold-btn">▶</span>(<span id="shorthand">B</span>)
                     <span id="name">Bristol</span>
                     <!-- row counter/delete on the right -->
                     <span style="float: right;">
@@ -117,7 +116,7 @@
                     </span>
                 </p>
                 <!-- Fold out section (hidden by default) -->
-                <div class="method-fold-out" id="method-info-area" style="display: none;">
+                <div class="method-fold-out" id="method-info-area">
                     <table style="width: 100%;">
                         <tr>
                             <td style="display: flex; flex-direction: row;">
@@ -128,7 +127,7 @@
                                 <input id="name-input"
                                        placeholder="Name"
                                        value="Deva"
-                                       style="width: 12em; flex: 1;" />
+                                       style="flex: 1;" />
                             </td>
                         </tr>
                         <tr>

@@ -439,6 +439,19 @@ impl Comp {
     pub fn set_current_part(&mut self, new_part: usize) {
         self.view.current_part = new_part;
     }
+
+    pub fn toggle_method_fold(&mut self, method_ind: usize) {
+        let cell = self.spec().method_panel_cell(method_ind).unwrap();
+        let v = cell.get();
+        cell.set(!v);
+    }
+
+    // TODO/PERF: Turn `View` into something similar to `DerivedState`, which aggregates its data
+    // from some internal view structure and a `Spec`.  For now, though, the performance is
+    // adequate.
+    pub fn is_method_panel_open(&mut self, method_ind: usize) -> bool {
+        self.spec().method_panel_cell(method_ind).unwrap().get()
+    }
 }
 
 #[cfg(test)]
@@ -447,7 +460,9 @@ mod tests {
 
     #[test]
     fn example_doesnt_crash() {
-        let _c = Comp::example();
+        let c = Comp::example();
+        c.ser_derived_state();
+        c.ser_view();
     }
 
     #[test]
