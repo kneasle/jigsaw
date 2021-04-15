@@ -249,8 +249,8 @@ pub struct DerivedMethod {
 impl From<&MethodSpec> for DerivedMethod {
     fn from(method: &MethodSpec) -> Self {
         DerivedMethod {
-            name: String::from(method.name()),
-            shorthand: String::from(method.shorthand()),
+            name: method.name().to_owned(),
+            shorthand: method.shorthand().to_owned(),
             num_proved_rows: 0,
             num_rows: 0,
         }

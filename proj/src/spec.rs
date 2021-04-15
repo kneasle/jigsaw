@@ -70,7 +70,7 @@ pub mod part_heads {
             let part_heads = Row::parse_with_stage(s, stage)?.closure_from_rounds();
             Ok(PartHeads {
                 part_heads,
-                spec: String::from(s),
+                spec: s.to_owned(),
             })
         }
     }
@@ -803,7 +803,7 @@ impl Frag {
                 annot.method.map(|m| {
                     let new_method = &methods[m.method_index];
                     MethodLabel::new(
-                        String::from(new_method.method.name()),
+                        new_method.method.name().to_owned(),
                         new_method.shorthand.clone(),
                     )
                 })

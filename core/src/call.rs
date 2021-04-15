@@ -30,7 +30,7 @@ impl Call {
     pub fn le_bob(pn_block: PnBlock) -> Self {
         Self::new(
             NOTATION_BOB,
-            String::from(LABEL_LEAD_END),
+            LABEL_LEAD_END.to_owned(),
             pn_block.len(),
             pn_block.to_block(),
         )
@@ -40,7 +40,7 @@ impl Call {
     pub fn le_single(pn_block: PnBlock) -> Self {
         Self::new(
             NOTATION_SINGLE,
-            String::from(LABEL_LEAD_END),
+            LABEL_LEAD_END.to_owned(),
             pn_block.len(),
             pn_block.to_block(),
         )

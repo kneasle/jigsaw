@@ -29,8 +29,7 @@ impl Method {
     /// Creates a new `Method` from some place notation, adding a lead end annotation.
     pub fn with_lead_end(name: String, block: &PnBlock) -> Self {
         let mut first_lead: AnnotBlock<Option<String>> = block.to_block();
-        *first_lead.get_annot_mut(first_lead.len() - 1).unwrap() =
-            Some(String::from(LABEL_LEAD_END));
+        *first_lead.get_annot_mut(first_lead.len() - 1).unwrap() = Some(LABEL_LEAD_END.to_owned());
         Method { name, first_lead }
     }
 
