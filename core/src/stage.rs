@@ -130,3 +130,53 @@ impl From<usize> for Stage {
         Stage(n)
     }
 }
+
+/// An error created when a [`Row`] was used to permute something with the wrong length
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct IncompatibleStages {
+    /// The [`Stage`] of the [`Row`] that was being permuted
+    pub(crate) lhs_stage: Stage,
+    /// The [`Stage`] of the [`Row`] that was doing the permuting
+    pub(crate) rhs_stage: Stage,
+}
+
+impl IncompatibleStages {
+    /// Compares two [`Stage`]s, returning `Ok(())` if they are equal and returning the appropriate
+    /// `IncompatibleStages` error if not.
+    pub fn test_err(lhs_stage: Stage, rhs_stage: Stage) -> Result<(), Self> {
+        if lhs_stage == rhs_stage {
+            Ok(())
+        } else {
+            Err(IncompatibleStages {
+                lhs_stage,
+                rhs_stage,
+            })
+        }
+    }
+
+    /// Compares an `Option<Stage>` to a [`Stage`], overwriting the `Option` if it's `None` but
+    /// otherwise checking the [`Stage`]s for validity.  This is useful if you have a sequence of
+    /// [`Row`]s and you want to verify that all the [`Stage`]s are equal without treating the
+    /// first [`Row`] as a special case.
+    pub fn test_err_opt(opt: &mut Option<Stage>, stage: Stage) -> Result<(), Self> {
+        match opt {
+            None => {
+                *opt = Some(stage);
+                Ok(())
+            }
+            Some(s) => Self::test_err(*s, stage),
+        }
+    }
+}
+
+impl std::fmt::Display for IncompatibleStages {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Incompatible stages: {} (lhs), {} (rhs)",
+            self.lhs_stage, self.rhs_stage
+        )
+    }
+}
+
+impl std::error::Error for IncompatibleStages {}

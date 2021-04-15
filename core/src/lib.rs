@@ -14,6 +14,6 @@ pub use block::{AnnotBlock, AnnotRow, Block};
 pub use call::Call;
 pub use method::Method;
 pub use place_not::{PlaceNot, PnBlock};
-pub use row::{IncompatibleStages, InvalidRowError, Row, RowResult};
-pub use stage::Stage;
+pub use row::{InvalidRowError, Row, RowResult};
+pub use stage::{IncompatibleStages, Stage};
 pub use utils::run_len;
