@@ -726,7 +726,9 @@ function update_sidebar() {
         // Populate the fold-out part
         entry.querySelector("#shorthand-input").value = m.shorthand;
         entry.querySelector("#name-input").value = m.name;
-        entry.querySelector("#place-notation-input").disabled = is_used;
+        const pn = entry.querySelector("#place-notation-input");
+        pn.value = m.place_not_string;
+        pn.disabled = is_used;
     }
 
     /* CALL LIST */

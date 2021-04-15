@@ -91,6 +91,7 @@ pub mod part_heads {
 pub struct MethodSpec {
     shorthand: String,
     method: Method,
+    place_not_string: String,
     is_panel_open: Cell<bool>,
 }
 
@@ -99,12 +100,13 @@ impl MethodSpec {
     pub fn from_pn(
         name: String,
         shorthand: String,
-        pn: &str,
+        pn: String,
         stage: Stage,
     ) -> Result<Self, BlockParseError> {
         Ok(MethodSpec {
             shorthand,
-            method: Method::with_lead_end(name, &PnBlock::parse(pn, stage)?),
+            method: Method::with_lead_end(name, &PnBlock::parse(&pn, stage)?),
+            place_not_string: pn,
             is_panel_open: Cell::new(false),
         })
     }
@@ -117,6 +119,11 @@ impl MethodSpec {
     #[inline]
     pub fn shorthand(&self) -> &str {
         &self.shorthand
+    }
+
+    #[inline]
+    pub fn place_not_string(&self) -> &str {
+        &self.place_not_string
     }
 }
 
@@ -892,7 +899,10 @@ impl Frag {
         ]
         .iter()
         .map(|&(name, shorthand, pn)| {
-            Rc::new(MethodSpec::from_pn(name.to_owned(), shorthand.to_owned(), pn, STAGE).unwrap())
+            Rc::new(
+                MethodSpec::from_pn(name.to_owned(), shorthand.to_owned(), pn.to_owned(), STAGE)
+                    .unwrap(),
+            )
         })
         .collect();
         let calls = vec![

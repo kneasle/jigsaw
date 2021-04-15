@@ -242,6 +242,7 @@ pub struct AnnotFrag {
 pub struct DerivedMethod {
     name: String,
     shorthand: String,
+    place_not_string: String,
     num_proved_rows: usize,
     num_rows: usize,
 }
@@ -251,6 +252,7 @@ impl From<&MethodSpec> for DerivedMethod {
         DerivedMethod {
             name: method.name().to_owned(),
             shorthand: method.shorthand().to_owned(),
+            place_not_string: method.place_not_string().to_owned(),
             num_proved_rows: 0,
             num_rows: 0,
         }
