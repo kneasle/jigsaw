@@ -436,16 +436,25 @@ impl Comp {
         self.view.view_y = new_cam_y;
     }
 
+    /// Sets the current part being viewed
     pub fn set_current_part(&mut self, new_part: usize) {
         self.view.current_part = new_part;
     }
 
+    /// Toggles the foldedness of the method section, returning `false` if no section with that
+    /// name exists.
+    pub fn toggle_section_fold(&mut self, section_name: String) -> bool {
+        self.view.section_folds.toggle(&section_name)
+    }
+
+    /// Toggles the foldedness of a specific method panel
     pub fn toggle_method_fold(&mut self, method_ind: usize) {
         let cell = self.spec().method_panel_cell(method_ind).unwrap();
         let v = cell.get();
         cell.set(!v);
     }
 
+    /// Returns whether or not a given method info panel is open
     // TODO/PERF: Turn `View` into something similar to `DerivedState`, which aggregates its data
     // from some internal view structure and a `Spec`.  For now, though, the performance is
     // adequate.

@@ -1,4 +1,4 @@
-/* ===== CONSTS ===== */
+/* ===== GLOBAL VALUES ===== */
 
 // The 'Device Pixel Ratio'.  For screens with lots of pixels, `1px` might correspond to multiple
 // real life pixels - so dpr provides that scale-up
@@ -23,8 +23,13 @@ const elem_part_head_message = document.getElementById("part-head-message");
 const elem_right_sidebar = document.getElementById("right-sidebar");
 const elem_num_methods = document.getElementById("num-methods");
 const elem_method_box = document.getElementById("method-list");
+const elem_sections = {
+    methods: {
+        fold_button: document.getElementById("method-box-fold"),
+        area: document.getElementById("method-box-area"),
+    },
+};
 
-const elem_method_readout = document.getElementById("method-readout");
 const elem_selected_method = document.getElementById("selected-method");
 const elem_call_readout = document.getElementById("call-readout");
 const elem_selected_call = document.getElementById("selected-call");
@@ -33,6 +38,8 @@ const template_method_entry = document.getElementById("template-method-entry");
 // Canvas elements
 const canv = document.getElementById("comp-canvas");
 const ctx = canv.getContext("2d");
+
+/* ===== CONSTANTS ===== */
 
 const BELL_NAMES = "1234567890ETABCDFGHJKLMNPQRSUVWXYZ";
 
@@ -46,6 +53,9 @@ const COOKIE_NAME_VIEW = "view";
 
 // How many pixels off the edge of the screen the viewport culling will happen
 const VIEW_CULLING_EXTRA_SIZE = 20;
+
+const FOLD_BUTTON_TRIANGLE_CLOSED = "▶";
+const FOLD_BUTTON_TRIANGLE_OPEN = "▼";
 
 /* ===== DISPLAY CONSTANTS ===== */
 
@@ -582,6 +592,8 @@ function stop_transposing() {
 
 /* ===== HUD CODE ===== */
 
+// TODO: Clean these callbacks up
+
 function on_part_change(evt) {
     // Update which part to display (indirectly so that we avoid divergence between Rust's
     // datastructures and their JS counterparts).
@@ -634,6 +646,17 @@ function update_part_head_list() {
     }
     // Make sure the correct part head is selected
     elem_part_head_list.value = view.current_part;
+}
+
+function update_section_folds() {
+    for (section in elem_sections) {
+        const is_open = view.section_folds[section];
+        if (is_open === undefined) {
+            console.warn(`Section '${section}' has no foldedness value in 'view'.`);
+            continue;
+        }
+        set_foldedness(is_open, elem_sections[section].fold_button, elem_sections[section].area);
+    }
 }
 
 function update_sidebar() {
@@ -689,8 +712,11 @@ function update_sidebar() {
                 ? `${m.num_rows}`
                 : `${m.num_proved_rows}/${m.num_rows}`) + " rows";
         // Set the foldedness
-        entry.querySelector("#method-info-fold-btn").innerText = is_open ? "▼" : "▶";
-        entry.querySelector("#method-info-area").style.display = is_open ? "block" : "none";
+        set_foldedness(
+            is_open,
+            entry.querySelector("#method-info-fold-btn"),
+            entry.querySelector("#method-info-area")
+        );
         // Populate the fold-out part
         entry.querySelector("#shorthand-input").value = m.shorthand;
         entry.querySelector("#name-input").value = m.name;
@@ -751,8 +777,20 @@ function start() {
     elem_part_head_input.addEventListener("keyup", on_part_head_spec_change);
     elem_transpose_input.addEventListener("keyup", on_transpose_box_change);
     elem_transpose_input.addEventListener("keydown", on_transpose_box_key_down);
+    // Bind event listeners for sidebar section folding
+    for (section in elem_sections) {
+        elem_sections[section].fold_button.addEventListener("click", function () {
+            if (!comp.toggle_section_fold(section)) {
+                console.warn(`Section '${section}' doesn't exist.`);
+                return;
+            }
+            sync_view();
+            update_section_folds();
+        });
+    }
     // Update all the parts of the display to initialise them
     on_window_resize();
+    update_section_folds();
     request_frame();
 
     // Time how long it takes to sync the derived state
@@ -766,6 +804,11 @@ function start() {
 }
 
 /* ===== UTILITY FUNCTIONS/GETTERS ===== */
+
+function set_foldedness(is_open, triangle, area) {
+    triangle.innerText = is_open ? FOLD_BUTTON_TRIANGLE_OPEN : FOLD_BUTTON_TRIANGLE_CLOSED;
+    area.style.display = is_open ? "block" : "none";
+}
 
 function get_button(e) {
     // Correct for the fact that `e.button` and `e.buttons` assign the buttons in different orders.

@@ -19,24 +19,6 @@
             }
             run();
         </script>
-        <script>
-            // Callback used by all collapse buttons
-            function collapse(e) {
-                // Replace the '-fold' at the end of the ID with '-area'
-                const trimmed_id = e.id.slice(0, -"-fold".length);
-                const selector = `${trimmed_id}-area`;
-                // Find the element with this ID, returning and warning if it doesn't exist
-                const fold_area = document.getElementById(selector);
-                if (!fold_area) {
-                    console.warn(`No elements found with selector "${selector}"`);
-                    return;
-                }
-                // Update the state of this switch and the fold area
-                const is_collapsed = fold_area.style.display === "none";
-                e.innerText = is_collapsed ? "▼" : "▶";
-                fold_area.style.display = is_collapsed ? "block" : "none";
-            }
-        </script>
 
         <!-- Main canvas -->
         <canvas id="comp-canvas"></canvas>
@@ -71,7 +53,6 @@
             <div class="sidebar-box">
                 <h2><span class="fold-button"
                           id="method-box-fold"
-                          onclick="collapse(this);"
                     >▼</span>Methods (<span id="num-methods">0</span>)</h2>
                 <div id="method-box-area">
                     <div id="method-list">
