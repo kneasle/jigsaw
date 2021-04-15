@@ -21,16 +21,22 @@ const elem_part_head_list = document.getElementById("part-head");
 const elem_part_head_message = document.getElementById("part-head-message");
 // Right sidebar
 const elem_right_sidebar = document.getElementById("right-sidebar");
-const elem_num_methods = document.getElementById("num-methods");
-const elem_method_box = document.getElementById("method-list");
 const elem_sections = {
     methods: {
         fold_button: document.getElementById("method-box-fold"),
         area: document.getElementById("method-box-area"),
     },
+    calls: {
+        fold_button: document.getElementById("call-box-fold"),
+        area: document.getElementById("call-box-area"),
+    },
 };
 
+const elem_num_methods = document.getElementById("num-methods");
+const elem_method_box = document.getElementById("method-list");
 const elem_selected_method = document.getElementById("selected-method");
+
+const elem_num_calls = document.getElementById("num-calls");
 const elem_call_readout = document.getElementById("call-readout");
 const elem_selected_call = document.getElementById("selected-call");
 // Templates
@@ -725,6 +731,9 @@ function update_sidebar() {
 
     /* CALL LIST */
 
+    // Set the call count in the title
+    elem_num_calls.innerText = derived_state.calls.length.toString();
+    // Update the call count
     i = 0;
     elem_call_readout.innerText = derived_state.calls
         .map(function (c) {
@@ -778,7 +787,10 @@ function start() {
     elem_transpose_input.addEventListener("keyup", on_transpose_box_change);
     elem_transpose_input.addEventListener("keydown", on_transpose_box_key_down);
     // Bind event listeners for sidebar section folding
-    for (section in elem_sections) {
+    for (s in elem_sections) {
+        // We have to capture a copy of the string in the event listener, otherwise all the fold
+        // buttons will fold the same section
+        const section = `${s}`;
         elem_sections[section].fold_button.addEventListener("click", function () {
             if (!comp.toggle_section_fold(section)) {
                 console.warn(`Section '${section}' doesn't exist.`);

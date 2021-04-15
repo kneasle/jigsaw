@@ -59,21 +59,29 @@
                         <!-- Method entries will go here -->
                     </div>
                     <p>Select method: <input id="selected-method"
-                                           style="width: 2em;"
-                                           type="number"
-                                           value="0"
-                                           min="0"/></p>
+                                             style="width: 2em;"
+                                             type="number"
+                                             value="0"
+                                             min="0"/></p>
                 </div>
             </div>
 
             <div class="sidebar-box">
-                <h2 style="margin-top: 0; text-align: center;">TEMPORARY:</h2>
+                <h2><span class="fold-button"
+                          id="call-box-fold"
+                    >▼</span>Calls (<span id="num-calls">0</span>)</h2>
+                <div id="call-box-area">
+                    <p id="call-readout">&lt;Calls&gt;</p>
 
-                <p id="call-readout">&lt;Calls&gt;</p>
-
-                <p>Select call: <input id="selected-call"
-                    style="width: 2em;" type="number" value="0" min="-1"></input>
-                </p>
+                    <p>Select call:
+                        <input id="selected-call"
+                               style="width: 2em;"
+                               type="number"
+                               value="0"
+                               min="-1"
+                        ></input>
+                    </p>
+                </div>
             </div>
         </div>
 

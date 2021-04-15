@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 pub struct SectionFolds {
     #[serde(default)]
     pub methods: bool,
+    #[serde(default)]
+    pub calls: bool,
 }
 
 impl SectionFolds {
@@ -14,6 +16,7 @@ impl SectionFolds {
     pub fn toggle(&mut self, name: &str) -> bool {
         let value = match name {
             "methods" => &mut self.methods,
+            "calls" => &mut self.calls,
             _ => return false,
         };
         *value = !*value;
