@@ -65,6 +65,20 @@ impl IncompatibleStages {
             })
         }
     }
+
+    /// Compares an `Option<Stage>` to a [`Stage`], overwriting the `Option` if it's `None` but
+    /// otherwise checking the [`Stage`]s for validity.  This is useful if you have a sequence of
+    /// [`Row`]s and you want to verify that all the [`Stage`]s are equal without treating the
+    /// first [`Row`] as a special case.
+    pub fn test_err_opt(opt: &mut Option<Stage>, stage: Stage) -> Result<(), Self> {
+        match opt {
+            None => {
+                *opt = Some(stage);
+                Ok(())
+            }
+            Some(s) => Self::test_err(*s, stage),
+        }
+    }
 }
 
 impl std::fmt::Display for IncompatibleStages {
@@ -800,6 +814,60 @@ impl Row {
         for b in &self.bells {
             string.push_str(&b.name());
         }
+    }
+
+    // QUESTION: Should these be stand-alone functions?
+
+    /// Takes a sequence of sets of `Row`s (`[X_1, X_2, ..., X_n]`) and computes every product
+    /// `x_1 * x_2 * ... * x_n` where `x_i` comes from `X_i` for all `i`.
+    pub fn multi_cartesian_product<'a>(
+        row_sets: impl IntoIterator<Item = Vec<Row>>,
+    ) -> Result<Vec<Row>, IncompatibleStages> {
+        let mut set_iter = row_sets.into_iter();
+        let mut stage: Option<Stage> = None;
+        // We will always be transposing the contents of `transpose_from` with the new values,
+        // putting the results into `transpose_to`.  At the end of every loop iteration these are
+        // swapped round
+        // PERF: Use same stage buffers here for linear layout and massive reduction in allocations
+        let mut transpose_from: Vec<Row> = Vec::new();
+        let mut transpose_to: Vec<Row> = Vec::new();
+        // Consume the first set as a special case:
+        match set_iter.next() {
+            // If it doesn't exist, no things are being CPed together so we return the empty Vec
+            None => return Ok(Vec::new()),
+            // If it does exist, then populate the `transpose_from` buffer with it and initialise
+            // the stage
+            Some(set) => {
+                for r in set.into_iter() {
+                    IncompatibleStages::test_err_opt(&mut stage, r.stage())?;
+                    transpose_from.push(r.clone());
+                }
+            }
+        }
+        // Now, treat all subsequent sets identically
+        for set in set_iter {
+            // First up, check if `transpose_from` is empty, in which case the output will be empty
+            if transpose_from.is_empty() {
+                return Ok(Vec::new());
+            }
+            // Unwrap the stage once, since it has either been set by now or `transpose_from` is
+            // empty
+            let s = stage.unwrap();
+            // Now, transpose every item in `transpose_from` with every item from the new set and
+            // push into `transpose_to`
+            transpose_to.clear();
+            for r2 in &set {
+                IncompatibleStages::test_err(s, r2.stage())?;
+                for r1 in &transpose_from {
+                    transpose_to.push(unsafe { r1.mul_unchecked(r2) });
+                }
+            }
+            // Finally, swap the buffers so that we read from the newly transposed rows
+            std::mem::swap(&mut transpose_to, &mut transpose_from);
+        }
+        // Note: we return `transpose_from` here (rather than `transpose_to`) because the two
+        // buffers have just been swapped at the end of the loop iteration
+        Ok(transpose_from)
     }
 
     /// Determines if the given set of [`Row`]s forms a group.  This performs `n^2` transpositions
