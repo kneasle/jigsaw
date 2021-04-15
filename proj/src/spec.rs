@@ -36,10 +36,10 @@ pub mod part_heads {
     /// - All the part_heads have the same [`Stage`]
     #[derive(Debug, Clone, Eq, Serialize)]
     pub struct PartHeads {
-        #[serde(rename = "part_head_spec")]
         spec: String,
         #[serde(serialize_with = "crate::ser_utils::ser_rows")]
-        part_heads: Vec<Row>,
+        rows: Vec<Row>,
+        is_group: bool,
     }
 
     // The invariant of always having at least one part head means that `is_empty` would always
@@ -55,23 +55,45 @@ pub mod part_heads {
         /// The number of part heads in this set of `PartHeads`.
         #[inline]
         pub fn len(&self) -> usize {
-            self.part_heads.len()
+            self.rows.len()
         }
 
         /// Returns a slice over the part heads in this set of `PartHeads`
         #[inline]
         pub fn rows(&self) -> &[Row] {
-            &self.part_heads
+            &self.rows
         }
 
         /// Given a [`str`]ing specifying some part heads, attempts to parse and expand these PHs,
         /// or generate a [`ParseError`] explaining the problem.
         pub fn parse(s: &str, stage: Stage) -> Result<Self, ParseError> {
-            let part_heads = Row::parse_with_stage(s, stage)?.closure_from_rounds();
+            let generators = s
+                .split(',')
+                .map(|sub_str| Row::parse_with_stage(sub_str, stage))
+                .collect::<Result<Vec<_>, InvalidRowError>>()?;
+            let (is_group, rows) = Self::gen_cartesian_product(generators);
             Ok(PartHeads {
-                part_heads,
+                rows,
+                is_group,
                 spec: s.to_owned(),
             })
+        }
+
+        fn gen_cartesian_product(generators: Vec<Row>) -> (bool, Vec<Row>) {
+            let row_sets: Vec<_> = generators.iter().map(|r| r.closure_from_rounds()).collect();
+            let part_heads = Row::multi_cartesian_product(row_sets.into_iter()).unwrap();
+            (Row::is_group(&part_heads).unwrap(), part_heads)
+        }
+
+        fn gen_least_group(generators: Vec<Row>) -> (bool, Vec<Row>) {
+            let mut part_heads = Row::least_group_containing(generators.iter())
+                // This unwrap is safe because all the input rows came from
+                // `Row::parse_with_stage`
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>();
+            part_heads.sort();
+            (true, part_heads)
         }
     }
 

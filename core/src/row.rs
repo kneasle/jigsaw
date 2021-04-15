@@ -1,7 +1,9 @@
 //! A heap-allocated row of [`Bell`]s.  This is also used as a permutation.
 
-use std::cmp::Ordering;
-use std::collections::HashSet;
+use std::{
+    cmp::Ordering,
+    collections::{HashSet, VecDeque},
+};
 
 use crate::{Bell, IncompatibleStages, Stage};
 
@@ -818,6 +820,44 @@ impl Row {
         // Note: we return `transpose_from` here (rather than `transpose_to`) because the two
         // buffers have just been swapped at the end of the loop iteration
         Ok(transpose_from)
+    }
+
+    /// Generates the least group containing a given set of `Row`s, returning the result in a
+    /// [`HashSet`] (therefore, the result is unordered).  The current algorithm is quite slow; if
+    /// anyone knows of a better one, then please let me know...
+    pub fn least_group_containing<'a>(
+        rows: impl IntoIterator<Item = &'a Row> + Clone,
+    ) -> Result<HashSet<Row>, IncompatibleStages> {
+        // The algorithm used here is to expand every possible way of expanding the input elements,
+        // in depth first order.
+        let mut set = HashSet::<Row>::new();
+        let mut stage: Option<Stage> = None;
+        let mut frontier = VecDeque::<Row>::new();
+        // We seed the frontier and `set` manually the first time round to avoid checking the
+        // stages all the time (if the input rows are all compatible, then so will any finite
+        // product of them).
+        for r in rows.clone().into_iter() {
+            IncompatibleStages::test_err_opt(&mut stage, r.stage())?;
+            if set.insert(r.clone()) {
+                frontier.push_back(r.clone());
+            }
+        }
+        // Now, we repeatedly pop the last item of the frontier and post-multiply it by every row
+        // in the input set.  We check each of these for inclusion *before* pushing it back to the
+        // frontier (thus avoiding causing allocations if we need to).  This loop must terminate,
+        // because at each iteration the number of unexpanded nodes in the tree decreases and that
+        // number is bounded by the size of the resulting group (which is finite).
+        while let Some(r) = frontier.pop_front() {
+            for r2 in rows.clone().into_iter() {
+                // This unsafety is OK because we checked that all Rows in `rows` have equal stages
+                let new_row = unsafe { r.mul_unchecked(r2) };
+                if !set.contains(&new_row) {
+                    frontier.push_back(new_row.clone());
+                    set.insert(new_row);
+                }
+            }
+        }
+        Ok(set)
     }
 
     /// Determines if the given set of [`Row`]s forms a group.  This performs `n^2` transpositions

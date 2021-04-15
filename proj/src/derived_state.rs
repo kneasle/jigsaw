@@ -300,7 +300,6 @@ pub struct DerivedState {
     frags: Vec<AnnotFrag>,
     frag_links: Vec<FragLink>,
     stats: DerivedStats,
-    #[serde(flatten)]
     part_heads: Rc<PartHeads>,
     methods: Vec<DerivedMethod>,
     calls: Vec<DerivedCall>,

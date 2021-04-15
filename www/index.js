@@ -19,6 +19,7 @@ const elem_falseness_info = document.getElementById("falseness-info");
 const elem_part_head_input = document.getElementById("part-head-input");
 const elem_part_head_list = document.getElementById("part-head");
 const elem_part_head_message = document.getElementById("part-head-message");
+const elem_part_head_is_group = document.getElementById("part-head-group-message");
 // Right sidebar
 const elem_right_sidebar = document.getElementById("right-sidebar");
 const elem_sections = {
@@ -152,7 +153,7 @@ function draw_row(x, y, row) {
                     : 1 -
                       Math.pow(
                           1 - MUSIC_ONIONSKIN_OPACITY,
-                          row.music_highlights[b].length / derived_state.part_heads.length
+                          row.music_highlights[b].length / derived_state.part_heads.rows.length
                       )) * opacity;
             ctx.fillStyle = MUSIC_COL;
             ctx.fillRect(x + COL_WIDTH * b, y, COL_WIDTH, ROW_HEIGHT);
@@ -613,7 +614,7 @@ function update_hud() {
 
     // Populate row counter
     const part_len = stats.part_len;
-    const num_parts = derived_state.part_heads.length;
+    const num_parts = derived_state.part_heads.rows.length;
     elem_part_len.innerText = part_len.toString();
     elem_num_parts.innerText = num_parts.toString();
     elem_num_rows.innerText = (part_len * num_parts).toString();
@@ -629,20 +630,21 @@ function update_hud() {
 
     // Update the part head display(s)
     elem_part_head_list.value = view.current_part;
-    elem_part_head_input.value = derived_state.part_head_spec;
+    elem_part_head_input.value = derived_state.part_heads.spec;
     elem_part_head_message.innerText = `Parses to ${num_parts} part${num_parts == 1 ? "" : "s"}.`;
     elem_part_head_message.style.color = FOREGROUND_COL;
+    elem_part_head_is_group.style.display = derived_state.part_heads.is_group ? "none" : "block";
 }
 
 function update_part_head_list() {
     // Clear the existing children
     elem_part_head_list.innerHTML = "";
     // Add the new part heads
-    for (var i = 0; i < derived_state.part_heads.length; i++) {
+    for (var i = 0; i < derived_state.part_heads.rows.length; i++) {
         // Generate the string for this option, following the format "#{index}: {row}"
         let str = "#" + (i + 1).toString() + ": ";
-        for (const j of derived_state.part_heads[i]) {
-            str += BELL_NAMES[j];
+        for (const b of derived_state.part_heads.rows[i]) {
+            str += BELL_NAMES[b];
         }
         // Add the new option to the part heads list
         let new_opt = document.createElement("option");

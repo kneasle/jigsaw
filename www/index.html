@@ -34,6 +34,9 @@
             <hr/>
             <p><input id="part-head-input"></input></p>
             <p id="part-head-message" class="parse-err">Bell '2' repeated twice</p>
+            <p id="part-head-group-message"
+               class="parse-err"
+               style="display: none;">Parts don't form a group.</p>
             <p>Viewing Part: <select name="part-head" id="part-head">
                 <!-- The part heads are filled in only when the wasm is loaded, which is far enough
                      after page load to cause jank, so we fill this with a sensible default so that
