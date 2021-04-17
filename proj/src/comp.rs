@@ -100,6 +100,9 @@ impl Comp {
     /// it will still do a full rebuild even if nothing has been changed.
     fn rebuild_state(&mut self) {
         self.derived_state = DerivedState::from_spec(self.spec());
+        // Clamp the currently viewed part to within the range of possible parts in the composition
+        // (because the number of parts might have changed by this edit)
+        self.view.current_part = self.view.current_part.min(self.spec().num_parts() - 1);
     }
 
     /// Perform an action (some arbitrary function) on the current [`Spec`], maintaining the undo
@@ -141,9 +144,6 @@ impl Comp {
         self.history_index += 1;
         // Rebuild the derived state, since the Spec has changed
         self.rebuild_state();
-        // Clamp the currently viewed part to within the range of possible parts in the composition
-        // (because the number of parts might have changed by this edit)
-        self.view.current_part = self.view.current_part.min(self.spec().num_parts() - 1);
     }
 
     /// Perform an action (some arbitrary function) on a single [`Frag`] in the current [`Spec`],
