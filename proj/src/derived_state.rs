@@ -348,9 +348,9 @@ impl DerivedState {
         let (mut ranges_by_frag, num_false_groups) = coalesce_false_row_groups(false_rows);
 
         // Determine how the frags link together
-        let (frag_links, frag_link_groups) = gen_frag_links(&generated_rows);
+        let (frag_links, frag_link_groups) = gen_frag_links(&generated_rows, &part_heads);
 
-        // Derive stats about the methods
+        // Derive stats about the methods and calls
         let der_methods = derive_methods(methods, &generated_rows);
         let der_calls = derive_calls(calls, &generated_rows);
 
@@ -395,7 +395,10 @@ impl DerivedState {
 /// of x is the same as the first row of y).  This is then used to determine which [`Frag`]s
 /// can be joined together.  This also calculates which groups the top and bottom of each
 /// [`Frag`] belongs to.
-fn gen_frag_links(generated_rows: &[Vec<ExpandedRow>]) -> (Vec<FragLink>, Vec<FragLinkGroups>) {
+fn gen_frag_links(
+    generated_rows: &[Vec<ExpandedRow>],
+    part_heads: &PartHeads,
+) -> (Vec<FragLink>, Vec<FragLinkGroups>) {
     let num_frags = generated_rows.len();
     // A map to determine which group ID should be assigned to each Row.  This way,
     // interconnected groups of links are given the same colour.
@@ -409,7 +412,10 @@ fn gen_frag_links(generated_rows: &[Vec<ExpandedRow>]) -> (Vec<FragLink>, Vec<Fr
             // ... if `g` starts with the leftover row of `f`, then f -> g ...
             let leftover_row_of_f = &f.last().unwrap().rows[0];
             let first_row_of_g = &g[0].rows[0];
-            if leftover_row_of_f == first_row_of_g {
+            if part_heads
+                .are_equivalent(leftover_row_of_f, first_row_of_g)
+                .unwrap()
+            {
                 // Decide what group this link should be put in (so that all the links of the
                 // same row get coloured the same colour).
                 let link_groups_len = link_groups.len();

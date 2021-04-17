@@ -551,6 +551,22 @@ impl Row {
         self.bells().enumerate().all(|(i, b)| b.index() == i)
     }
 
+    /// Computes the value of `r` which satisfies `r * self = other` - i.e. the `Row` which
+    /// pre-transposes `self` to `other`.
+    pub fn tranposition_to(&self, other: &Row) -> Result<Row, IncompatibleStages> {
+        other.mul(&!self)
+    }
+
+    /// Computes the value of `r` which satisfies `r * self = other` - i.e. the `Row` which
+    /// pre-transposes `self` to `other`, bypassing the same-[`Stage`] check.
+    ///
+    /// # Safety
+    ///
+    /// This is safe if `self` and `other` have the same [`Stage`].
+    pub unsafe fn tranposition_to_unchecked(&self, other: &Row) -> Row {
+        other.mul_unchecked(&!self)
+    }
+
     /// Multiply two `Row`s (i.e. use the RHS to permute the LHS), checking that the [`Stage`]s are
     /// compatible.  This is like using [`*`](<Row as Mul>::mul), except that this returns a
     /// [`Result`] instead of [`panic!`]ing.
