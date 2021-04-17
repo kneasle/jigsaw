@@ -4,7 +4,7 @@ use proj_core::{
     PnBlock, Row, Stage,
 };
 use std::{
-    cell::Cell,
+    cell::{Cell, RefCell},
     fmt::{Display, Formatter},
     rc::Rc,
 };
@@ -154,7 +154,8 @@ pub mod part_heads {
 /// The specification of what a method is in this composition.
 #[derive(Debug, Clone)]
 pub struct MethodSpec {
-    shorthand: String,
+    name: RefCell<String>,
+    shorthand: RefCell<String>,
     method: Method,
     place_not_string: String,
     is_panel_open: Cell<bool>,
@@ -169,21 +170,22 @@ impl MethodSpec {
         stage: Stage,
     ) -> Result<Self, BlockParseError> {
         Ok(MethodSpec {
-            shorthand,
-            method: Method::with_lead_end(name, &PnBlock::parse(&pn, stage)?),
+            name: RefCell::new(name),
+            shorthand: RefCell::new(shorthand),
+            method: Method::with_lead_end(String::new(), &PnBlock::parse(&pn, stage)?),
             place_not_string: pn,
             is_panel_open: Cell::new(false),
         })
     }
 
     #[inline]
-    pub fn name(&self) -> &str {
-        self.method.name()
+    pub fn name(&self) -> String {
+        self.name.borrow().to_owned()
     }
 
     #[inline]
-    pub fn shorthand(&self) -> &str {
-        &self.shorthand
+    pub fn shorthand(&self) -> String {
+        self.shorthand.borrow().to_owned()
     }
 
     #[inline]
@@ -874,10 +876,7 @@ impl Frag {
                 // Return the method name to use as a label for this Row
                 annot.method.map(|m| {
                     let new_method = &methods[m.method_index];
-                    MethodLabel::new(
-                        new_method.method.name().to_owned(),
-                        new_method.shorthand.clone(),
-                    )
+                    MethodLabel::new(new_method.name(), new_method.shorthand())
                 })
             } else {
                 None
@@ -1243,6 +1242,17 @@ impl Spec {
                 }
             }
         }
+    }
+
+    /// Sets the shorthand name of a given method (by index).  Panic if no method with this index
+    /// exists
+    pub fn set_method_shorthand(&self, method_ind: usize, new_shorthand: String) {
+        *self.methods[method_ind].shorthand.borrow_mut() = new_shorthand;
+    }
+
+    /// Sets the name of a given method (by index).  Panic if no method with this index exists
+    pub fn set_method_name(&self, method_ind: usize, new_name: String) {
+        *self.methods[method_ind].name.borrow_mut() = new_name;
     }
 
     /* Getters */

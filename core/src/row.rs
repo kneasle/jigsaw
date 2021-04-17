@@ -788,7 +788,7 @@ impl Row {
 
     /// Takes a sequence of sets of `Row`s (`[X_1, X_2, ..., X_n]`) and computes every product
     /// `x_1 * x_2 * ... * x_n` where `x_i` comes from `X_i` for all `i`.
-    pub fn multi_cartesian_product<'a>(
+    pub fn multi_cartesian_product(
         row_sets: impl IntoIterator<Item = Vec<Row>>,
     ) -> Result<Vec<Row>, IncompatibleStages> {
         let mut set_iter = row_sets.into_iter();

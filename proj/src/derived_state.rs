@@ -250,8 +250,8 @@ pub struct DerivedMethod {
 impl From<&MethodSpec> for DerivedMethod {
     fn from(method: &MethodSpec) -> Self {
         DerivedMethod {
-            name: method.name().to_owned(),
-            shorthand: method.shorthand().to_owned(),
+            name: method.name(),
+            shorthand: method.shorthand(),
             place_not_string: method.place_not_string().to_owned(),
             num_proved_rows: 0,
             num_rows: 0,

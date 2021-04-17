@@ -685,6 +685,16 @@ function update_sidebar() {
             comp.toggle_method_fold(index);
             on_comp_change();
         });
+        const shorthand_input = new_entry.querySelector("#shorthand-input");
+        shorthand_input.addEventListener("keyup", function () {
+            comp.set_method_shorthand(index, shorthand_input.value);
+            on_comp_change();
+        });
+        const name_input = new_entry.querySelector("#name-input");
+        name_input.addEventListener("keyup", function () {
+            comp.set_method_name(index, name_input.value);
+            on_comp_change();
+        });
         new_entry.querySelector("#delete-button").addEventListener("click", function () {
             const err = comp.remove_method(index);
             if (err) {

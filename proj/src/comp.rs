@@ -421,6 +421,18 @@ impl Comp {
         .to_owned()
     }
 
+    /// Change the shorthand name of a method
+    pub fn set_method_shorthand(&mut self, method_ind: usize, new_name: String) {
+        self.spec().set_method_shorthand(method_ind, new_name);
+        self.rebuild_state();
+    }
+
+    /// Change the full name of a method (without causing an undo history
+    pub fn set_method_name(&mut self, method_ind: usize, new_name: String) {
+        self.spec().set_method_name(method_ind, new_name);
+        self.rebuild_state();
+    }
+
     /// Resets the composition to the example
     pub fn reset(&mut self) {
         // We directly finish the action because we are fully overwriting it, and  calling
