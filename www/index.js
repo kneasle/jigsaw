@@ -164,11 +164,9 @@ function draw_row(x, y, row) {
     ctx.fillStyle = FOREGROUND_COL;
     // Call string
     if (row.call_label) {
-        const notation = row.call_label.notation;
-        const position = row.call_label.positions[view.current_part];
         ctx.textAlign = "right";
         ctx.fillText(
-            `${notation}${position || "?"}`,
+            row.call_label.labels[view.current_part],
             x - FALSENESS_COL_WIDTH - FOLD_COL_WIDTH,
             text_baseline
         );

@@ -221,7 +221,7 @@ impl MethodRef {
 #[derive(Debug, Clone)]
 pub struct CallSpec {
     call: Call,
-    calling_positions: Vec<char>,
+    calling_positions: Vec<String>,
 }
 
 impl CallSpec {
@@ -229,24 +229,21 @@ impl CallSpec {
     fn to_label(&self, index: usize, start_rows: &[Row]) -> CallLabel {
         let tenor = Bell::tenor(start_rows[0].stage()).unwrap();
         CallLabel::new(
-            self.call.notation(),
             index,
-            start_rows
-                .iter()
-                .map(|r| {
-                    // Get the place of the tenor at the _start_ of the call
-                    let place_at_start = r.place_of(tenor).unwrap();
-                    // Use the transposition of the call to generate where the tenor will be at the
-                    // _end_ of the call
-                    let place_at_end = self
-                        .call
-                        .transposition()
-                        .place_of(Bell::from_index(place_at_start))
-                        .unwrap();
-                    // Use this resulting place as an index find the call label
-                    self.calling_positions[place_at_end].to_string()
-                })
-                .collect(),
+            self.call.notation(),
+            start_rows.iter().map(|r| {
+                // Get the place of the tenor at the _start_ of the call
+                let place_at_start = r.place_of(tenor).unwrap();
+                // Use the transposition of the call to generate where the tenor will be at the
+                // _end_ of the call
+                let place_at_end = self
+                    .call
+                    .transposition()
+                    .place_of(Bell::from_index(place_at_start))
+                    .unwrap();
+                // Use this resulting place as an index find the call label
+                self.calling_positions[place_at_end].as_str()
+            }),
         )
     }
 
@@ -257,7 +254,7 @@ impl CallSpec {
         }
         CallSpec {
             call: Call::le_bob(PnBlock::parse("14", stage).unwrap()),
-            calling_positions: "LIBFVMWH".chars().collect(),
+            calling_positions: "LIBFVMWH".chars().map(|c| c.to_string()).collect(),
         }
     }
 
@@ -268,7 +265,7 @@ impl CallSpec {
         }
         CallSpec {
             call: Call::le_single(PnBlock::parse("1234", stage).unwrap()),
-            calling_positions: "LBTFVMWH".chars().collect(),
+            calling_positions: "LBTFVMWH".chars().map(|c| c.to_string()).collect(),
         }
     }
 

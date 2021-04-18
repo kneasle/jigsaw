@@ -74,20 +74,26 @@ impl MethodLabel {
 /// A data structure to store a point on the comp where a call is labelled
 #[derive(Debug, Clone, Serialize)]
 pub struct CallLabel {
-    notation: char,
     /// What label should this call be given in each part
-    positions: Vec<String>,
-    // This is not needed by JS code but is needed to generate statistics about how calls are used.
+    labels: Vec<String>,
+    // This is not needed by JS code but is needed by `DerivedState` to generate statistics about
+    // how calls are used.
     #[serde(skip)]
     call_index: usize,
 }
 
 impl CallLabel {
-    pub fn new(notation: char, call_index: usize, positions: Vec<String>) -> Self {
+    pub fn new<'a>(
+        call_index: usize,
+        notation: char,
+        positions: impl IntoIterator<Item = &'a str>,
+    ) -> Self {
         CallLabel {
-            notation,
+            labels: positions
+                .into_iter()
+                .map(|pos| format!("{}{}", notation, pos))
+                .collect(),
             call_index,
-            positions,
         }
     }
 }
