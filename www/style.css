@@ -64,6 +64,8 @@ input {
     position: absolute;
     right: 0px;
     top: 0px;
+    height: 100%;
+    overflow-y: auto;
 }
 
 .sidebar-box {

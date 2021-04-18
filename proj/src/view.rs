@@ -1,22 +1,29 @@
+use crate::ser_utils::get_true;
 use serde::{Deserialize, Serialize};
 
+// TODO: Generate this whole struct with a macro (using `stringify!`)
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct SectionFolds {
-    #[serde(default)]
+    #[serde(default = "get_true")]
+    pub general: bool,
+    #[serde(default = "get_true")]
     pub methods: bool,
-    #[serde(default)]
+    #[serde(default = "get_true")]
     pub calls: bool,
+    #[serde(default = "get_true")]
+    pub music: bool,
 }
 
 impl SectionFolds {
     /// Toggle the folding of the a given section by name, returning `false` if no such section
     /// exists.
-    // TODO: Generate this with a macro
     #[must_use]
     pub fn toggle(&mut self, name: &str) -> bool {
         let value = match name {
+            "general" => &mut self.general,
             "methods" => &mut self.methods,
             "calls" => &mut self.calls,
+            "music" => &mut self.music,
             _ => return false,
         };
         *value = !*value;

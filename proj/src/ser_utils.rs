@@ -1,12 +1,20 @@
 use proj_core::{Bell, Row};
 use serde::{ser::SerializeSeq, Serializer};
 
+/// Required so that folding params default to open
+#[inline]
+pub fn get_true() -> bool {
+    true
+}
+
 /// Required so that we can omit `"is_ruleoff": false` when serialising
+#[inline]
 pub fn is_false(b: &bool) -> bool {
     !b
 }
 
 /// Required so that we can omit `"is_proved": true` when serialising
+#[inline]
 pub fn is_true(b: &bool) -> bool {
     !b
 }

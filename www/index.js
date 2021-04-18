@@ -22,16 +22,7 @@ const elem_part_head_message = document.getElementById("part-head-message");
 const elem_part_head_is_group = document.getElementById("part-head-group-message");
 // Right sidebar
 const elem_right_sidebar = document.getElementById("right-sidebar");
-const elem_sections = {
-    methods: {
-        fold_button: document.getElementById("method-box-fold"),
-        area: document.getElementById("method-box-area"),
-    },
-    calls: {
-        fold_button: document.getElementById("call-box-fold"),
-        area: document.getElementById("call-box-area"),
-    },
-};
+const elem_sections = find_section_fold_elems(["general", "methods", "calls", "music"]);
 
 const elem_num_methods = document.getElementById("num-methods");
 const elem_method_box = document.getElementById("method-list");
@@ -1035,6 +1026,21 @@ function sync_view() {
     const v = comp.ser_view();
     setCookie(COOKIE_NAME_VIEW, v);
     view = JSON.parse(v);
+}
+
+// Convert a list of sidebar section names into an object of:
+// ```javascript
+// { "<name>": { fold_button: <elem>, area: <elem> } }
+// ```
+function find_section_fold_elems(names) {
+    let obj = {};
+    for (n of names) {
+        obj[n] = {
+            fold_button: document.getElementById(`${n}-box-fold`),
+            area: document.getElementById(`${n}-box-area`),
+        };
+    }
+    return obj;
 }
 
 // Debug log that a state transition has occurred
