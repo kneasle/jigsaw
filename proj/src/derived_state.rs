@@ -92,6 +92,18 @@ impl CallLabel {
     }
 }
 
+/// The information required by JS in order to render a [`Fold`]
+#[derive(Debug, Clone, Copy, Serialize)]
+pub struct DerivedFold {
+    is_open: bool,
+}
+
+impl DerivedFold {
+    pub fn new(is_open: bool) -> Self {
+        DerivedFold { is_open }
+    }
+}
+
 /// All the information required for JS to render a single [`Row`] from the [`Spec`].  Note that
 /// because of multipart expansion, this single on-screen [`Row`] actually represents many expanded
 /// [`Row`]s, and this datatype reflects that.
@@ -101,6 +113,8 @@ pub struct ExpandedRow {
     call_label: Option<CallLabel>,
     #[serde(skip_serializing_if = "Option::is_none")]
     method_label: Option<MethodLabel>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    fold: Option<DerivedFold>,
     #[serde(skip_serializing_if = "crate::ser_utils::is_false")]
     is_ruleoff: bool,
     #[serde(skip_serializing_if = "crate::ser_utils::is_true")]
@@ -172,6 +186,7 @@ impl ExpandedRow {
         call_label: Option<CallLabel>,
         method_str: Option<MethodLabel>,
         method_ref: Option<MethodRef>,
+        fold: Option<DerivedFold>,
         is_ruleoff: bool,
         is_proved: bool,
     ) -> Self {
@@ -179,6 +194,7 @@ impl ExpandedRow {
             call_label,
             method_label: method_str,
             method_ref,
+            fold,
             is_ruleoff,
             music_highlights: Self::calculate_music(&all_rows, all_rows[0].stage()),
             rows: all_rows,

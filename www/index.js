@@ -59,7 +59,8 @@ const FOLD_BUTTON_TRIANGLE_OPEN = "▼";
 
 const COL_WIDTH = 12; // px
 const ROW_HEIGHT = 16; // px
-const FALSENESS_BAR_WIDTH = COL_WIDTH * 1;
+const FOLD_COL_WIDTH = COL_WIDTH * 1;
+const FALSENESS_COL_WIDTH = COL_WIDTH * 1;
 const FRAG_BBOX_EXTRA_HEIGHT = ROW_HEIGHT * (5 / 16);
 
 const FOREGROUND_COL = "black";
@@ -157,22 +158,48 @@ function draw_row(x, y, row) {
             ctx.fillText(BELL_NAMES[bell_index], x + COL_WIDTH * (b + 0.5), text_baseline);
         }
     }
+    // All the annotations should be rendered with the foreground colour, and have the opacity
+    // applied to them
     ctx.globalAlpha = opacity;
+    ctx.fillStyle = FOREGROUND_COL;
     // Call string
     if (row.call_label) {
         const notation = row.call_label.notation;
         const position = row.call_label.positions[view.current_part];
         ctx.textAlign = "right";
-        ctx.fillStyle = FOREGROUND_COL;
-        ctx.fillText(`${notation}${position || "?"}`, x - FALSENESS_BAR_WIDTH, text_baseline);
+        ctx.fillText(
+            `${notation}${position || "?"}`,
+            x - FALSENESS_COL_WIDTH - FOLD_COL_WIDTH,
+            text_baseline
+        );
+    }
+    // Fold triangle
+    if (row.fold) {
+        // We make the triangle use up 80% of the available space
+        const tri_radius = Math.min(ROW_HEIGHT, FOLD_COL_WIDTH) * 0.4;
+        // For simplicity, we render the triangle using canvas translation and rotation (and
+        // therefore we have to save/restore the old transformation matrix so that the effects only
+        // apply to the triangle).
+        ctx.save();
+        ctx.translate(x - FALSENESS_COL_WIDTH - FOLD_COL_WIDTH / 2, y + ROW_HEIGHT / 2);
+        if (row.fold.is_open) ctx.rotate(Math.PI / 2);
+        // Draw the triangle pointing right
+        ctx.beginPath();
+        ctx.moveTo(tri_radius, 0);
+        for (let i = 1; i <= 3; i++) {
+            const angle = (i / 3.0) * (Math.PI * 2);
+            ctx.lineTo(tri_radius * Math.cos(angle), tri_radius * Math.sin(angle));
+        }
+        ctx.fill();
+        // Reset the canvas
+        ctx.restore();
     }
     // Method string
     if (row.method_label) {
         ctx.textAlign = "left";
-        ctx.fillStyle = FOREGROUND_COL;
         ctx.fillText(
             row.method_label.name,
-            x + stage * COL_WIDTH + FALSENESS_BAR_WIDTH,
+            x + stage * COL_WIDTH + FALSENESS_COL_WIDTH,
             text_baseline
         );
     }
@@ -181,7 +208,9 @@ function draw_row(x, y, row) {
     if (row.is_ruleoff) {
         // Subtracting the tiny number here encourages the line rounding to round down rather than
         // up and thus (where possible) avoid rendering the next row's music highlights on top of
-        // the ruleoff
+        // the ruleoff.
+        //
+        // TODO: Render all the highlights in one pass before rendering the foreground.
         const ruleoff_y = round_line_coord(y + ROW_HEIGHT - 0.00001);
         ctx.beginPath();
         ctx.moveTo(x, ruleoff_y);
@@ -238,17 +267,17 @@ function draw_frag(frag) {
         // Draw the lines
         ctx.strokeStyle = group_col(range.group);
         draw_falseness_indicator(
-            x + FALSENESS_BAR_WIDTH * -0.5,
+            x + FALSENESS_COL_WIDTH * -0.5,
             y + ROW_HEIGHT * range.start,
             y + ROW_HEIGHT * (range.end + 1),
-            FALSENESS_BAR_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
+            FALSENESS_COL_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
             ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT
         );
         draw_falseness_indicator(
-            x + derived_state.stage * COL_WIDTH + FALSENESS_BAR_WIDTH * 0.5,
+            x + derived_state.stage * COL_WIDTH + FALSENESS_COL_WIDTH * 0.5,
             y + ROW_HEIGHT * range.start,
             y + ROW_HEIGHT * (range.end + 1),
-            -FALSENESS_BAR_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
+            -FALSENESS_COL_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
             ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT
         );
     }
@@ -900,9 +929,9 @@ function hovered_frag() {
 
 function frag_bbox(f) {
     return new_rect(
-        f.x - FALSENESS_BAR_WIDTH,
+        f.x - FALSENESS_COL_WIDTH,
         f.y - FRAG_BBOX_EXTRA_HEIGHT,
-        derived_state.stage * COL_WIDTH + FALSENESS_BAR_WIDTH * 2,
+        derived_state.stage * COL_WIDTH + FALSENESS_COL_WIDTH * 2,
         f.exp_rows.length * ROW_HEIGHT + FRAG_BBOX_EXTRA_HEIGHT * 2
     );
 }

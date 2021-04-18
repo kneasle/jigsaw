@@ -1,8 +1,9 @@
-use crate::derived_state::{CallLabel, DerivedCall, ExpandedRow, MethodLabel};
+use crate::derived_state::{CallLabel, DerivedCall, DerivedFold, ExpandedRow, MethodLabel};
 use proj_core::{
     place_not::BlockParseError, AnnotBlock, AnnotRow, Bell, Call, IncompatibleStages, Method,
     PnBlock, Row, Stage,
 };
+use serde::Serialize;
 use std::{
     cell::{Cell, RefCell},
     fmt::{Display, Formatter},
@@ -299,12 +300,32 @@ impl CallRef {
 
 /* ========== ROW ANNOTATIONS ========== */
 
+/// A point in the composition where the [`Row`]s could be folded
+#[derive(Debug, Clone, Serialize)]
+pub struct Fold {
+    is_open: Cell<bool>,
+}
+
+impl Fold {
+    fn from_sub_lead_index(index: usize) -> Option<Self> {
+        print!("{}", index);
+        if index == 0 {
+            Some(Fold {
+                is_open: Cell::from(true),
+            })
+        } else {
+            None
+        }
+    }
+}
+
 /// The information that every [`Row`] in a [`Frag`] is annotated with.
 #[derive(Debug, Clone, Default)]
 struct Annot {
     is_lead_end: bool,
     method: Option<MethodRef>,
     call: Option<CallRef>,
+    fold: Option<Fold>,
 }
 
 impl Annot {
@@ -324,6 +345,7 @@ impl Annot {
                     sub_lead_index,
                 }),
                 call,
+                fold: Fold::from_sub_lead_index(sub_lead_index),
             },
         )
     }
@@ -641,6 +663,7 @@ impl Frag {
                         r.clone(),
                         Annot {
                             is_lead_end: row_index == 0,
+                            fold: Fold::from_sub_lead_index(sub_lead_index),
                             method: Some(MethodRef {
                                 sub_lead_index,
                                 ..method_ref
@@ -901,6 +924,10 @@ impl Frag {
                 call_label,
                 method_label,
                 annot.method,
+                annot
+                    .fold
+                    .as_ref()
+                    .map(|f| DerivedFold::new(f.is_open.get())),
                 // Ruleoffs should happen at lead ends and whenever there is a splice
                 annot.is_lead_end,
                 // If a row is leftover or contained in a muted frag, than it shouldn't be
@@ -979,10 +1006,15 @@ impl Frag {
         // Method names and LE ruleoffs
         for i in 0..rows.len() / 32 {
             for j in 0..32 {
-                rows[i * 32 + j].annot_mut().method = Some(MethodRef {
+                let a = rows[i * 32 + j].annot_mut();
+                a.method = Some(MethodRef {
                     method_index: meths[i],
                     sub_lead_index: j,
                 });
+                a.fold = Fold::from_sub_lead_index(j);
+                if let Some(f) = &a.fold {
+                    f.is_open.set(i != 0);
+                }
             }
             rows[i * 32 + 31].annot_mut().is_lead_end = true;
         }
@@ -1089,6 +1121,7 @@ impl Spec {
                             annot_row.row().clone(),
                             Annot {
                                 is_lead_end: annot_row.annot().is_some(),
+                                fold: Fold::from_sub_lead_index(i),
                                 method: Some(MethodRef {
                                     method_index: method_ind,
                                     sub_lead_index: i,
