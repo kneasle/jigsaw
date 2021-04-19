@@ -297,7 +297,7 @@ pub struct FragLinkGroups {
 
 /// The information required for JS to render a [`Frag`]
 #[derive(Serialize, Debug, Clone)]
-pub struct AnnotFrag {
+pub struct DerivedFrag {
     false_row_ranges: Vec<FalseRowRange>,
     #[serde(skip)]
     expanded_rows: Vec<ExpandedRow>,
@@ -371,7 +371,7 @@ pub struct DerivedStats {
 /// read-only copy of `DerivedState`, complete with private fields.
 #[derive(Serialize, Debug, Clone)]
 pub struct DerivedState {
-    frags: Vec<AnnotFrag>,
+    frags: Vec<DerivedFrag>,
     frag_links: Vec<FragLink>,
     stats: DerivedStats,
     part_heads: Rc<PartHeads>,
@@ -415,7 +415,7 @@ impl DerivedState {
                     assert!(exp_rows.last().map_or(false, |r| !r.is_proved));
                     let (x, y) = spec.frag_pos(i).unwrap();
                     let fold_regions = get_fold_ranges(&exp_rows);
-                    AnnotFrag {
+                    DerivedFrag {
                         false_row_ranges: ranges_by_frag.remove(&i).unwrap_or_default(),
                         display_rows: fold_regions
                             .into_iter()
