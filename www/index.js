@@ -84,6 +84,7 @@ const UNPROVEN_ROW_OPACITY = 0.3;
 const RULEOFF_LINE_WIDTH = 1; // px
 const MUSIC_COL = "#5b5";
 const MUSIC_ONIONSKIN_OPACITY = 0.6;
+const BLUELINE_OVERFLOW_HEIGHT = 0.35; // as a multiple of ROW_HEIGHT
 
 const FALSE_ROW_GROUP_NOTCH_WIDTH = 0.3;
 const FALSE_ROW_GROUP_NOTCH_HEIGHT = 0.3; // multiple of the falseness margin width
@@ -243,17 +244,42 @@ function draw_frag(frag) {
     if (!frag.is_proved) {
         ctx.globalAlpha = UNPROVEN_ROW_OPACITY;
     }
-    for (let l in bell_lines) {
-        const width = bell_lines[l][0];
-        const col = bell_lines[l][1];
-        ctx.beginPath();
-        for (let i = 0; i < frag.rows.length; i++) {
-            const ind = frag.rows[i].rows[view.current_part].findIndex((x) => x == l);
-            ctx.lineTo(round_line_coord(x + (ind + 0.5) * COL_WIDTH), y + ROW_HEIGHT * (i + 0.5));
+    for (const r of frag.line_ranges) {
+        for (const l in bell_lines) {
+            const width = bell_lines[l][0];
+            const col = bell_lines[l][1];
+            ctx.beginPath();
+            for (let i = r.start; i < r.end; i++) {
+                const ind = frag.rows[i].rows[view.current_part].findIndex((x) => x == l);
+                const point_x = round_line_coord(x + (ind + 0.5) * COL_WIDTH);
+                const point_y = y + ROW_HEIGHT * (i + 0.5);
+                // If there is a top row for this to connect to (and we're on the first row), then
+                // add its points first
+                if (i == r.start && r.top_rows) {
+                    const ind = r.top_rows[view.current_part].findIndex((x) => x == l);
+                    const top_row_x = round_line_coord(x + (ind + 0.5) * COL_WIDTH);
+                    ctx.lineTo(
+                        lerp(point_x, top_row_x, BLUELINE_OVERFLOW_HEIGHT),
+                        y + ROW_HEIGHT * (i + 0.5 - BLUELINE_OVERFLOW_HEIGHT)
+                    );
+                }
+                // Add the normal row to the line
+                ctx.lineTo(point_x, point_y);
+                // If there is a bottom row for this to connect to (and we're on the last row), then
+                // add its points before painting the line
+                if (i == r.end - 1 && r.bottom_rows) {
+                    const ind = r.bottom_rows[view.current_part].findIndex((x) => x == l);
+                    const bottom_row_x = round_line_coord(x + (ind + 0.5) * COL_WIDTH);
+                    ctx.lineTo(
+                        lerp(point_x, bottom_row_x, BLUELINE_OVERFLOW_HEIGHT),
+                        y + ROW_HEIGHT * (i + 0.5 + BLUELINE_OVERFLOW_HEIGHT)
+                    );
+                }
+            }
+            ctx.lineWidth = width;
+            ctx.strokeStyle = col;
+            ctx.stroke();
         }
-        ctx.lineWidth = width;
-        ctx.strokeStyle = col;
-        ctx.stroke();
     }
     ctx.globalAlpha = 1;
     // Falseness
@@ -912,6 +938,8 @@ function hovered_frag() {
     // opposite order to that which they are rendered, so that in the case of overlap the topmost
     // frag takes precidence.
     let hov_frag = undefined;
+    // Note that we iterate over the frags in **reverse** order so that we know that the first
+    // reached fragment is the one which appears on top to the user
     for (let i = derived_state.frags.length - 1; i >= 0; i--) {
         const frag = derived_state.frags[i];
         const bbox = frag_bbox(frag);
@@ -927,7 +955,11 @@ function hovered_frag() {
             row: (c.y - frag.y) / ROW_HEIGHT,
             col: (c.x - frag.x) / COL_WIDTH,
         };
-        hov_frag.source_range = derived_state.frags[i].rows[Math.floor(hov_frag.row)].range;
+        // Find the index of the source row which generated this one
+        const row = frag.rows[Math.floor(hov_frag.row)];
+        hov_frag.source_range = row ? row.range : undefined;
+        // We've found a fragment, so we break the loop.  This always generates the topmost fragment,
+        // because we are iterating over the `frags` array backwards
         break;
     }
     return hov_frag;
@@ -1076,6 +1108,11 @@ function find_section_fold_elems(names) {
         };
     }
     return obj;
+}
+
+// Linearly interpolate between two values (a, b) according to a factor `t`
+function lerp(a, b, t) {
+    return a * (1 - t) + b * t;
 }
 
 // Debug log that a state transition has occurred
