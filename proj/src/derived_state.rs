@@ -18,7 +18,7 @@ use crate::spec::Frag;
 /// useful because the composition contains many fragments, and each row of each fragment could
 /// expand into multiple actual rows (one for each part).
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct RowOrigin {
+struct RowOrigin {
     /// The index of the part that this [`Row`] came from
     part: usize,
     /// The index of the fragment that this [`Row`] came from
@@ -29,7 +29,7 @@ pub struct RowOrigin {
 
 impl RowOrigin {
     /// Creates a new `RowOrigin` from its parts
-    pub fn new(part: usize, frag: usize, row: usize) -> RowOrigin {
+    fn new(part: usize, frag: usize, row: usize) -> RowOrigin {
         RowOrigin { part, frag, row }
     }
 }
@@ -37,18 +37,11 @@ impl RowOrigin {
 /// A small datatype that represents **where** a given row comes from in the composition (without
 /// knowledge of which part this comes from).
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct RowLocation {
+struct RowLocation {
     /// The index of the fragment that this [`Row`] came from
     frag: usize,
     /// The index of the row within the fragment that this [`Row`] came from
     row: usize,
-}
-
-impl RowLocation {
-    /// Creates a new `RowOrigin` from its parts
-    pub fn new(frag: usize, row: usize) -> Self {
-        RowLocation { frag, row }
-    }
 }
 
 impl From<RowOrigin> for RowLocation {
@@ -268,7 +261,7 @@ impl DisplayRow {
 /// A range of rows which should be highlighted as all false in the same way.  This is supposed to
 /// cover `start..=end` rows (i.e. the ranges are **inclusive**).
 #[derive(Serialize, Debug, Clone)]
-pub struct FalseRowRange {
+struct FalseRowRange {
     start: usize,
     end: usize,
     group: usize,
@@ -278,7 +271,7 @@ pub struct FalseRowRange {
 /// will be stored in a `Vec`, representing a non-symmetric relation over the [`Frag`]s in the
 /// composition.
 #[derive(Serialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct FragLink {
+struct FragLink {
     from: usize,
     to: usize,
     group: usize,
@@ -288,7 +281,7 @@ pub struct FragLink {
 /// will determine what colour line will be displayed on each end of the [`Frag`], to make round
 /// blocks detectable.
 #[derive(Serialize, Debug, Clone, Default)]
-pub struct FragLinkGroups {
+struct FragLinkGroups {
     #[serde(skip_serializing_if = "Option::is_none")]
     top: Option<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -297,7 +290,7 @@ pub struct FragLinkGroups {
 
 /// The information required for JS to render a [`Frag`]
 #[derive(Serialize, Debug, Clone)]
-pub struct DerivedFrag {
+struct DerivedFrag {
     false_row_ranges: Vec<FalseRowRange>,
     #[serde(skip)]
     expanded_rows: Vec<ExpandedRow>,
@@ -313,7 +306,7 @@ pub struct DerivedFrag {
 
 /// The derived state of a single method definition.
 #[derive(Debug, Clone, Serialize)]
-pub struct DerivedMethod {
+struct DerivedMethod {
     name: String,
     shorthand: String,
     place_not_string: String,
@@ -356,7 +349,7 @@ impl DerivedCall {
 
 /// General statistics about the composition, to be displayed in the top-left corner of the screen
 #[derive(Serialize, Debug, Clone)]
-pub struct DerivedStats {
+struct DerivedStats {
     part_len: usize,
     num_false_rows: usize,
     num_false_groups: usize,
