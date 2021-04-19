@@ -305,7 +305,6 @@ pub struct Fold {
 
 impl Fold {
     fn from_sub_lead_index(index: usize) -> Option<Self> {
-        print!("{}", index);
         if index == 0 {
             Some(Fold {
                 is_open: Cell::from(true),
@@ -930,6 +929,8 @@ impl Frag {
                 // If a row is leftover or contained in a muted frag, than it shouldn't be
                 // proven
                 row_ind != self.len() && !self.is_muted,
+                // If a row is at the last index, then it must be leftover
+                row_ind == self.len(),
             ));
         }
         exp_rows

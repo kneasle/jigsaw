@@ -163,10 +163,10 @@ function draw_row(x, y, row) {
     ctx.globalAlpha = opacity;
     ctx.fillStyle = FOREGROUND_COL;
     // Call string
-    if (row.call_label) {
+    if (row.call_strings) {
         ctx.textAlign = "right";
         ctx.fillText(
-            row.call_label.labels[view.current_part],
+            row.call_strings[view.current_part],
             x - FALSENESS_COL_WIDTH - FOLD_COL_WIDTH,
             text_baseline
         );
@@ -193,13 +193,9 @@ function draw_row(x, y, row) {
         ctx.restore();
     }
     // Method string
-    if (row.method_label) {
+    if (row.method_string) {
         ctx.textAlign = "left";
-        ctx.fillText(
-            row.method_label.name,
-            x + stage * COL_WIDTH + FALSENESS_COL_WIDTH,
-            text_baseline
-        );
+        ctx.fillText(row.method_string, x + stage * COL_WIDTH + FALSENESS_COL_WIDTH, text_baseline);
     }
     ctx.globalAlpha = 1;
     // Ruleoff
@@ -237,8 +233,8 @@ function draw_frag(frag) {
     ctx.fillStyle = BACKGROUND_COL;
     ctx.fillRect(rect.min_x, rect.min_y, rect.w, rect.h);
     // Rows
-    for (let i = 0; i < frag.exp_rows.length; i++) {
-        draw_row(x, y + ROW_HEIGHT * i, frag.exp_rows[i]);
+    for (let i = 0; i < frag.rows.length; i++) {
+        draw_row(x, y + ROW_HEIGHT * i, frag.rows[i]);
     }
     // Draw Lines
     // Fade out the lines if this fragment isn't getting proven
@@ -249,8 +245,8 @@ function draw_frag(frag) {
         const width = bell_lines[l][0];
         const col = bell_lines[l][1];
         ctx.beginPath();
-        for (let i = 0; i < frag.exp_rows.length; i++) {
-            const ind = frag.exp_rows[i].rows[view.current_part].findIndex((x) => x == l);
+        for (let i = 0; i < frag.rows.length; i++) {
+            const ind = frag.rows[i].rows[view.current_part].findIndex((x) => x == l);
             ctx.lineTo(round_line_coord(x + (ind + 0.5) * COL_WIDTH), y + ROW_HEIGHT * (i + 0.5));
         }
         ctx.lineWidth = width;
@@ -470,7 +466,7 @@ function on_key_down(e) {
             // Decide how to add the rows
             if (
                 frag !== undefined &&
-                Math.floor(frag.row) == derived_state.frags[frag.index].exp_rows.length - 1
+                Math.floor(frag.row) == derived_state.frags[frag.index].rows.length - 1
             ) {
                 // Case 1: we're hovering over the leftover row of a fragment.  In this case, we
                 // add the new chunk onto the end of the existing one
@@ -930,7 +926,7 @@ function frag_bbox(f) {
         f.x - FALSENESS_COL_WIDTH,
         f.y - FRAG_BBOX_EXTRA_HEIGHT,
         derived_state.stage * COL_WIDTH + FALSENESS_COL_WIDTH * 2,
-        f.exp_rows.length * ROW_HEIGHT + FRAG_BBOX_EXTRA_HEIGHT * 2
+        f.rows.length * ROW_HEIGHT + FRAG_BBOX_EXTRA_HEIGHT * 2
     );
 }
 

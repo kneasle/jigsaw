@@ -1,8 +1,12 @@
 use crate::spec::{CallSpec, MethodRef, MethodSpec, PartHeads, Spec};
+use itertools::Itertools;
 use proj_core::{run_len, Row, Stage};
 use serde::Serialize;
-use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
+use std::{
+    collections::{HashMap, HashSet},
+    ops::Range,
+};
 
 // Imports used only for the doc comments
 #[allow(unused_imports)]
@@ -59,7 +63,7 @@ impl From<RowOrigin> for RowLocation {
 /* ========== DERIVED STATE OF EACH ROW ========== */
 
 /// A data structure to store a method splice label
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct MethodLabel {
     name: String,
     shorthand: String,
@@ -72,13 +76,12 @@ impl MethodLabel {
 }
 
 /// A data structure to store a point on the comp where a call is labelled
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone)]
 pub struct CallLabel {
     /// What label should this call be given in each part
     labels: Vec<String>,
     // This is not needed by JS code but is needed by `DerivedState` to generate statistics about
     // how calls are used.
-    #[serde(skip)]
     call_index: usize,
 }
 
@@ -110,27 +113,20 @@ impl DerivedFold {
     }
 }
 
-/// All the information required for JS to render a single [`Row`] from the [`Spec`].  Note that
-/// because of multipart expansion, this single on-screen [`Row`] actually represents many expanded
-/// [`Row`]s, and this datatype reflects that.
-#[derive(Serialize, Debug, Clone)]
+/// A single expanded [`Row`] of the composition.  This corresponds to a single source [`Row`] from
+/// the [`Spec`], but does **not** correspond to a single on-screen row because of the folding.
+/// Because of this, we don't need to serialise this or send it to JS - we use [`DisplayRow`] for
+/// that instead.
+#[derive(Debug, Clone)]
 pub struct ExpandedRow {
-    #[serde(skip_serializing_if = "Option::is_none")]
     call_label: Option<CallLabel>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     method_label: Option<MethodLabel>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     fold: Option<DerivedFold>,
-    #[serde(skip_serializing_if = "crate::ser_utils::is_false")]
     is_ruleoff: bool,
-    #[serde(skip_serializing_if = "crate::ser_utils::is_true")]
     is_proved: bool,
-    // This is not needed by JS code but is needed to generate statistics about how methods are
-    // used in the composition (e.g. row counts, ATW etc).
-    #[serde(skip)]
+    is_leftover: bool,
     method_ref: Option<MethodRef>,
     /// One [`Row`] for each part of the composition
-    #[serde(serialize_with = "crate::ser_utils::ser_rows")]
     rows: Vec<Row>,
     /// For each bell, shows which parts contain music
     ///
@@ -158,7 +154,6 @@ pub struct ExpandedRow {
     ///     vec![0, 1, 2, 3]
     /// ]
     /// ```
-    #[serde(skip_serializing_if = "crate::ser_utils::is_all_empty")]
     music_highlights: Vec<Vec<usize>>,
 }
 
@@ -195,6 +190,7 @@ impl ExpandedRow {
         fold: Option<DerivedFold>,
         is_ruleoff: bool,
         is_proved: bool,
+        is_leftover: bool,
     ) -> Self {
         ExpandedRow {
             call_label,
@@ -205,12 +201,65 @@ impl ExpandedRow {
             music_highlights: Self::calculate_music(&all_rows, all_rows[0].stage()),
             rows: all_rows,
             is_proved,
+            is_leftover,
         }
     }
 
     /// Marks this `ExpandedRow` as a ruleoff
     pub fn set_ruleoff(&mut self) {
         self.is_ruleoff = true;
+    }
+}
+
+/// All the information required for JS to render a single [`Row`] from the [`Spec`].  Note that
+/// because of multipart expansion, this single on-screen [`Row`] actually represents many expanded
+/// [`Row`]s, and this datatype reflects that.
+#[derive(Serialize, Debug, Clone)]
+struct DisplayRow {
+    call_strings: Vec<String>,
+    method_string: String,
+    range: Range<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    fold: Option<DerivedFold>,
+    #[serde(skip_serializing_if = "crate::ser_utils::is_false")]
+    is_ruleoff: bool,
+    #[serde(skip_serializing_if = "crate::ser_utils::is_true")]
+    is_proved: bool,
+    #[serde(serialize_with = "crate::ser_utils::ser_rows")]
+    rows: Vec<Row>,
+    /// See [`ExpandedRow::music_highlights`] for docs
+    #[serde(skip_serializing_if = "crate::ser_utils::is_all_empty")]
+    music_highlights: Vec<Vec<usize>>,
+}
+
+impl DisplayRow {
+    fn from_range(expanded_rows: &[ExpandedRow], range: Range<usize>) -> Self {
+        // Unpack useful values
+        let slice = &expanded_rows[range.clone()];
+        let first_exp_row = &slice[0];
+        let num_parts = first_exp_row.rows.len();
+        // Generate the call strings for each part
+        let mut call_strings = vec![String::new(); num_parts];
+        for call_label in slice.iter().filter_map(|r| r.call_label.as_ref()) {
+            for (i, l) in call_label.labels.iter().enumerate() {
+                call_strings[i].push_str(l);
+            }
+        }
+        // Create the displayed row
+        DisplayRow {
+            call_strings,
+            method_string: slice
+                .iter()
+                .filter_map(|r| r.method_label.as_ref())
+                .map(|l| &l.name)
+                .join(""),
+            range,
+            is_ruleoff: slice.last().unwrap().is_ruleoff,
+            is_proved: first_exp_row.is_proved,
+            fold: first_exp_row.fold,
+            rows: first_exp_row.rows.clone(),
+            music_highlights: first_exp_row.music_highlights.clone(),
+        }
     }
 }
 
@@ -250,7 +299,10 @@ pub struct FragLinkGroups {
 #[derive(Serialize, Debug, Clone)]
 pub struct AnnotFrag {
     false_row_ranges: Vec<FalseRowRange>,
-    exp_rows: Vec<ExpandedRow>,
+    #[serde(skip)]
+    expanded_rows: Vec<ExpandedRow>,
+    #[serde(rename = "rows")]
+    display_rows: Vec<DisplayRow>,
     is_proved: bool,
     link_groups: FragLinkGroups,
     x: f32,
@@ -335,7 +387,7 @@ impl DerivedState {
         Some(
             self.frags
                 .get(frag_ind)?
-                .exp_rows
+                .expanded_rows
                 .get(row_ind)?
                 .rows
                 .get(part_ind)?,
@@ -377,6 +429,7 @@ impl DerivedState {
         let der_calls = derive_calls(calls, &generated_rows);
 
         // Compile all of the derived state into one struct
+        assert_eq!(frag_link_groups.len(), generated_rows.len());
         DerivedState {
             frag_links,
             part_heads,
@@ -388,9 +441,14 @@ impl DerivedState {
                     // Sanity check that leftover rows should never be used in the proving
                     assert!(exp_rows.last().map_or(false, |r| !r.is_proved));
                     let (x, y) = spec.frag_pos(i).unwrap();
+                    let fold_regions = get_fold_ranges(&exp_rows);
                     AnnotFrag {
                         false_row_ranges: ranges_by_frag.remove(&i).unwrap_or_default(),
-                        exp_rows,
+                        display_rows: fold_regions
+                            .into_iter()
+                            .map(|r| DisplayRow::from_range(&exp_rows, r))
+                            .collect(),
+                        expanded_rows: exp_rows,
                         is_proved: !spec.is_frag_muted(i).unwrap(),
                         link_groups,
                         x,
@@ -685,8 +743,49 @@ fn derive_calls(calls: &[Rc<CallSpec>], exp_rows: &[Vec<ExpandedRow>]) -> Vec<De
             }
         }
     }
-    // Return the modified calls
+    // Return the `DerivedCall`s
     der_calls
+}
+
+/// Detect which regions of [`Row`]s will appear under each line on the screen (i.e. each [`Range`]
+/// in the output will correspond to exactly one line on the user's screen, but could contain more
+/// [`ExpandedRow`]s if it corresponds to a folded region).
+fn get_fold_ranges(exp_rows: &[ExpandedRow]) -> Vec<Range<usize>> {
+    let mut ranges = Vec::with_capacity(exp_rows.len());
+    let mut current_range_start: Option<usize> = None;
+    for (i, r) in exp_rows.iter().enumerate() {
+        // The leftover row is always open, and can never be folded into another group
+        if r.is_leftover {
+            // We've hit a new fold region, so we need to add the last region (if needed)
+            if let Some(start) = current_range_start {
+                ranges.push(start..i);
+            }
+            ranges.push(i..i + 1);
+            current_range_start = None;
+            continue;
+        }
+        match r.fold {
+            Some(f) => {
+                // We've hit a new fold region, so we need to add the last region (if needed)
+                if let Some(start) = current_range_start {
+                    ranges.push(start..i);
+                }
+                // Now make sure to set current_range_start for the region starting with this row
+                if f.is_open {
+                    ranges.push(i..i + 1);
+                    current_range_start = None;
+                } else {
+                    current_range_start = Some(i);
+                }
+            }
+            None => {
+                if current_range_start.is_none() {
+                    ranges.push(i..i + 1);
+                }
+            }
+        }
+    }
+    ranges
 }
 
 #[cfg(test)]
