@@ -381,33 +381,6 @@ pub struct DerivedState {
 }
 
 impl DerivedState {
-    /// Gets the [`Row`] at a given location in this `DerivedState`, returning `None` if the
-    /// location doesn't correspond to a [`Row`].
-    pub fn get_row(&self, part_ind: usize, frag_ind: usize, row_ind: usize) -> Option<&Row> {
-        Some(
-            self.frags
-                .get(frag_ind)?
-                .expanded_rows
-                .get(row_ind)?
-                .rows
-                .get(part_ind)?,
-        )
-    }
-
-    /// Returns `true` if the specified method is used anywhere in the composition (even muted).
-    /// Returns `None` if the method index was out of range.
-    #[inline]
-    pub fn is_method_used(&self, method_ind: usize) -> Option<bool> {
-        self.methods.get(method_ind).map(|m| m.num_rows > 0)
-    }
-
-    /// Gets the part head at a given index, or returning `None` if the index is bigger than the
-    /// number of parts.
-    #[inline]
-    pub fn get_part_head(&self, part_ind: usize) -> Option<&Row> {
-        self.part_heads.rows().get(part_ind)
-    }
-
     /// Given a [`Spec`]ification, derive a new `DerivedState` from it.
     pub fn from_spec(spec: &Spec) -> DerivedState {
         // PERF: This whole function could be improved by reusing the storage from an existing
@@ -465,6 +438,38 @@ impl DerivedState {
             calls: der_calls,
             stage: spec.stage().as_usize(),
         }
+    }
+
+    /// Gets the [`Row`] at a given location in this `DerivedState`, returning `None` if the
+    /// location doesn't correspond to a [`Row`].
+    pub fn get_row(&self, part_ind: usize, frag_ind: usize, row_ind: usize) -> Option<&Row> {
+        Some(
+            self.frags
+                .get(frag_ind)?
+                .expanded_rows
+                .get(row_ind)?
+                .rows
+                .get(part_ind)?,
+        )
+    }
+
+    /// Returns `true` if the specified method is used anywhere in the composition (even muted).
+    /// Returns `None` if the method index was out of range.
+    #[inline]
+    pub fn is_method_used(&self, method_ind: usize) -> Option<bool> {
+        self.methods.get(method_ind).map(|m| m.num_rows > 0)
+    }
+
+    /// Gets the part head at a given index, or returning `None` if the index is bigger than the
+    /// number of parts.
+    #[inline]
+    pub fn get_part_head(&self, part_ind: usize) -> Option<&Row> {
+        self.part_heads.rows().get(part_ind)
+    }
+
+    /// Maps an on-screen row location to the row index in the fragment's unfolded form
+    pub fn source_row_ind(&self, frag_ind: usize, row_ind: usize) -> usize {
+        self.frags[frag_ind].display_rows[row_ind].range.start
     }
 }
 

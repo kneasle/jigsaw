@@ -152,9 +152,11 @@ function draw_row(x, y, row) {
         }
         // Text
         const bell_index = row.rows[view.current_part][b];
-        if (!bell_lines[bell_index]) {
+        const is_folded = row.fold ? !row.fold.is_open : false;
+        const line = bell_lines[bell_index];
+        if (!line || is_folded) {
             ctx.globalAlpha = opacity;
-            ctx.fillStyle = FOREGROUND_COL;
+            ctx.fillStyle = line ? line[1] : FOREGROUND_COL;
             ctx.fillText(BELL_NAMES[bell_index], x + COL_WIDTH * (b + 0.5), text_baseline);
         }
     }
@@ -490,12 +492,12 @@ function on_key_down(e) {
         }
         // 'cut' a fragment into two at the mouse location
         if (e.key === "x" && frag) {
-            const split_index = Math.round(frag.row);
+            const split_index = frag.source_range.start;
             // Make sure there's a 10px gap between the BBoxes of the two fragments (we add 1 to
             // `split_index` to take into account the existence of the leftover row)
             const new_y =
                 derived_state.frags[frag.index].y +
-                (split_index + 1) * ROW_HEIGHT +
+                (Math.floor(frag.row) + 1) * ROW_HEIGHT +
                 FRAG_BBOX_EXTRA_HEIGHT * 2 +
                 10;
             // Split the fragment, and store the error string
@@ -526,7 +528,7 @@ function on_key_down(e) {
         }
         // transpose a fragment by the hovered row
         if (e.key === "T" && frag) {
-            start_transposition(frag.index, Math.floor(frag.row));
+            start_transposition(frag.index, frag.source_range.start);
             // Prevent this event causing the user to type 'T' into the newly focussed transposition box
             e.preventDefault();
         }
@@ -543,12 +545,21 @@ function on_key_down(e) {
         }
         // set call under the cursor
         if (e.key === "e" && frag) {
-            const err = comp.set_call(frag.index, frag.row, parseInt(elem_selected_call.value));
+            const err = comp.set_call(
+                frag.index,
+                frag.source_range.start,
+                parseInt(elem_selected_call.value)
+            );
             if (err) {
                 console.warn("Error setting call: " + err);
             } else {
                 on_comp_change();
             }
+        }
+        // Fold the fragment under the cursor
+        if (e.key === "f" && frag) {
+            comp.toggle_lead_fold(frag.index, frag.source_range.start);
+            on_comp_change();
         }
         // reset the composition
         if (e.key === "R") {
@@ -916,6 +927,7 @@ function hovered_frag() {
             row: (c.y - frag.y) / ROW_HEIGHT,
             col: (c.x - frag.x) / COL_WIDTH,
         };
+        hov_frag.source_range = derived_state.frags[i].rows[Math.floor(hov_frag.row)].range;
         break;
     }
     return hov_frag;

@@ -407,6 +407,14 @@ impl Comp {
         self.make_action(|spec: &mut Spec| spec.solo_single_frag(frag_ind));
     }
 
+    /// Toggles the lead folding at a given location on screen.  This doesn't update the undo
+    /// history.
+    pub fn toggle_lead_fold(&mut self, frag_ind: usize, row_ind: usize) {
+        // Figure out which source row the on-screen row actually corresponds to
+        self.spec().toggle_lead_fold(frag_ind, row_ind);
+        self.rebuild_state();
+    }
+
     /// Remove a method from the list, if it doesn't appear in the composition
     pub fn remove_method(&mut self, method_ind: usize) -> String {
         match self.derived_state.is_method_used(method_ind) {

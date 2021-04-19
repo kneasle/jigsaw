@@ -1275,6 +1275,8 @@ impl Spec {
         }
     }
 
+    /* Setters which use interior mutability */
+
     /// Sets the shorthand name of a given method (by index).  Panic if no method with this index
     /// exists
     pub fn set_method_shorthand(&self, method_ind: usize, new_shorthand: String) {
@@ -1284,6 +1286,15 @@ impl Spec {
     /// Sets the name of a given method (by index).  Panic if no method with this index exists
     pub fn set_method_name(&self, method_ind: usize, new_name: String) {
         *self.methods[method_ind].name.borrow_mut() = new_name;
+    }
+
+    /// Sets the name of a given method (by index).  Panic if no method with this index exists
+    pub fn toggle_lead_fold(&self, frag_ind: usize, row_ind: usize) {
+        let annot = self.frags[frag_ind].block.get_annot(row_ind).unwrap();
+        if let Some(f) = &annot.fold {
+            let is_open = f.is_open.get();
+            f.is_open.set(!is_open);
+        }
     }
 
     /* Getters */
