@@ -206,22 +206,33 @@ impl ExpandedRow {
 
 /// All the information required for JS to render a single [`Row`] from the [`Spec`].  Note that
 /// because of multipart expansion, this single on-screen [`Row`] actually represents many expanded
-/// [`Row`]s, and this datatype reflects that.
+/// [`Row`]s, and this datatype reflects that.  Furthermore, this single [`DisplayRow`] may contain
+/// a range of [`ExpandedRow`]s which are folded into this, which is again reflected by the fields.
 #[derive(Serialize, Debug, Clone)]
 struct DisplayRow {
+    /// What call string should be displayed in each part (i.e. this is text that is displayed to
+    /// the left of this Row).
     #[serde(skip_serializing_if = "crate::ser_utils::is_all_empty_string")]
     call_strings: Vec<String>,
+    /// What method string should be displayed (i.e. this is text that is displayed to the right of
+    /// this Row).
     #[serde(skip_serializing_if = "String::is_empty")]
     method_string: String,
+    /// Which range of source Rows are 'folded into' this on-screen row
     range: Range<usize>,
+    /// The foldedness status of this row
     #[serde(skip_serializing_if = "Option::is_none")]
     fold: Option<DerivedFold>,
+    /// Where the user has enabled blueline rendering, should this row be displayed with bell names
     #[serde(skip_serializing_if = "crate::ser_utils::is_false")]
     use_bell_names: bool,
+    /// `true` if this row should have a line rendered underneath it
     #[serde(skip_serializing_if = "crate::ser_utils::is_false")]
     is_ruleoff: bool,
+    /// `true` if this row is used in the proving of the composition
     #[serde(skip_serializing_if = "crate::ser_utils::is_true")]
     is_proved: bool,
+    /// One [`Row`] per part
     #[serde(serialize_with = "crate::ser_utils::ser_rows")]
     rows: Vec<Row>,
     /// See [`ExpandedRow::music_highlights`] for docs
@@ -264,6 +275,7 @@ impl DisplayRow {
             // All DisplayRows start using bell names.  This is then set to false for all rows
             // covered by a `LineRange`
             use_bell_names: true,
+            // This should be a ruleoff iff the last row in the range was a ruleoff
             is_ruleoff: slice.last().unwrap().is_ruleoff,
             is_proved: first_exp_row.is_proved,
             fold: first_exp_row.fold,
@@ -448,6 +460,7 @@ impl DerivedState {
                 .map(|(i, (expanded_rows, link_groups))| {
                     // Sanity check that leftover rows should never be used in the proving
                     assert!(expanded_rows.last().map_or(false, |r| !r.is_proved));
+                    // Unpack/derive useful data about this Frag
                     let (x, y) = spec.frag_pos(i).unwrap();
                     let fold_regions = get_fold_ranges(&expanded_rows);
                     let line_ranges = get_line_ranges(&fold_regions, &expanded_rows);
@@ -462,6 +475,7 @@ impl DerivedState {
                             r.use_bell_names = false;
                         }
                     }
+                    // Combine all this data into a single struct
                     DerivedFrag {
                         false_row_ranges: ranges_by_frag.remove(&i).unwrap_or_default(),
                         display_rows,
