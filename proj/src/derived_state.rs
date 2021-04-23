@@ -875,15 +875,18 @@ fn get_line_ranges(fold_ranges: &[Range<usize>], exp_rows: &[ExpandedRow]) -> Ve
     // Make sure to keep the last range (which won't have any discontinuity to finish it)
     if let Some(cur_range_start) = current_range_start {
         // TODO: Combine this and the version in the loop into one macro to avoid code duplication
-        line_ranges.push(LineRange {
-            top_rows: fold_ranges[cur_range_start]
-                .start
-                .checked_sub(1)
-                .and_then(|i| exp_rows.get(i))
-                .map(|exp_row| exp_row.rows.clone()),
-            bottom_rows: None,
-            range: cur_range_start..fold_ranges.len(),
-        });
+        let range_length = fold_ranges.len() - cur_range_start;
+        if range_length > 1 {
+            line_ranges.push(LineRange {
+                top_rows: fold_ranges[cur_range_start]
+                    .start
+                    .checked_sub(1)
+                    .and_then(|i| exp_rows.get(i))
+                    .map(|exp_row| exp_row.rows.clone()),
+                bottom_rows: None,
+                range: cur_range_start..fold_ranges.len(),
+            });
+        }
     }
     line_ranges
 }
