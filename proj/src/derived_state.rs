@@ -209,7 +209,9 @@ impl ExpandedRow {
 /// [`Row`]s, and this datatype reflects that.
 #[derive(Serialize, Debug, Clone)]
 struct DisplayRow {
+    #[serde(skip_serializing_if = "crate::ser_utils::is_all_empty_string")]
     call_strings: Vec<String>,
+    #[serde(skip_serializing_if = "String::is_empty")]
     method_string: String,
     range: Range<usize>,
     #[serde(skip_serializing_if = "Option::is_none")]

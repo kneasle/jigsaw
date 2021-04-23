@@ -19,6 +19,12 @@ pub fn is_true(b: &bool) -> bool {
     !b
 }
 
+/// Required so that we can omit `"call_strings": ["", "", "", ...]` when serialising (to save
+/// memory space and also improve serialisation/deserialisation time).
+pub fn is_all_empty_string(vs: &[String]) -> bool {
+    vs.iter().all(String::is_empty)
+}
+
 /// Required so that we can omit `"music_highlights": [[], [], [], ...]` when serialising (to save
 /// memory space and also improve serialisation/deserialisation time).
 pub fn is_all_empty(vs: &[Vec<usize>]) -> bool {
