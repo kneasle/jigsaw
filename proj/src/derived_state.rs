@@ -240,14 +240,24 @@ impl DisplayRow {
                 call_strings[i].push_str(l);
             }
         }
+        // Calculate how many method names are contained in this range.  We then have the cases:
+        // This == 0: No method string is required (actually a special case of the next case)
+        // This == 1: We display the full method name
+        // This >= 2: We combine the calls and shorthands into a compact string (ala CompLib)
+        // TODO: Make this count _any_ lead start/discontinuity, even if we're restarting the same
+        // method.  Otherwise the lead summary strings won't be correct
+        let num_method_labels = slice.iter().filter(|r| r.method_label.is_some()).count();
         // Create the displayed row
         DisplayRow {
             call_strings,
-            method_string: slice
-                .iter()
-                .filter_map(|r| r.method_label.as_ref())
-                .map(|l| &l.name)
-                .join(""),
+            method_string: match num_method_labels {
+                0 | 1 => slice
+                    .iter()
+                    .filter_map(|r| r.method_label.as_ref())
+                    .map(|l| &l.name)
+                    .join(""),
+                _ => unimplemented!(),
+            },
             range,
             // All DisplayRows start using bell names.  This is then set to false for all rows
             // covered by a `LineRange`
