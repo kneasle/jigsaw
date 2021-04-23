@@ -153,9 +153,8 @@ function draw_row(x, y, row) {
         }
         // Text
         const bell_index = row.rows[view.current_part][b];
-        const is_folded = row.fold ? !row.fold.is_open : false;
         const line = bell_lines[bell_index];
-        if (!line || is_folded) {
+        if (!line || row.use_bell_names) {
             ctx.globalAlpha = opacity;
             ctx.fillStyle = line ? line[1] : FOREGROUND_COL;
             ctx.fillText(BELL_NAMES[bell_index], x + COL_WIDTH * (b + 0.5), text_baseline);

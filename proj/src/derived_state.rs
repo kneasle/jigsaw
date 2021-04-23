@@ -215,6 +215,8 @@ struct DisplayRow {
     #[serde(skip_serializing_if = "Option::is_none")]
     fold: Option<DerivedFold>,
     #[serde(skip_serializing_if = "crate::ser_utils::is_false")]
+    use_bell_names: bool,
+    #[serde(skip_serializing_if = "crate::ser_utils::is_false")]
     is_ruleoff: bool,
     #[serde(skip_serializing_if = "crate::ser_utils::is_true")]
     is_proved: bool,
@@ -247,6 +249,9 @@ impl DisplayRow {
                 .map(|l| &l.name)
                 .join(""),
             range,
+            // All DisplayRows start using bell names.  This is then set to false for all rows
+            // covered by a `LineRange`
+            use_bell_names: true,
             is_ruleoff: slice.last().unwrap().is_ruleoff,
             is_proved: first_exp_row.is_proved,
             fold: first_exp_row.fold,
@@ -428,19 +433,28 @@ impl DerivedState {
                 .into_iter()
                 .zip(frag_link_groups.into_iter())
                 .enumerate()
-                .map(|(i, (exp_rows, link_groups))| {
+                .map(|(i, (expanded_rows, link_groups))| {
                     // Sanity check that leftover rows should never be used in the proving
-                    assert!(exp_rows.last().map_or(false, |r| !r.is_proved));
+                    assert!(expanded_rows.last().map_or(false, |r| !r.is_proved));
                     let (x, y) = spec.frag_pos(i).unwrap();
-                    let fold_regions = get_fold_ranges(&exp_rows);
+                    let fold_regions = get_fold_ranges(&expanded_rows);
+                    let line_ranges = get_line_ranges(&fold_regions, &expanded_rows);
+                    // Calculate which rows should be displayed to the user
+                    let mut display_rows: Vec<DisplayRow> = fold_regions
+                        .into_iter()
+                        .map(|r| DisplayRow::from_range(&expanded_rows, r))
+                        .collect();
+                    for l in &line_ranges {
+                        // Prevent JS from drawing coloured bell names where there are line ranges
+                        for r in &mut display_rows[l.range.clone()] {
+                            r.use_bell_names = false;
+                        }
+                    }
                     DerivedFrag {
                         false_row_ranges: ranges_by_frag.remove(&i).unwrap_or_default(),
-                        line_ranges: get_line_ranges(&fold_regions, &exp_rows),
-                        display_rows: fold_regions
-                            .into_iter()
-                            .map(|r| DisplayRow::from_range(&exp_rows, r))
-                            .collect(),
-                        expanded_rows: exp_rows,
+                        display_rows,
+                        line_ranges,
+                        expanded_rows,
                         is_proved: !spec.is_frag_muted(i).unwrap(),
                         link_groups,
                         x,
