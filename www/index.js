@@ -603,6 +603,18 @@ function on_key_down(e) {
             on_comp_change();
         }
     }
+    // Home key to reset camera to frag 0
+    if (e.keyCode === 36) {
+        // Home in on the 0th fragment if it exists
+        const f = derived_state.frags[0];
+        if (f) {
+            // Set the camera's position to the centre of the frag's bbox
+            const bbox = frag_bbox(f);
+            comp.set_view_coords(bbox.c_x, bbox.c_y);
+            sync_view();
+            request_frame();
+        }
+    }
 }
 
 /* ===== TRANSPOSE MODE ===== */
