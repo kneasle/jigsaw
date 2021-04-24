@@ -27,6 +27,13 @@ input {
 .fold-button {
     padding: 0 0.5em 0 0.3em;
     cursor: pointer;
+    /* Browsers, why?!?!!?! */
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -o-user-select: none;
+    user-select: none;
 }
 
 /* One-off styles */
@@ -80,4 +87,17 @@ input {
     margin-left: 10px;
     border-left: 2px solid black;
     padding-left: 4px;
+}
+
+#delete-button {
+    color: #0000ff;
+    text-decoration: underline;
+    cursor: pointer;
+    /* Browsers, why?!?!!?! */
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -o-user-select: none;
+    user-select: none;
 }
