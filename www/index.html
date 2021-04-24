@@ -2,18 +2,18 @@
 <html style="margin: 0; width: 100%; height: 100%">
     <head>
         <title>Composing Program</title>
-        <meta content="text/html;charset=utf-8" http-equiv="Content-Type"/>
+        <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
         <script src="cookies.js"></script>
         <script src="colors.js"></script>
-        <link rel="stylesheet" href="style.css">
+        <link rel="stylesheet" href="style.css" />
     </head>
     <body>
         <!-- Note the usage of `type=module` here as this is an ES6 module -->
         <script type="module">
-            import { Comp, default as init } from './proj.js';
+            import { Comp, default as init } from "./proj.js";
 
             async function run() {
-                await init('./proj_bg.wasm');
+                await init("./proj_bg.wasm");
                 window.Comp = Comp;
                 start();
             }
@@ -26,28 +26,33 @@
         <!-- Top-left HUD -->
         <div class="top-left-hud">
             <!-- Summary -->
-            <p><span id="part-len">0</span> rows * <span
-                id="num-parts">0</span> parts = <span id="num-rows">0</span> rows</p>
+            <p>
+                <span id="part-len">0</span> rows * <span id="num-parts">0</span> parts =
+                <span id="num-rows">0</span> rows
+            </p>
             <p><span id="falseness-info">true</span></p>
 
             <!-- Part Heads -->
-            <hr/>
-            <p><input id="part-head-input"></input></p>
+            <hr />
+            <p><input id="part-head-input" /></p>
             <p id="part-head-message" class="parse-err">Bell '2' repeated twice</p>
-            <p id="part-head-group-message"
-               class="parse-err"
-               style="display: none;">Parts don't form a group.</p>
-            <p>Viewing Part: <select name="part-head" id="part-head">
-                <!-- The part heads are filled in only when the wasm is loaded, which is far enough
+            <p id="part-head-group-message" class="parse-err" style="display: none">
+                Parts don't form a group.
+            </p>
+            <p>
+                Viewing Part:
+                <select name="part-head" id="part-head">
+                    <!-- The part heads are filled in only when the wasm is loaded, which is far enough
                      after page load to cause jank, so we fill this with a sensible default so that
                      hopefully the jank is less noticeable. -->
-                <option value="0">#1: 12345678</option>
-            </select></p>
+                    <option value="0">#1: 12345678</option>
+                </select>
+            </p>
         </div>
 
         <!-- Transpose box -->
         <div id="transpose-box">
-            <p><input id="transpose-input"></input></p>
+            <p><input id="transpose-input" /></p>
             <p id="transpose-message" class="parse-err">Bell '2' repeated twice</p>
         </div>
 
@@ -55,10 +60,10 @@
         <div id="right-sidebar">
             <!-- General -->
             <div class="sidebar-box">
-                <h2><span class="fold-button"
-                          style="float: left;"
-                          id="general-box-fold"
-                    >▼</span>General</h2>
+                <h2>
+                    <span class="fold-button" style="float: left" id="general-box-fold">▼</span
+                    >General
+                </h2>
                 <div id="general-box-area">
                     <p>Blah</p>
                     <p>Blah</p>
@@ -70,48 +75,54 @@
 
             <!-- Methods -->
             <div class="sidebar-box">
-                <h2><span class="fold-button"
-                          style="float: left;"
-                          id="methods-box-fold"
-                    >▼</span>Methods (<span id="num-methods">0</span>)</h2>
+                <h2>
+                    <span class="fold-button" style="float: left" id="methods-box-fold">▼</span
+                    >Methods (<span id="num-methods">0</span>)
+                </h2>
                 <div id="methods-box-area">
                     <div id="method-list">
                         <!-- Method entries will go here -->
                     </div>
-                    <p>Select method: <input id="selected-method"
-                                             style="width: 2em;"
-                                             type="number"
-                                             value="0"
-                                             min="0"/></p>
+                    <p>
+                        Select method:
+                        <input
+                            id="selected-method"
+                            style="width: 2em"
+                            type="number"
+                            value="0"
+                            min="0"
+                        />
+                    </p>
                 </div>
             </div>
 
             <!-- Calls -->
             <div class="sidebar-box">
-                <h2><span class="fold-button"
-                          style="float: left;"
-                          id="calls-box-fold"
-                    >▼</span>Calls (<span id="num-calls">0</span>)</h2>
+                <h2>
+                    <span class="fold-button" style="float: left" id="calls-box-fold">▼</span>Calls
+                    (<span id="num-calls">0</span>)
+                </h2>
                 <div id="calls-box-area">
                     <p id="call-readout">&lt;Calls&gt;</p>
 
-                    <p>Select call:
-                        <input id="selected-call"
-                               style="width: 2em;"
-                               type="number"
-                               value="0"
-                               min="-1"
-                        ></input>
+                    <p>
+                        Select call:
+                        <input
+                            id="selected-call"
+                            style="width: 2em"
+                            type="number"
+                            value="0"
+                            min="-1"
+                        />
                     </p>
                 </div>
             </div>
 
             <!-- Music -->
             <div class="sidebar-box">
-                <h2><span class="fold-button"
-                          style="float: left;"
-                          id="music-box-fold"
-                    >▼</span>Music</h2>
+                <h2>
+                    <span class="fold-button" style="float: left" id="music-box-fold">▼</span>Music
+                </h2>
                 <div id="music-box-area">
                     <p>Blah</p>
                     <p>Blah</p>
@@ -126,37 +137,41 @@
              the sidebar).  These are very reminiscent of templates from Vue or React except that
              the interactions we require are very simple and are easier managed without a
              library. -->
-        <div style="display: none;" id="templates">
+        <div style="display: none" id="templates">
             <!-- Template for a single method entry -->
             <div id="template-method-entry">
                 <!-- Title bar: Shorthand & name on the left -->
-                <p><span class="fold-button"
-                         id="method-info-fold-btn">▶</span>(<span id="shorthand">B</span>)
+                <p>
+                    <span class="fold-button" id="method-info-fold-btn">▶</span>(<span
+                        id="shorthand"
+                        >B</span
+                    >)
                     <span id="name">Bristol</span>
                     <!-- row counter/delete on the right -->
-                    <span style="float: right;">
-                        <span id="row-count" style="display: none;">0 rows</span>
+                    <span style="float: right">
+                        <span id="row-count" style="display: none">0 rows</span>
                         <span id="delete-button">remove</span>
                     </span>
                 </p>
                 <!-- Fold out section (hidden by default) -->
                 <div class="method-fold-out" id="method-info-area">
                     <div class="text-box-row">
-                        <input id="shorthand-input"
-                               value="V"
-                               placeholder="Sym"
-                               style="width: 2em; margin-right: 5px;" />
-                        <input id="name-input"
-                               placeholder="Name"
-                               value="Deva"
-                               style="flex: 1;" />
+                        <input
+                            id="shorthand-input"
+                            value="V"
+                            placeholder="Sym"
+                            style="width: 2em; margin-right: 5px"
+                        />
+                        <input id="name-input" placeholder="Name" value="Deva" style="flex: 1" />
                     </div>
                     <div class="text-box-row">
-                        <input id="place-notation-input"
-                               value="<PLACE NOTATION>"
-                               placeholder="Place Notation"
-                               style="flex: 1;"
-                               disabled />
+                        <input
+                            id="place-notation-input"
+                            value="<PLACE NOTATION>"
+                            placeholder="Place Notation"
+                            style="flex: 1"
+                            disabled
+                        />
                     </div>
                 </div>
             </div>
