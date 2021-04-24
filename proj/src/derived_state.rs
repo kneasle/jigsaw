@@ -287,12 +287,11 @@ impl DisplayRow {
 
 /* ========== DERIVED STATE OF FRAGMENTS (AND THEIR LINKS) ========== */
 
-/// A range of rows which should be highlighted as all false in the same way.  This is supposed to
-/// cover `start..=end` rows (i.e. the ranges are **inclusive**).
+/// A range of rows which should be highlighted as all false in the same way.
 #[derive(Serialize, Debug, Clone)]
 struct FalseRowRange {
-    start: usize,
-    end: usize,
+    #[serde(flatten)]
+    range: Range<usize>,
     group: usize,
 }
 
@@ -742,8 +741,8 @@ fn add_ranges(
         // Create a FalseRowGroup, making sure that start <= end (because we could have
         // sets of rows which are false against each other but in the opposite order)
         let false_row_range = FalseRowRange {
-            start: start_loc.row.min(end_loc.row),
-            end: start_loc.row.max(end_loc.row),
+            // The `+ 1` makes sure that the range represents `start_loc..=end_loc`
+            range: start_loc.row.min(end_loc.row)..start_loc.row.max(end_loc.row) + 1,
             group: group_id,
         };
         // Insert the newly created group to the HashMap to make sure it's displayed on

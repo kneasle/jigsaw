@@ -290,14 +290,14 @@ function draw_frag(frag) {
         draw_falseness_indicator(
             x + FALSENESS_COL_WIDTH * -0.5,
             y + ROW_HEIGHT * range.start,
-            y + ROW_HEIGHT * (range.end + 1),
+            y + ROW_HEIGHT * range.end,
             FALSENESS_COL_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
             ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT
         );
         draw_falseness_indicator(
             x + derived_state.stage * COL_WIDTH + FALSENESS_COL_WIDTH * 0.5,
             y + ROW_HEIGHT * range.start,
-            y + ROW_HEIGHT * (range.end + 1),
+            y + ROW_HEIGHT * range.end,
             -FALSENESS_COL_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
             ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT
         );
