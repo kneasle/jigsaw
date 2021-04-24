@@ -23,33 +23,6 @@
         <!-- Main canvas -->
         <canvas id="comp-canvas"></canvas>
 
-        <!-- Top-left HUD -->
-        <div class="top-left-hud">
-            <!-- Summary -->
-            <p>
-                <span id="part-len">0</span> rows * <span id="num-parts">0</span> parts =
-                <span id="num-rows">0</span> rows
-            </p>
-            <p><span id="falseness-info">true</span></p>
-
-            <!-- Part Heads -->
-            <hr />
-            <p><input id="part-head-input" /></p>
-            <p id="part-head-message" class="parse-err">Bell '2' repeated twice</p>
-            <p id="part-head-group-message" class="parse-err" style="display: none">
-                Parts don't form a group.
-            </p>
-            <p>
-                Viewing Part:
-                <select name="part-head" id="part-head">
-                    <!-- The part heads are filled in only when the wasm is loaded, which is far enough
-                     after page load to cause jank, so we fill this with a sensible default so that
-                     hopefully the jank is less noticeable. -->
-                    <option value="0">#1: 12345678</option>
-                </select>
-            </p>
-        </div>
-
         <!-- Transpose box -->
         <div id="transpose-box">
             <p><input id="transpose-input" /></p>
@@ -65,11 +38,36 @@
                     >General
                 </h2>
                 <div id="general-box-area">
-                    <p>Blah</p>
-                    <p>Blah</p>
-                    <p>Blah</p>
-                    <p>Blah</p>
-                    <p>Blah</p>
+                    <p style="text-align: center">
+                        <span id="part-len">0</span> rows * <span id="num-parts">0</span> parts =
+                        <span id="num-rows">0</span> rows
+                    </p>
+                    <p style="text-align: center"><span id="falseness-info">true</span></p>
+                </div>
+            </div>
+
+            <!-- General -->
+            <div class="sidebar-box">
+                <h2>
+                    <span class="fold-button" style="float: left" id="partheads-box-fold">▼</span
+                    >Parts (<span id="part-head-count">0</span>)
+                </h2>
+                <div id="partheads-box-area">
+                    <!-- Part Heads -->
+                    <div class="flex-row"><input id="part-head-input" style="flex: 1" /></div>
+                    <p id="part-head-message" class="parse-err">Bell '2' repeated twice</p>
+                    <p id="part-head-group-message" class="parse-err" style="display: none">
+                        Parts don't form a group.
+                    </p>
+                    <p>
+                        Viewing Part:
+                        <select name="part-head" id="part-head">
+                            <!-- The part heads are filled in only when the wasm is loaded, which is far enough
+                     after page load to cause jank, so we fill this with a sensible default so that
+                     hopefully the jank is less noticeable. -->
+                            <option value="0">#1: 12345678</option>
+                        </select>
+                    </p>
                 </div>
             </div>
 
@@ -155,7 +153,7 @@
                 </p>
                 <!-- Fold out section (hidden by default) -->
                 <div class="method-fold-out" id="method-info-area">
-                    <div class="text-box-row">
+                    <div class="flex-row">
                         <input
                             id="shorthand-input"
                             value="V"

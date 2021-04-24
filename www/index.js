@@ -6,23 +6,26 @@ const dpr = window.devicePixelRatio || 1;
 
 /* === Commonly used HTML elements === */
 
-// Transpose box
-const elem_transpose_box = document.getElementById("transpose-box");
-const elem_transpose_input = document.getElementById("transpose-input");
-const elem_transpose_message = document.getElementById("transpose-message");
 // Stats
 const elem_part_len = document.getElementById("part-len");
 const elem_num_parts = document.getElementById("num-parts");
 const elem_num_rows = document.getElementById("num-rows");
 const elem_falseness_info = document.getElementById("falseness-info");
-// Part heads
+// Right sidebar
+const elem_right_sidebar = document.getElementById("right-sidebar");
+const elem_sections = find_section_fold_elems([
+    "general",
+    "partheads",
+    "methods",
+    "calls",
+    "music",
+]);
+
 const elem_part_head_input = document.getElementById("part-head-input");
+const elem_part_head_count = document.getElementById("part-head-count");
 const elem_part_head_list = document.getElementById("part-head");
 const elem_part_head_message = document.getElementById("part-head-message");
 const elem_part_head_is_group = document.getElementById("part-head-group-message");
-// Right sidebar
-const elem_right_sidebar = document.getElementById("right-sidebar");
-const elem_sections = find_section_fold_elems(["general", "methods", "calls", "music"]);
 
 const elem_num_methods = document.getElementById("num-methods");
 const elem_method_box = document.getElementById("method-list");
@@ -31,6 +34,10 @@ const elem_selected_method = document.getElementById("selected-method");
 const elem_num_calls = document.getElementById("num-calls");
 const elem_call_readout = document.getElementById("call-readout");
 const elem_selected_call = document.getElementById("selected-call");
+// Transpose box
+const elem_transpose_box = document.getElementById("transpose-box");
+const elem_transpose_input = document.getElementById("transpose-input");
+const elem_transpose_message = document.getElementById("transpose-message");
 // Templates
 const template_method_entry = document.getElementById("template-method-entry");
 // Canvas elements
@@ -717,6 +724,7 @@ function update_hud() {
     // Update the part head display(s)
     elem_part_head_list.value = view.current_part;
     elem_part_head_input.value = derived_state.part_heads.spec;
+    elem_part_head_count.innerText = `${num_parts}`;
     elem_part_head_message.innerText = `Parses to ${num_parts} part${num_parts == 1 ? "" : "s"}.`;
     elem_part_head_message.style.color = FOREGROUND_COL;
     elem_part_head_is_group.style.display = derived_state.part_heads.is_group ? "none" : "block";

@@ -7,6 +7,8 @@ pub struct SectionFolds {
     #[serde(default = "get_true")]
     pub general: bool,
     #[serde(default = "get_true")]
+    pub partheads: bool,
+    #[serde(default = "get_true")]
     pub methods: bool,
     #[serde(default = "get_true")]
     pub calls: bool,
@@ -21,6 +23,7 @@ impl SectionFolds {
     pub fn toggle(&mut self, name: &str) -> bool {
         let value = match name {
             "general" => &mut self.general,
+            "partheads" => &mut self.partheads,
             "methods" => &mut self.methods,
             "calls" => &mut self.calls,
             "music" => &mut self.music,

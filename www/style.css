@@ -37,7 +37,7 @@ input {
     user-select: none;
 }
 
-.text-box-row {
+.flex-row {
     display: flex;
     flex-direction: row;
     margin: 5px 0 5px 0;
@@ -58,7 +58,7 @@ input {
     position: absolute;
     top: 0;
     left: 0;
-    background: #ffffffee;
+    background: #fffe;
     border-radius: 0 0 5px 0;
     font-family: monospace;
 }
