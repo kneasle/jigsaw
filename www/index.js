@@ -91,6 +91,7 @@ const FALSE_ROW_GROUP_NOTCH_HEIGHT = 0.3; // multiple of the falseness margin wi
 const FALSE_ROW_GROUP_LINE_WIDTH = 2.5; // px
 const FALSE_COUNT_COL_FALSE = "red";
 const FALSE_COUNT_COL_TRUE = "green";
+const FALSENESS_BLOB_RADIUS = 0.3; // multiple of min(ROW_HEIGHT, COL_WIDTH)
 
 // Debug settings
 const DBG_PROFILE_SERIALISE_STATE = false; // profile `sync_derived_state` in `start`?
@@ -163,6 +164,25 @@ function draw_row(x, y, row) {
     // All the annotations should be rendered with the foreground colour, and have the opacity
     // applied to them
     ctx.globalAlpha = opacity;
+    // Contained falseness ranges
+    let num_falseness_circles = 0;
+    if (row.contained_false_row_ranges) {
+        const ranges = row.contained_false_row_ranges;
+        num_falseness_circles = ranges.length;
+        for (let i = 0; i < ranges.length; i++) {
+            ctx.fillStyle = group_col(ranges[i]);
+            ctx.beginPath();
+            ctx.arc(
+                x + (stage + i + 0.5) * COL_WIDTH,
+                y + ROW_HEIGHT / 2,
+                Math.min(COL_WIDTH, ROW_HEIGHT) * FALSENESS_BLOB_RADIUS,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+        }
+    }
+    // Reset the foreground colour for all the displayed text
     ctx.fillStyle = FOREGROUND_COL;
     // Call string
     if (row.call_strings) {
@@ -197,7 +217,11 @@ function draw_row(x, y, row) {
     // Method string
     if (row.method_string) {
         ctx.textAlign = "left";
-        ctx.fillText(row.method_string, x + stage * COL_WIDTH + FALSENESS_COL_WIDTH, text_baseline);
+        ctx.fillText(
+            row.method_string,
+            x + stage * COL_WIDTH + num_falseness_circles * COL_WIDTH + FALSENESS_COL_WIDTH,
+            text_baseline
+        );
     }
     ctx.globalAlpha = 1;
     // Ruleoff

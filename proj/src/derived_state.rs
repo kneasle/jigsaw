@@ -213,6 +213,10 @@ struct DisplayRow {
     /// Which range of source Rows are 'folded into' this on-screen row.  In the case of unfolded
     /// Rows, this corresponds to the index of this row within the composition
     range: Range<usize>,
+    /// A list of false row groups which are contained within the range covered by this on-screen
+    /// row.  These will be rendered as little circles to the right of this Row
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    contained_false_row_ranges: Vec<usize>,
     /// What call string should be displayed in each part (i.e. this is text that is displayed to
     /// the left of this Row).
     #[serde(skip_serializing_if = "crate::ser_utils::is_all_empty_string")]
@@ -267,6 +271,7 @@ impl DisplayRow {
         DisplayRow {
             range,
             call_strings,
+            contained_false_row_ranges: Vec::new(),
             method_string: match num_method_labels {
                 0 | 1 => slice
                     .iter()
@@ -466,7 +471,28 @@ impl DerivedState {
                     let (x, y) = spec.frag_pos(i).unwrap();
                     let fold_regions = get_fold_ranges(&expanded_rows);
                     let line_ranges = get_line_ranges(&fold_regions, &expanded_rows);
-                    // Calculate which rows should be displayed to the user
+                    let mut all_false_row_ranges = ranges_by_frag.remove(&i).unwrap_or_default();
+                    // We sort the false row ranges by their starting point so that the order of
+                    // falseness blobs on a folded row is the same as the order of the original
+                    // groups.
+                    all_false_row_ranges.sort_by_key(|f| f.range.start);
+
+                    /* Calculate the rows that should be displayed to the user */
+                    // Calculate a mapping between source rows and which display row they appear on
+                    // (before consuming `fold_regions`)
+                    //
+                    // TODO: We should probably cache this and/or send it to JS so that we can
+                    // easily determine which on-screen rows correspond to source rows
+                    let mut source_row_to_display_row: Vec<(usize, usize)> =
+                        Vec::with_capacity(expanded_rows.len());
+                    for (i, r) in fold_regions.iter().enumerate() {
+                        for sub_index in 0..(r.end - r.start) {
+                            source_row_to_display_row.push((i, sub_index));
+                        }
+                    }
+                    // Create the display_rows.  Some of the fields will be edited after
+                    // initialisation using external information (line_ranges, false_row_ranges,
+                    // etc.)
                     let mut display_rows: Vec<DisplayRow> = fold_regions
                         .into_iter()
                         .map(|r| DisplayRow::from_range(&expanded_rows, r))
@@ -477,10 +503,47 @@ impl DerivedState {
                             r.use_bell_names = false;
                         }
                     }
-                    // Combine all this data into a single struct
+                    // Modify the false row ranges by either moving them to the correct place on
+                    // display or adding them to folded rows as dots
+                    let mut false_row_ranges = Vec::with_capacity(all_false_row_ranges.len());
+                    for r in all_false_row_ranges {
+                        let (start_row, start_sub_index) = source_row_to_display_row[r.range.start];
+                        let (end_row, end_sub_index) = source_row_to_display_row[r.range.end];
+                        // Decide how this range should be displayed
+                        if start_sub_index == 0 && end_sub_index == 0 {
+                            /* Pattern: (_, 0) -> (_, 0)
+                             * The range completely covers some set of on-screen rows.  This means
+                             * that it should be displayed as a range (which might cover folded
+                             * rows, but that doesn't matter) */
+                            // Something has gone very wrong if we somehow manage to create a
+                            // zero-length falseness range
+                            assert_ne!(start_row, end_row);
+                            false_row_ranges.push(FalseRowRange {
+                                range: start_row..end_row,
+                                ..r
+                            });
+                        } else if start_row == end_row
+                            || start_row + 1 == end_row && end_sub_index == 0
+                        {
+                            /* Patterns: (x, _) -> (x, _)
+                             *         | (x, _) -> (x + 1, 0)
+                             * The range is strictly within a single on-screen row.  This means
+                             * that it should be displayed as a dot next to the row, to prevent
+                             * groups overlapping. */
+                            display_rows[start_row]
+                                .contained_false_row_ranges
+                                .push(r.group);
+                        } else {
+                            /* The range overlaps partially between two on-screen rows.  I don't
+                             * know what to do about this, so for the time being just panic. */
+                            unimplemented!();
+                        }
+                    }
+
+                    /* Combine all this data into a single struct */
                     DerivedFrag {
-                        false_row_ranges: ranges_by_frag.remove(&i).unwrap_or_default(),
                         is_proved: !spec.is_frag_muted(i).unwrap(),
+                        false_row_ranges,
                         display_rows,
                         line_ranges,
                         expanded_rows,
