@@ -408,11 +408,17 @@ impl Comp {
         self.make_action(|spec: &mut Spec| spec.solo_single_frag(frag_ind));
     }
 
-    /// Toggles the lead folding at a given location on screen.  This doesn't update the undo
+    /// Toggles the lead folding at a given **on screen** row index.  This doesn't update the undo
     /// history.
-    pub fn toggle_lead_fold(&mut self, frag_ind: usize, row_ind: usize) {
+    pub fn toggle_lead_fold(&mut self, frag_ind: usize, on_screen_row_ind: usize) {
         // Figure out which source row the on-screen row actually corresponds to
-        self.spec().toggle_lead_fold(frag_ind, row_ind);
+        let foldable_row = self
+            .derived_state
+            .last_lead_foldable_row(frag_ind, on_screen_row_ind);
+        self.spec().toggle_lead_fold(
+            frag_ind,
+            self.derived_state.source_row_ind(frag_ind, foldable_row),
+        );
         self.rebuild_state();
     }
 

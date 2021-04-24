@@ -595,6 +595,17 @@ impl DerivedState {
         self.part_heads.rows().get(part_ind)
     }
 
+    /// Returns the index of the last foldable row before or equal to `row_ind`.  This will be the
+    /// row who's fold region includes `row_ind`.
+    pub fn last_lead_foldable_row(&self, frag_ind: usize, row_ind: usize) -> usize {
+        self.frags[frag_ind].display_rows[..=row_ind]
+            .iter()
+            .enumerate()
+            .rev()
+            .find(|(_i, r)| r.fold.is_some())
+            .map_or(0, |(i, _)| i)
+    }
+
     /// Maps an on-screen row location to the row index in the fragment's unfolded form
     pub fn source_row_ind(&self, frag_ind: usize, row_ind: usize) -> usize {
         self.frags[frag_ind].display_rows[row_ind].range.start

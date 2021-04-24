@@ -614,7 +614,8 @@ function on_key_down(e) {
         }
         // Fold the fragment under the cursor
         if (e.key === "f" && frag) {
-            comp.toggle_lead_fold(frag.index, frag.source_range.start);
+            // `toggle_lead_fold` takes **on-screen** row indices not source indices
+            comp.toggle_lead_fold(frag.index, Math.floor(frag.row));
             on_comp_change();
         }
         // reset the composition
