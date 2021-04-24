@@ -159,6 +159,7 @@ impl Comp {
 impl Comp {
     /// Create an example composition
     pub fn example() -> Comp {
+        console_error_panic_hook::set_once();
         Self::from_spec(Spec::cyclic_s8())
     }
 
