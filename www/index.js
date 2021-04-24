@@ -693,17 +693,18 @@ function stop_transposing() {
 
 /* ===== HUD CODE ===== */
 
-// TODO: Clean these callbacks up
-
-function on_part_change(evt) {
-    // Update which part to display (indirectly so that we avoid divergence between Rust's
-    // datastructures and their JS counterparts).
-    comp.set_current_part(parseInt(evt.target.value));
-    sync_view();
-    request_frame();
+function update_section_folds() {
+    for (section in elem_sections) {
+        const is_open = view.section_folds[section];
+        if (is_open === undefined) {
+            console.warn(`Section '${section}' has no foldedness value in 'view'.`);
+            continue;
+        }
+        set_foldedness(is_open, elem_sections[section].fold_button, elem_sections[section].area);
+    }
 }
 
-function update_hud() {
+function update_sidebar_general() {
     const stats = derived_state.stats;
 
     // Populate row counter
@@ -721,17 +722,22 @@ function update_hud() {
         ? "true"
         : num_false_rows.toString() + " false rows in " + num_false_groups.toString() + " groups";
     elem_falseness_info.style.color = is_true ? FALSE_COUNT_COL_TRUE : FALSE_COUNT_COL_FALSE;
+}
 
-    // Update the part head display(s)
+function update_sidebar_parts() {
+    const num_parts = derived_state.part_heads.rows.length;
+
     elem_part_head_list.value = view.current_part;
     elem_part_head_input.value = derived_state.part_heads.spec;
     elem_part_head_count.innerText = `${num_parts}`;
     elem_part_head_message.innerText = `Parses to ${num_parts} part${num_parts == 1 ? "" : "s"}.`;
     elem_part_head_message.style.color = FOREGROUND_COL;
     elem_part_head_is_group.style.display = derived_state.part_heads.is_group ? "none" : "block";
-}
 
-function update_part_head_list() {
+    /* UPDATE THE PART HEAD LIST (EVEN IF IT ACTUALLY DOESN'T NEED IT) */
+
+    // PERF: Don't delete and recreate these elements all the time
+
     // Clear the existing children
     elem_part_head_list.innerHTML = "";
     // Add the new part heads
@@ -751,24 +757,13 @@ function update_part_head_list() {
     elem_part_head_list.value = view.current_part;
 }
 
-function update_section_folds() {
-    for (section in elem_sections) {
-        const is_open = view.section_folds[section];
-        if (is_open === undefined) {
-            console.warn(`Section '${section}' has no foldedness value in 'view'.`);
-            continue;
-        }
-        set_foldedness(is_open, elem_sections[section].fold_button, elem_sections[section].area);
-    }
-}
-
-function update_sidebar() {
-    /* METHODS */
-
+function update_sidebar_methods() {
     // Set the number of methods in the title
     const num_methods = derived_state.methods.length;
     elem_num_methods.innerText = num_methods.toString();
-    // Make sure that the method box contains the right number of HTML entries
+
+    /* Make sure that the method box contains the right number of HTML entries */
+
     while (elem_method_box.children.length < num_methods) {
         // This is used as a capture for the 'onclick' event listener
         const index = elem_method_box.children.length;
@@ -804,7 +799,9 @@ function update_sidebar() {
     while (elem_method_box.children.length > num_methods) {
         elem_method_box.removeChild(elem_method_box.lastChild);
     }
-    // Now that we know that we have as many entries as methods, we can populate each entry in turn
+
+    /* Populate the method entries */
+
     const method_entries = elem_method_box.children;
     for (let i = 0; i < num_methods; i++) {
         const m = derived_state.methods[i];
@@ -837,12 +834,12 @@ function update_sidebar() {
         pn.value = m.place_not_string;
         pn.disabled = is_used;
     }
+}
 
-    /* CALL LIST */
-
+function update_sidebar_calls() {
     // Set the call count in the title
     elem_num_calls.innerText = derived_state.calls.length.toString();
-    // Update the call count
+    // Update the call readout
     i = 0;
     elem_call_readout.innerText = derived_state.calls
         .map(function (c) {
@@ -853,6 +850,14 @@ function update_sidebar() {
             return s;
         })
         .join("\n");
+}
+
+function on_part_change(evt) {
+    // Update which part to display (indirectly so that we avoid divergence between Rust's
+    // datastructures and their JS counterparts).
+    comp.set_current_part(parseInt(evt.target.value));
+    sync_view();
+    request_frame();
 }
 
 function on_part_head_spec_change() {
@@ -1119,11 +1124,15 @@ function new_rect(x, y, w, h) {
 // Called whenever the composition changes, and generates the necessary updates in order to get the
 // user's view in sync with the new composition.
 function on_comp_change() {
+    // Sync JS's data structures to be correct with Rust's
     sync_derived_state();
     sync_view();
-    update_hud();
-    update_part_head_list();
-    update_sidebar();
+    // Update the sidebar
+    update_sidebar_general();
+    update_sidebar_parts();
+    update_sidebar_methods();
+    update_sidebar_calls();
+    // Repaint the canvas
     request_frame();
 }
 
