@@ -1,5 +1,9 @@
 //! A representation of a stage, with human-friendly `const`s and display names.
 
+// Imports used solely by doc comments
+#[allow(unused_imports)]
+use crate::Row;
+
 /// A newtype over [`usize`] that represents a stage.
 ///
 /// To create a new `Stage`, you can either create it directly by using `Stage::from(usize)` or use
