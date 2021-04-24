@@ -210,6 +210,9 @@ impl ExpandedRow {
 /// a range of [`ExpandedRow`]s which are folded into this, which is again reflected by the fields.
 #[derive(Serialize, Debug, Clone)]
 struct DisplayRow {
+    /// Which range of source Rows are 'folded into' this on-screen row.  In the case of unfolded
+    /// Rows, this corresponds to the index of this row within the composition
+    range: Range<usize>,
     /// What call string should be displayed in each part (i.e. this is text that is displayed to
     /// the left of this Row).
     #[serde(skip_serializing_if = "crate::ser_utils::is_all_empty_string")]
@@ -218,8 +221,6 @@ struct DisplayRow {
     /// this Row).
     #[serde(skip_serializing_if = "String::is_empty")]
     method_string: String,
-    /// Which range of source Rows are 'folded into' this on-screen row
-    range: Range<usize>,
     /// The foldedness status of this row
     #[serde(skip_serializing_if = "Option::is_none")]
     fold: Option<DerivedFold>,
@@ -257,11 +258,14 @@ impl DisplayRow {
         // This == 0: No method string is required (actually a special case of the next case)
         // This == 1: We display the full method name
         // This >= 2: We combine the calls and shorthands into a compact string (ala CompLib)
+        //
         // TODO: Make this count _any_ lead start/discontinuity, even if we're restarting the same
-        // method.  Otherwise the lead summary strings won't be correct
+        // method.  Otherwise the lead summary strings won't be correct (i.e. repeated leads won't
+        // be counted correctly)
         let num_method_labels = slice.iter().filter(|r| r.method_label.is_some()).count();
         // Create the displayed row
         DisplayRow {
+            range,
             call_strings,
             method_string: match num_method_labels {
                 0 | 1 => slice
@@ -271,7 +275,6 @@ impl DisplayRow {
                     .join(""),
                 _ => unimplemented!(),
             },
-            range,
             // All DisplayRows start using bell names.  This is then set to false for all rows
             // covered by a `LineRange`
             use_bell_names: true,
@@ -468,8 +471,8 @@ impl DerivedState {
                         .into_iter()
                         .map(|r| DisplayRow::from_range(&expanded_rows, r))
                         .collect();
+                    // Prevent JS from drawing coloured bell names where there are line ranges
                     for l in &line_ranges {
-                        // Prevent JS from drawing coloured bell names where there are line ranges
                         for r in &mut display_rows[l.range.clone()] {
                             r.use_bell_names = false;
                         }
@@ -477,10 +480,10 @@ impl DerivedState {
                     // Combine all this data into a single struct
                     DerivedFrag {
                         false_row_ranges: ranges_by_frag.remove(&i).unwrap_or_default(),
+                        is_proved: !spec.is_frag_muted(i).unwrap(),
                         display_rows,
                         line_ranges,
                         expanded_rows,
-                        is_proved: !spec.is_frag_muted(i).unwrap(),
                         link_groups,
                         x,
                         y,
