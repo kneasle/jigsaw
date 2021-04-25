@@ -1,6 +1,6 @@
 use crate::derived_state::{CallLabel, DerivedCall, DerivedFold, ExpandedRow, MethodLabel};
 use proj_core::{
-    place_not::BlockParseError, AnnotBlock, AnnotRow, Bell, Call, IncompatibleStages, Method,
+    place_not::PnBlockParseError, AnnotBlock, AnnotRow, Bell, Call, IncompatibleStages, Method,
     PnBlock, Row, Stage,
 };
 use serde::Serialize;
@@ -169,7 +169,7 @@ impl MethodSpec {
         shorthand: String,
         pn: String,
         stage: Stage,
-    ) -> Result<Self, BlockParseError> {
+    ) -> Result<Self, PnBlockParseError> {
         Ok(MethodSpec {
             name: RefCell::new(name),
             shorthand: RefCell::new(shorthand),

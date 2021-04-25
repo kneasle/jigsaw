@@ -289,7 +289,7 @@ impl Display for PlaceNot {
 
 /// The possible ways that parsing a block of place notations could fail
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum BlockParseError {
+pub enum PnBlockParseError {
     /// A '+' was found somewhere other than the start of a block (e.g. in `16x16+16,12`).  The
     /// argument refers to the byte index of the location of the '+' within the parse string.
     PlusNotAtBlockStart(usize),
@@ -302,21 +302,21 @@ pub enum BlockParseError {
     EmptyBlock,
 }
 
-impl Display for BlockParseError {
+impl Display for PnBlockParseError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            BlockParseError::EmptyBlock => write!(f, "`PnBlock`s can't be empty."),
-            BlockParseError::PnError(range, err) => {
+            PnBlockParseError::EmptyBlock => write!(f, "`PnBlock`s can't be empty."),
+            PnBlockParseError::PnError(range, err) => {
                 write!(f, "Error parsing PN at index {}: {}", range.start, err)
             }
-            BlockParseError::PlusNotAtBlockStart(index) => {
+            PnBlockParseError::PlusNotAtBlockStart(index) => {
                 write!(f, "'+' at index {} is not at the start of a block.", index)
             }
         }
     }
 }
 
-impl std::error::Error for BlockParseError {}
+impl std::error::Error for PnBlockParseError {}
 
 /// The different ways a `PnBlock` could be found to be invalid
 #[derive(Clone, Debug, Copy, Eq, PartialEq, Hash)]
@@ -356,7 +356,7 @@ pub struct PnBlock {
 impl PnBlock {
     /// Parse a string slice into a `PnBlock`, checking for ambiguity and correctness.  This also
     /// expands symmetric blocks and implicit places.
-    pub fn parse(s: &str, stage: Stage) -> Result<Self, BlockParseError> {
+    pub fn parse(s: &str, stage: Stage) -> Result<Self, PnBlockParseError> {
         let address_of_start_of_s = s.as_ptr() as usize;
         let mut pns: Vec<PlaceNot> = Vec::new();
         // A re-usuable chunk of memory used to store the unexpanded version of a symblock before
@@ -384,7 +384,7 @@ impl PnBlock {
         }
         // Return an error if pns is empty, otherwise construct the block
         if pns.is_empty() {
-            Err(BlockParseError::EmptyBlock)
+            Err(PnBlockParseError::EmptyBlock)
         } else {
             Ok(PnBlock { pns })
         }
@@ -395,7 +395,7 @@ impl PnBlock {
         byte_offset: usize,
         stage: Stage,
         buf: &mut Vec<PlaceNot>,
-    ) -> Result<bool, BlockParseError> {
+    ) -> Result<bool, PnBlockParseError> {
         // Check that the buffer is empty -- it should be, because this will only be used in
         // `Self::parse`
         debug_assert!(buf.is_empty());
@@ -456,7 +456,7 @@ impl PnBlock {
                         // Create a new place notation from `places`, reporting the error if
                         // necessary
                         let new_pn = PlaceNot::from_slice(&mut places, stage).map_err(|e| {
-                            BlockParseError::PnError(current_pn_start_index..index + 1, e)
+                            PnBlockParseError::PnError(current_pn_start_index..index + 1, e)
                         })?;
                         places.clear();
                         // Push the new place notation to the buffer
@@ -464,7 +464,7 @@ impl PnBlock {
                     }
                 }
                 // A '+' (for asymmetric block) not at the start of a block is an error
-                CharMeaning::Asym => return Err(BlockParseError::PlusNotAtBlockStart(index)),
+                CharMeaning::Asym => return Err(PnBlockParseError::PlusNotAtBlockStart(index)),
                 // Unknown characters are ignored
                 CharMeaning::Unknown => continue,
             }
@@ -473,7 +473,7 @@ impl PnBlock {
                 buf.push(
                     PlaceNot::cross(stage)
                         .ok_or(ParseError::OddStageCross { stage })
-                        .map_err(|e| BlockParseError::PnError(index..index + 1, e))?,
+                        .map_err(|e| PnBlockParseError::PnError(index..index + 1, e))?,
                 );
             }
         }
