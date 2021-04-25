@@ -648,50 +648,7 @@ function on_key_down(e) {
     }
 }
 
-/* ===== TRANSPOSE MODE ===== */
-
-function start_transposition(frag_index, row_index) {
-    // Switch to the transposing state
-    const current_first_row = comp.start_transposing(frag_index, row_index);
-    log_state_transition("Idle", `Transposing(${frag_index}:${row_index})`);
-    // Initialise the transpose box
-    elem_transpose_box.style.display = "block";
-    elem_transpose_box.style.left = mouse_coords.x.toString() + "px";
-    elem_transpose_box.style.top = mouse_coords.y.toString() + "px";
-    elem_transpose_input.value = current_first_row;
-    elem_transpose_input.focus();
-    // Initialise the error message
-    on_transpose_box_change();
-}
-
-function on_transpose_box_change() {
-    const row_err = comp.try_parse_transpose_row(elem_transpose_input.value);
-    const success = row_err === "";
-    elem_transpose_message.style.color = success ? FOREGROUND_COL : ERROR_COL;
-    elem_transpose_message.innerText = success ? "Press 'enter' to finish." : row_err;
-    // If the transposition was successful, then the composition we're viewing will have changed, so
-    // we update the screen
-    if (success) on_comp_change();
-}
-
-function on_transpose_box_key_down(e) {
-    // Early return if the user pressed anything other than enter
-    if (e.keyCode != 13) {
-        return;
-    }
-    if (comp.is_state_transposing() && comp.finish_transposing(elem_transpose_input.value)) {
-        log_state_transition("Transposing", "Idle");
-        stop_transposing();
-    }
-}
-
-function stop_transposing() {
-    // Update the display to handle the changes
-    elem_transpose_box.style.display = "none";
-    on_comp_change();
-}
-
-/* ===== HUD CODE ===== */
+/* ===== SIDEBAR UPDATES ===== */
 
 function update_section_folds() {
     for (section in elem_sections) {
@@ -852,6 +809,51 @@ function update_sidebar_calls() {
         .join("\n");
 }
 
+/* ===== TRANSPOSE MODE ===== */
+
+function start_transposition(frag_index, row_index) {
+    // Switch to the transposing state
+    const current_first_row = comp.start_transposing(frag_index, row_index);
+    log_state_transition("Idle", `Transposing(${frag_index}:${row_index})`);
+    // Initialise the transpose box
+    elem_transpose_box.style.display = "block";
+    elem_transpose_box.style.left = mouse_coords.x.toString() + "px";
+    elem_transpose_box.style.top = mouse_coords.y.toString() + "px";
+    elem_transpose_input.value = current_first_row;
+    elem_transpose_input.focus();
+    // Initialise the error message
+    on_transpose_box_change();
+}
+
+function on_transpose_box_change() {
+    const row_err = comp.try_parse_transpose_row(elem_transpose_input.value);
+    const success = row_err === "";
+    elem_transpose_message.style.color = success ? FOREGROUND_COL : ERROR_COL;
+    elem_transpose_message.innerText = success ? "Press 'enter' to finish." : row_err;
+    // If the transposition was successful, then the composition we're viewing will have changed, so
+    // we update the screen
+    if (success) on_comp_change();
+}
+
+function on_transpose_box_key_down(e) {
+    // Early return if the user pressed anything other than enter
+    if (e.keyCode != 13) {
+        return;
+    }
+    if (comp.is_state_transposing() && comp.finish_transposing(elem_transpose_input.value)) {
+        log_state_transition("Transposing", "Idle");
+        stop_transposing();
+    }
+}
+
+function stop_transposing() {
+    // Update the display to handle the changes
+    elem_transpose_box.style.display = "none";
+    on_comp_change();
+}
+
+/* ===== SIDEBAR CALLBACKS ===== */
+
 function on_part_change(evt) {
     // Update which part to display (indirectly so that we avoid divergence between Rust's
     // datastructures and their JS counterparts).
@@ -876,30 +878,27 @@ function on_part_head_spec_change() {
 
 /* ===== STARTUP CODE ===== */
 
-function init_comp() {
-    // Initialise the composition
+function start() {
+    /* Initialise 'comp' singleton (derived values are set using `on_comp_change`) */
     comp = Comp.example();
     // Read saved values from cookies
-    let view = getCookie(COOKIE_NAME_VIEW);
-    if (view) {
-        comp.set_view_from_json(view);
+    let saved_view = getCookie(COOKIE_NAME_VIEW);
+    if (saved_view) {
+        comp.set_view_from_json(saved_view);
     }
-    // Initialise the display
+    // Sync all the values and request a repaint once the start function returns
     on_comp_change();
-}
 
-function start() {
-    init_comp();
-    // Bind event listeners to all the things we need
+    /* Global/canvas keybindings */
     canv.addEventListener("mousemove", on_mouse_move);
     canv.addEventListener("mousedown", on_mouse_down);
     canv.addEventListener("mouseup", on_mouse_up);
     document.addEventListener("keydown", on_key_down);
     window.addEventListener("resize", on_window_resize);
+
+    /* Sidebar callbacks */
     elem_part_head_list.addEventListener("change", on_part_change);
     elem_part_head_input.addEventListener("keyup", on_part_head_spec_change);
-    elem_transpose_input.addEventListener("keyup", on_transpose_box_change);
-    elem_transpose_input.addEventListener("keydown", on_transpose_box_key_down);
     // Bind event listeners for sidebar section folding
     for (s in elem_sections) {
         // We have to capture a copy of the string in the event listener, otherwise all the fold
@@ -914,10 +913,14 @@ function start() {
             update_section_folds();
         });
     }
-    // Update all the parts of the display to initialise them
+
+    /* Overlay Callbacks */
+    elem_transpose_input.addEventListener("keyup", on_transpose_box_change);
+    elem_transpose_input.addEventListener("keydown", on_transpose_box_key_down);
+
+    /* Call all the possible update to initialise the display */
     on_window_resize();
     update_section_folds();
-    request_frame();
 
     // Time how long it takes to sync the derived state
     if (DBG_PROFILE_SERIALISE_STATE) {

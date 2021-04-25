@@ -131,10 +131,38 @@
             </div>
         </div>
 
+        <!-- Method editing box -->
+        <div class="overlay-outer">
+            <div class="overlay-center" id="method-edit-box" style="display: none">
+                <h2>Editing Method</h2>
+                <div class="flex-row">
+                    <input id="method-edit-shorthand" placeholder="Shorthand" style="width: 6em" />
+                    <input
+                        id="method-edit-name"
+                        placeholder="Name"
+                        style="margin: 0 5px 0 5px; flex: 1"
+                    />
+                    <select name="method-stage" id="method-edit-stage">
+                        <option value="2">Two</option>
+                        <option value="7">Triples</option>
+                        <option value="8">Major</option>
+                    </select>
+                </div>
+                <div class="flex-row">
+                    <input
+                        id="method-edit-pn-input"
+                        placeholder="Place Notation"
+                        style="min-width: 30em; flex: 1"
+                    />
+                </div>
+                <p id="method-edit-pn-message" class="parse-err">Some error!</p>
+            </div>
+        </div>
+
         <!-- Templates (i.e. HTML trees which will get cloned and populated with data to generate
              the sidebar).  These are very reminiscent of templates from Vue or React except that
-             the interactions we require are very simple and are easier managed without a
-             library. -->
+             the interactions we require are very simple and are managed more easily without
+             external libraries. -->
         <div style="display: none" id="templates">
             <!-- Template for a single method entry -->
             <div id="template-method-entry">

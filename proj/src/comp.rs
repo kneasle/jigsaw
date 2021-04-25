@@ -62,11 +62,12 @@ impl State {
 ///   - Because the [`Spec`] has changed, we rebuild the [`DerivedState`] from this new [`Spec`].
 ///     This is necessary because JS can't access the [`Spec`] directly.
 /// - The following all happens during the call to the JS `on_comp_change()` method:
-///   - After every edit, JS will call [`Comp::ser_derived_state`] which returns a JSON serialisation
-///     of [`DerivedState`], which is parsed into a full-blown JS object and the global
-///     `derived_state` variable is overwritten with this new value.
-///   - A repaint is requested, so that the updated [`DerivedState`] gets rendered to the screen.
-///   - The rest of the UI (method list, row stats, music, etc.) are all updated too
+///   - After every edit, JS will call [`Comp::ser_derived_state`] which returns a JSON
+///     serialisation of the current [`DerivedState`], which is parsed into a full-blown JS object
+///     and the global `derived_state` variable is overwritten with this new value.
+///   - The HUD UI (sidebar, etc.) are all updated to this new value
+///   - A repaint is requested, so that the updated [`DerivedState`] gets fully rendered to the
+///   screen.
 #[wasm_bindgen]
 #[derive(Debug, Clone)]
 pub struct Comp {
