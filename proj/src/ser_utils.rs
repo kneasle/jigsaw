@@ -1,4 +1,4 @@
-use proj_core::{Bell, Row};
+use proj_core::{place_not::PnBlockParseError, Bell, PnBlock, Row, Stage};
 use serde::{ser::SerializeSeq, Serializer};
 
 /// Required so that folding params default to open
@@ -45,4 +45,23 @@ pub fn ser_rows<S: Serializer>(rows: &[Row], s: S) -> Result<S::Ok, S::Error> {
         seq_ser.serialize_element(&r.bells().map(Bell::index).collect::<Vec<_>>())?;
     }
     seq_ser.end()
+}
+
+/// Custom serialiser to serialise `Stage` as an integer
+pub fn ser_stage<S: Serializer>(stage: &Stage, s: S) -> Result<S::Ok, S::Error> {
+    s.serialize_u64(stage.as_usize() as u64)
+}
+
+/// Serializer which serialises a [`PnBlock`] parsing result, generating the error string if it
+/// exists, otherwise the empty string
+pub fn ser_pn_result<S: Serializer>(
+    result: &Result<PnBlock, PnBlockParseError>,
+    s: S,
+) -> Result<S::Ok, S::Error> {
+    s.serialize_str(
+        &result
+            .as_ref()
+            .err()
+            .map_or(String::new(), PnBlockParseError::to_string),
+    )
 }

@@ -1,4 +1,7 @@
-use crate::derived_state::{CallLabel, DerivedCall, DerivedFold, ExpandedRow, MethodLabel};
+use crate::{
+    comp::MethodEdit,
+    derived_state::{CallLabel, DerivedCall, DerivedFold, ExpandedRow, MethodLabel},
+};
 use proj_core::{
     place_not::PnBlockParseError, AnnotBlock, AnnotRow, Bell, Call, IncompatibleStages, Method,
     PnBlock, Row, Stage,
@@ -163,6 +166,17 @@ pub struct MethodSpec {
 }
 
 impl MethodSpec {
+    /// Creates a new `MethodSpec` from its parts, adding [`Cell`]/[`RefCell`]s when necessary
+    pub fn new(name: String, shorthand: String, pn: String, block: &PnBlock) -> Self {
+        MethodSpec {
+            name: RefCell::new(name),
+            shorthand: RefCell::new(shorthand),
+            method: Method::with_lead_end(String::new(), block),
+            place_not_string: pn,
+            is_panel_open: Cell::new(false),
+        }
+    }
+
     /// Creates a new `MethodSpec` by parsing a string of place notation
     pub fn from_pn(
         name: String,
@@ -170,13 +184,8 @@ impl MethodSpec {
         pn: String,
         stage: Stage,
     ) -> Result<Self, PnBlockParseError> {
-        Ok(MethodSpec {
-            name: RefCell::new(name),
-            shorthand: RefCell::new(shorthand),
-            method: Method::with_lead_end(String::new(), &PnBlock::parse(&pn, stage)?),
-            place_not_string: pn,
-            is_panel_open: Cell::new(false),
-        })
+        let block = PnBlock::parse(&pn, stage)?;
+        Ok(Self::new(name, shorthand, pn, &block))
     }
 
     #[inline]
@@ -192,6 +201,16 @@ impl MethodSpec {
     #[inline]
     pub fn place_not_string(&self) -> &str {
         &self.place_not_string
+    }
+
+    /// Creates a new `MethodEdit` from this PlaceNot
+    pub fn to_edit(&self) -> MethodEdit {
+        MethodEdit::with_pn_string(
+            self.name(),
+            self.shorthand(),
+            self.method.stage(),
+            self.place_not_string.clone(),
+        )
     }
 }
 
@@ -1272,6 +1291,41 @@ impl Spec {
                     method_ref.method_index -= 1;
                 }
             }
+        }
+    }
+
+    /// Returns a cloned copy of the [`MethodSpec`] at a given index, if it exists
+    pub fn get_method_spec(&self, method_ind: usize) -> Option<MethodSpec> {
+        self.methods.get(method_ind).map(Rc::as_ref).cloned()
+    }
+
+    /// Updates a [`MethodSpec`] at a given index, or creates a whole new method if `index` is
+    /// `None`.
+    pub fn edit_method(
+        &mut self,
+        index: Option<usize>,
+        name: String,
+        shorthand: String,
+        block: PnBlock,
+        place_not_string: String,
+    ) {
+        let new_method = Method::with_lead_end(String::new(), &block);
+        if let Some(i) = index {
+            // If the index points to method, then replace the method's fields in-place
+            let m = Rc::make_mut(&mut self.methods[i]);
+            *m.name.borrow_mut() = name;
+            *m.shorthand.borrow_mut() = shorthand;
+            m.method = new_method;
+            m.place_not_string = place_not_string;
+        } else {
+            // If the index doesn't point to a method, then create a new MethodSpec and push it to
+            // the list
+            self.methods.push(Rc::new(MethodSpec::new(
+                name,
+                shorthand,
+                place_not_string,
+                &block,
+            )));
         }
     }
 

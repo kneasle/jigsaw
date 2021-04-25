@@ -81,6 +81,9 @@
                     <div id="method-list">
                         <!-- Method entries will go here -->
                     </div>
+                    <p style="text-align: center">
+                        <button type="button" id="add-method">Add Method</button>
+                    </p>
                     <p>
                         Select method:
                         <input
@@ -142,9 +145,7 @@
                         placeholder="Name"
                         style="margin: 0 5px 0 5px; flex: 1"
                     />
-                    <select name="method-stage" id="method-edit-stage">
-                        <option value="2">Two</option>
-                        <option value="7">Triples</option>
+                    <select name="method-stage" id="method-edit-stage" disabled>
                         <option value="8">Major</option>
                     </select>
                 </div>
@@ -156,6 +157,10 @@
                     />
                 </div>
                 <p id="method-edit-pn-message" class="parse-err">Some error!</p>
+                <p style="text-align: center">
+                    <button type="button" onclick="exit_method_edit()">Cancel</button>
+                    <button id="method-edit-save" type="button">Save</button>
+                </p>
             </div>
         </div>
 
@@ -176,7 +181,10 @@
                     <!-- row counter/delete on the right -->
                     <span style="float: right">
                         <span id="row-count" style="display: none">0 rows</span>
-                        <span id="delete-button">remove</span>
+                        <span id="buttons">
+                            <span id="edit-button" class="link-button">edit</span>
+                            <span id="delete-button" class="link-button">del</span>
+                        </span>
                     </span>
                 </p>
                 <!-- Fold out section (hidden by default) -->
@@ -190,15 +198,7 @@
                         />
                         <input id="name-input" placeholder="Name" value="Deva" style="flex: 1" />
                     </div>
-                    <div class="text-box-row">
-                        <input
-                            id="place-notation-input"
-                            value="<PLACE NOTATION>"
-                            placeholder="Place Notation"
-                            style="flex: 1"
-                            disabled
-                        />
-                    </div>
+                    <p id="place-notation-input">&lt;Place Notation&gt;</p>
                 </div>
             </div>
         </div>

@@ -3,7 +3,8 @@ use crate::{
     spec::{Frag, PartHeads, Spec},
     view::View,
 };
-use proj_core::Row;
+use proj_core::{place_not::PnBlockParseError, PnBlock, Row};
+use serde::Serialize;
 use std::convert::TryFrom;
 use wasm_bindgen::prelude::*;
 
@@ -37,6 +38,14 @@ pub enum State {
         /// will be 'committed' as the next stage in the edit history.
         spec: Spec,
     },
+    /// The user is editing a [`MethodSpec`]
+    EditingMethod {
+        /// The index of the method which we are editing, or `None` if we are creating a new
+        /// [`MethodSpec`]
+        index: Option<usize>,
+        /// The current state of the edit on-screen
+        edit: MethodEdit,
+    },
 }
 
 impl State {
@@ -46,6 +55,44 @@ impl State {
         match self {
             State::Transposing { spec, .. } => Some(spec),
             _ => None,
+        }
+    }
+}
+
+/// The state of a currently edited method.  Note that this can represent invalid states, and can't
+/// always be converted back into a [`MethodSpec`]
+#[derive(Serialize, Debug, Clone)]
+pub struct MethodEdit {
+    name: String,
+    shorthand: String,
+    // TODO: Add serde as a feature flag to `core`
+    #[serde(serialize_with = "crate::ser_utils::ser_stage")]
+    stage: Stage,
+    place_not_string: String,
+    #[serde(rename = "pn_parse_err")]
+    #[serde(serialize_with = "crate::ser_utils::ser_pn_result")]
+    parsed_pn_block: Result<PnBlock, PnBlockParseError>,
+}
+
+impl MethodEdit {
+    /// Creates a `MethodEdit` for a newly created method (i.e. with all the fields blank)
+    fn empty(stage: Stage) -> Self {
+        Self::with_pn_string(String::new(), String::new(), stage, String::new())
+    }
+
+    /// Creates a `MethodEdit` with an existing place notation string
+    pub fn with_pn_string(
+        name: String,
+        shorthand: String,
+        stage: Stage,
+        place_not_string: String,
+    ) -> Self {
+        MethodEdit {
+            name,
+            shorthand,
+            parsed_pn_block: PnBlock::parse(&place_not_string, stage),
+            place_not_string,
+            stage,
         }
     }
 }
@@ -334,6 +381,95 @@ impl Comp {
         // `State::Transposing` modifies its own `Spec`, so we have to rebuild the state when we
         // are exiting transposing mode in order to revert the state of the display
         self.rebuild_state();
+    }
+
+    /* Method Editing */
+
+    /// Returns `true` if the editor is in [`State::EditingMethod`]
+    pub fn is_state_editing_method(&self) -> bool {
+        matches!(self.state, State::EditingMethod { .. })
+    }
+
+    /// Starts editing the [`MethodSpec`] at a given index
+    pub fn start_editing_method(&mut self, index: usize) {
+        assert!(self.is_state_idle());
+        self.state = State::EditingMethod {
+            index: Some(index),
+            edit: self.spec().get_method_spec(index).unwrap().to_edit(),
+        };
+    }
+
+    /// Starts editing a new [`MethodSpec`], which will get added at the end
+    pub fn start_editing_new_method(&mut self) {
+        assert!(self.is_state_idle());
+        self.state = State::EditingMethod {
+            index: None,
+            edit: MethodEdit::empty(self.spec().stage()),
+        };
+    }
+
+    /// Return all the information required for JS to update the method edit box, serialised as
+    /// JSON
+    pub fn method_edit_state(&self) -> String {
+        match &self.state {
+            State::EditingMethod { edit, .. } => serde_json::to_string(edit).unwrap(),
+            _ => unreachable!(),
+        }
+    }
+
+    /// Sets both the name and shorthand of the method being edited
+    pub fn set_method_names(&mut self, new_name: String, new_shorthand: String) {
+        match &mut self.state {
+            State::EditingMethod { edit, .. } => {
+                edit.name = new_name;
+                edit.shorthand = new_shorthand;
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    /// Sets the place notatation string in the method edit box, and reparses to generate a new
+    /// error.  Called whenever the user types into the method box
+    pub fn set_method_pn(&mut self, new_pn: String) {
+        match &mut self.state {
+            State::EditingMethod { edit, .. } => {
+                edit.parsed_pn_block = PnBlock::parse(&new_pn, edit.stage);
+                edit.place_not_string = new_pn;
+            }
+            _ => unreachable!(),
+        }
+    }
+
+    /// Exit method editing mode, without commiting any of the changes
+    pub fn exit_method_edit(&mut self) {
+        assert!(self.is_state_editing_method());
+        self.state = State::Idle;
+    }
+
+    /// Exit method editing mode, commiting the new method to the composition if valid.  This
+    /// returns `false` if no change occured
+    pub fn finish_editing_method(&mut self) -> bool {
+        match std::mem::replace(&mut self.state, State::Idle) {
+            State::EditingMethod { edit, index } => {
+                // Extract the place notation block of the new method, and return false if it
+                // doesn't exist
+                let pn_block = match edit.parsed_pn_block {
+                    Ok(p) => p,
+                    Err(_) => return false,
+                };
+                // Move all the values _outside_ the closure, so that the borrow checker
+                // understands that this is acceptable
+                let name = edit.name;
+                let shorthand = edit.shorthand;
+                let place_not_string = edit.place_not_string;
+                // Perform the action
+                self.make_action(|spec| {
+                    spec.edit_method(index, name, shorthand, pn_block, place_not_string)
+                });
+            }
+            _ => unreachable!(),
+        }
+        true
     }
 
     /* Undo/redo */

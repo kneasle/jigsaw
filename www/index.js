@@ -30,6 +30,7 @@ const elem_part_head_is_group = document.getElementById("part-head-group-message
 const elem_num_methods = document.getElementById("num-methods");
 const elem_method_box = document.getElementById("method-list");
 const elem_selected_method = document.getElementById("selected-method");
+const elem_add_method = document.getElementById("add-method");
 
 const elem_num_calls = document.getElementById("num-calls");
 const elem_call_readout = document.getElementById("call-readout");
@@ -38,6 +39,13 @@ const elem_selected_call = document.getElementById("selected-call");
 const elem_transpose_box = document.getElementById("transpose-box");
 const elem_transpose_input = document.getElementById("transpose-input");
 const elem_transpose_message = document.getElementById("transpose-message");
+// Method edit box
+const elem_method_edit_box = document.getElementById("method-edit-box");
+const elem_method_edit_shorthand = document.getElementById("method-edit-shorthand");
+const elem_method_edit_name = document.getElementById("method-edit-name");
+const elem_method_edit_pn_input = document.getElementById("method-edit-pn-input");
+const elem_method_edit_pn_message = document.getElementById("method-edit-pn-message");
+const elem_method_edit_save = document.getElementById("method-edit-save");
 // Templates
 const template_method_entry = document.getElementById("template-method-entry");
 // Canvas elements
@@ -742,6 +750,10 @@ function update_sidebar_methods() {
             comp.set_method_name(index, name_input.value);
             on_comp_change();
         });
+        new_entry.querySelector("#edit-button").addEventListener("click", function () {
+            comp.start_editing_method(index);
+            start_method_edit();
+        });
         new_entry.querySelector("#delete-button").addEventListener("click", function () {
             const err = comp.remove_method(index);
             if (err) {
@@ -770,9 +782,9 @@ function update_sidebar_methods() {
         entry.querySelector("#shorthand").innerText = `#${i}: ${m.shorthand}`;
         // Swap between row counter and delete if the method is never used
         const row_count = entry.querySelector("#row-count");
-        const delete_btn = entry.querySelector("#delete-button");
+        const buttons = entry.querySelector("#buttons");
         row_count.style.display = is_used ? "inline" : "none";
-        delete_btn.style.display = is_used ? "none" : "inline";
+        buttons.style.display = is_used ? "none" : "inline";
         // Set row counter text
         row_count.innerText =
             (m.num_proved_rows === m.num_rows
@@ -787,9 +799,7 @@ function update_sidebar_methods() {
         // Populate the fold-out part
         entry.querySelector("#shorthand-input").value = m.shorthand;
         entry.querySelector("#name-input").value = m.name;
-        const pn = entry.querySelector("#place-notation-input");
-        pn.value = m.place_not_string;
-        pn.disabled = is_used;
+        entry.querySelector("#place-notation-input").innerText = m.place_not_string;
     }
 }
 
@@ -847,8 +857,58 @@ function on_transpose_box_key_down(e) {
 }
 
 function stop_transposing() {
-    // Update the display to handle the changes
     elem_transpose_box.style.display = "none";
+    on_comp_change();
+}
+
+/* ===== METHOD EDIT MODE ===== */
+
+function start_method_edit() {
+    update_method_edit_box();
+    // Make the edit box visible **after** initialising it to avoid jank
+    elem_method_edit_box.style.display = "block";
+}
+
+function update_method_edit_box() {
+    if (!comp.is_state_editing_method()) {
+        console.error("Editing method box without being in method editing state");
+        return;
+    }
+    const state = JSON.parse(comp.method_edit_state());
+    elem_method_edit_name.value = state.name;
+    elem_method_edit_shorthand.value = state.shorthand;
+    // TODO: Handle the stage box
+    elem_method_edit_pn_input.value = state.place_not_string;
+    elem_method_edit_pn_message.innerText = state.pn_parse_err;
+    elem_method_edit_save.disabled = state.pn_parse_err.length > 0;
+}
+
+function on_method_name_or_shorthand_change() {
+    comp.set_method_names(elem_method_edit_name.value, elem_method_edit_shorthand.value);
+    update_method_edit_box();
+}
+
+function on_method_pn_change() {
+    comp.set_method_pn(elem_method_edit_pn_input.value);
+    update_method_edit_box();
+}
+
+// Exit method editing mode without commiting the changes to the composition
+function exit_method_edit() {
+    comp.exit_method_edit();
+    stop_editing_method();
+}
+
+// Commits the new method changes to the composition.  Called whenever the user presses 'save' in
+// the method box
+function on_method_edit_save() {
+    if (comp.finish_editing_method()) {
+        stop_editing_method();
+    }
+}
+
+function stop_editing_method() {
+    elem_method_edit_box.style.display = "none";
     on_comp_change();
 }
 
@@ -876,6 +936,11 @@ function on_part_head_spec_change() {
     }
 }
 
+function on_add_method() {
+    comp.start_editing_new_method();
+    start_method_edit();
+}
+
 /* ===== STARTUP CODE ===== */
 
 function start() {
@@ -899,6 +964,7 @@ function start() {
     /* Sidebar callbacks */
     elem_part_head_list.addEventListener("change", on_part_change);
     elem_part_head_input.addEventListener("keyup", on_part_head_spec_change);
+    elem_add_method.addEventListener("click", on_add_method);
     // Bind event listeners for sidebar section folding
     for (s in elem_sections) {
         // We have to capture a copy of the string in the event listener, otherwise all the fold
@@ -917,6 +983,11 @@ function start() {
     /* Overlay Callbacks */
     elem_transpose_input.addEventListener("keyup", on_transpose_box_change);
     elem_transpose_input.addEventListener("keydown", on_transpose_box_key_down);
+
+    elem_method_edit_shorthand.addEventListener("keyup", on_method_name_or_shorthand_change);
+    elem_method_edit_name.addEventListener("keyup", on_method_name_or_shorthand_change);
+    elem_method_edit_pn_input.addEventListener("keyup", on_method_pn_change);
+    elem_method_edit_save.addEventListener("click", on_method_edit_save);
 
     /* Call all the possible update to initialise the display */
     on_window_resize();
