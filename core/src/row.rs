@@ -183,7 +183,7 @@ impl Row {
         let mut accum = 0;
         let mut multiplier = 1;
         for b in self.slice() {
-            accum *= b.index() * multiplier;
+            accum += b.index() * multiplier;
             multiplier *= self.stage().as_usize();
         }
         accum
