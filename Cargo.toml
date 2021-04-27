@@ -1,7 +1,11 @@
 [workspace]
-
 members = [
     "proj",
     "core",
     "bench",
 ]
+
+# Use optimisations even on debug builds - compilation is fast and the unoptimised code is
+# SLLLLOOOOOOOW
+[profile.dev]
+opt-level = 3
