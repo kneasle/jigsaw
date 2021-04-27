@@ -12,7 +12,7 @@ information such as music, length and falseness (and other less important statis
 'all-the-work-ness' which are still tedious to calculate manually).  This is very much still a
 W.I.P. prototype, but here's a screenshot:
 
-![Project screenshot](https://github.com/kneasle/3rd-yr-proj/blob/master/report/screenshot.png)
+![Project screenshot](report/screenshot-2021-04-27.png)
 
 ## Build Instruction
 
