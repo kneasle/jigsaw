@@ -24,8 +24,8 @@ their leisure.  If you _do_ want to build it from source, then you will need to
 the following commands:
 ```bash
 rustup target add wasm32-unknown-unknown
-cargo install wasm-bindgen-cli wasm-gc
+cargo install wasm-bindgen-cli
 ```
 
-To build, run `sh build.sh` (it doesn't matter where in the code you are, running `sh ../build.sh`
-from `proj/` will work just fine).
+To build, run `build.py` (it doesn't matter where in the code you are, running `../build.sh`
+from `proj/` will work just fine - at least on Linux).
