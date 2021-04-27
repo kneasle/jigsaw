@@ -1,38 +1,46 @@
 use crate::ser_utils::get_true;
 use serde::{Deserialize, Serialize};
 
-// TODO: Generate this whole struct with a macro (using `stringify!`)
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
-pub struct SectionFolds {
-    #[serde(default = "get_true")]
-    pub general: bool,
-    #[serde(default = "get_true")]
-    pub partheads: bool,
-    #[serde(default = "get_true")]
-    pub methods: bool,
-    #[serde(default = "get_true")]
-    pub calls: bool,
-    #[serde(default = "get_true")]
-    pub music: bool,
+macro_rules! define_section_folds {
+    ( $( $n: ident ),* ) => {
+        /// A data structure which stores the foldedness of every sidebar element
+        #[derive(Serialize, Deserialize, Debug, Clone)]
+        pub struct SectionFolds {
+            // Generate all the fields with annotations
+            $(
+                #[serde(default = "get_true")]
+                pub $n: bool
+            ),*
+        }
+
+        // All section folds should default to open
+        impl Default for SectionFolds {
+            fn default() -> Self {
+                SectionFolds {
+                    $( $n: true, )*
+                }
+            }
+        }
+
+        impl SectionFolds {
+            /// Toggle the folding of the a given section by name, returning `false` if no such
+            /// section exists.
+            #[must_use]
+            pub fn toggle(&mut self, name: &str) -> bool {
+                let value = match name {
+                    // Map each stringified identifier to a mutable reference to that field
+                    $( stringify!($n) => &mut self.$n, )*
+                    // Anything that isn't a given ident will return false
+                    _ => return false,
+                };
+                *value = !*value;
+                true
+            }
+        }
+    };
 }
 
-impl SectionFolds {
-    /// Toggle the folding of the a given section by name, returning `false` if no such section
-    /// exists.
-    #[must_use]
-    pub fn toggle(&mut self, name: &str) -> bool {
-        let value = match name {
-            "general" => &mut self.general,
-            "partheads" => &mut self.partheads,
-            "methods" => &mut self.methods,
-            "calls" => &mut self.calls,
-            "music" => &mut self.music,
-            _ => return false,
-        };
-        *value = !*value;
-        true
-    }
-}
+define_section_folds!(general, keys, partheads, methods, calls, music);
 
 /// State that is saved per-composition, but shouldn't be tracked in the undo history.  This
 /// includes the view state (e.g. where the camera is, which part the user's looking at) and

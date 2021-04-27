@@ -23,14 +23,8 @@
         <!-- Main canvas -->
         <canvas id="comp-canvas"></canvas>
 
-        <!-- Transpose box -->
-        <div id="transpose-box">
-            <p><input id="transpose-input" /></p>
-            <p id="transpose-message" class="parse-err">Bell '2' repeated twice</p>
-        </div>
-
-        <!-- Right sidebar -->
-        <div id="right-sidebar">
+        <!-- Sidebar -->
+        <div id="sidebar" class="sidebar">
             <!-- General -->
             <div class="sidebar-box">
                 <h2>
@@ -46,7 +40,52 @@
                 </div>
             </div>
 
-            <!-- General -->
+            <!-- Keybindings -->
+            <div class="sidebar-box">
+                <h2>
+                    <span class="fold-button" style="float: left" id="keys-box-fold">▼</span>Key
+                    bindings
+                </h2>
+                <div id="keys-box-area" style="max-width: 310px">
+                    <p style="text-align: center">
+                        <i>
+                            Note: This is not automatically updated yet, so it might end up being
+                            out of sync with the code.
+                        </i>
+                    </p>
+                    <div class="keybindings">
+                        <h3>Add/remove rows</h3>
+                        <p><code>a</code>: Add a lead to the composition</p>
+                        <p><code>A</code>: Add a course to the composition</p>
+                        <p><code>d</code>: Delete fragment</p>
+                        <p>
+                            Adding rows whilst hovering the leftover row of a fragment will append
+                            that block onto the end of the fragment.
+                        </p>
+
+                        <h3>Modify fragment</h3>
+                        <p><code>t</code>: Transpose fragment by its first row</p>
+                        <p><code>T</code>: Transpose fragment by hovered row</p>
+                        <p><code>e</code>: Set call under the cursor</p>
+
+                        <h3>Split/combine</h3>
+                        <p><code>c</code>: Combine two linked frags into one</p>
+                        <p><code>x</code>: Split fragment at the cursor</p>
+
+                        <h3>Mute/solo</h3>
+                        <p><code>s</code>: Mute/unmute a fragment</p>
+                        <p><code>S</code>: Solo a fragment/unmute everything</p>
+
+                        <h3>View</h3>
+                        <p><code>f</code>: (Un)fold the lead under the cursor</p>
+                        <p><code>left-click + drag</code>: Move fragment</p>
+                        <p><code>middle-click + drag</code>: Pan view</p>
+                        <p><code>Home</code>: Reset view to 1<sup>st</sup> fragment</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parts -->
             <div class="sidebar-box">
                 <h2>
                     <span class="fold-button" style="float: left" id="partheads-box-fold">▼</span
@@ -132,6 +171,12 @@
                     <p>Blah</p>
                 </div>
             </div>
+        </div>
+
+        <!-- Transpose box -->
+        <div id="transpose-box">
+            <p><input id="transpose-input" /></p>
+            <p id="transpose-message" class="parse-err">Bell '2' repeated twice</p>
         </div>
 
         <!-- Method editing box -->

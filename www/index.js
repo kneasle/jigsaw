@@ -12,9 +12,10 @@ const elem_num_parts = document.getElementById("num-parts");
 const elem_num_rows = document.getElementById("num-rows");
 const elem_falseness_info = document.getElementById("falseness-info");
 // Right sidebar
-const elem_right_sidebar = document.getElementById("right-sidebar");
+const elem_sidebar = document.getElementById("sidebar");
 const elem_sections = find_section_fold_elems([
     "general",
+    "keys",
     "partheads",
     "methods",
     "calls",
