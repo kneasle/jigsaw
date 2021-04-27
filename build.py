@@ -66,8 +66,9 @@ out_dir_arg = args.out_dir
 
 # Use 'git' to find the location of the project root (so that this can be run from any subdirectory
 # of the project)
+this_files_dir = os.path.split(__file__)[0]
 root_dir = subprocess.run(
-    ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
+    ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, cwd=this_files_dir
 ).stdout.strip()
 web_dir = os.path.join(root_dir, "www")
 rust_dir = os.path.join(root_dir, RUST_CRATE_PATH)
