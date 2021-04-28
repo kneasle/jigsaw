@@ -12,10 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
 
-    - name: Install wasm
+    - name: Install wasm-bindgen
       uses: jetli/wasm-bindgen-action@v0.1.0
       with:
         version: 'latest'
+
+    - name: Install wasm target
       run: rustup target add wasm32-unknown-unknown
 
     - uses: actions/checkout@v2
@@ -46,4 +48,4 @@ jobs:
       uses: ad-m/github-push-action@master
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        branch: ${{ build }}
+        branch: 'build'
