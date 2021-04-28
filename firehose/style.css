@@ -1,0 +1,141 @@
+/* document-wide styles */
+
+body {
+    margin: 0px;
+    font-family: monospace;
+}
+
+h1,
+h2 {
+    text-align: center;
+    margin: 0 0 5px 0;
+}
+
+p {
+    margin: 5px;
+}
+
+input,
+button {
+    font-family: inherit;
+    font-size: inherit;
+}
+
+button {
+    padding: 0;
+}
+
+.parse-err {
+    text-align: center;
+    color: red;
+}
+
+.link-button {
+    color: #0000ff;
+    text-decoration: underline;
+    cursor: pointer;
+    /* Browsers, why?!?!!?! */
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -o-user-select: none;
+    user-select: none;
+}
+
+.flex-row {
+    display: flex;
+    flex-direction: row;
+    margin: 5px 0 5px 0;
+}
+
+/* Sidebar styles */
+
+.sidebar {
+    min-width: 300px;
+    position: absolute;
+    right: 0px;
+    top: 0px;
+    max-height: 100%;
+    overflow-y: auto;
+}
+
+.sidebar-box {
+    background: #ffffffee;
+    border-radius: 5px;
+    font-family: monospace;
+    margin: 5px;
+    padding: 5px;
+}
+
+.fold-button {
+    padding: 0 0.5em 0 0.3em;
+    cursor: pointer;
+    /* Browsers, why?!?!!?! */
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    -o-user-select: none;
+    user-select: none;
+}
+
+.keybindings h3 {
+    margin-bottom: 3px;
+}
+
+.keybindings th {
+    padding-right: 0.4em;
+}
+
+.keybindings code {
+    font-weight: bold;
+}
+
+.method-fold-out {
+    margin-left: 10px;
+    border-left: 2px solid black;
+    padding-left: 4px;
+}
+
+/* A div which is 'overlaid' over the entire screen */
+.overlay-outer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+}
+
+.overlay-center {
+    pointer-events: auto;
+    background: #fffe;
+    padding: 5px;
+    border-radius: 5px;
+}
+
+/* One-off styles */
+
+#comp-canvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+}
+
+#transpose-box {
+    position: absolute;
+    top: 100px;
+    left: 100px;
+    background: #ffffffee;
+    border-radius: 5px;
+    font-family: monospace;
+    display: none;
+}

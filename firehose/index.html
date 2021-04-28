@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html style="margin: 0; width: 100%; height: 100%">
+    <head>
+        <title>Composing Program</title>
+        <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
+        <script src="cookies.js" type="text/javascript"></script>
+        <script src="colors.js" type="text/javascript"></script>
+        <link rel="stylesheet" href="style.css" />
+    </head>
+    <body>
+        <!-- Note the usage of `type=module` here as this is an ES6 module -->
+        <script type="module">
+            import { Comp, default as init } from "./proj.js";
+
+            async function run() {
+                await init("./proj_bg.wasm");
+                window.Comp = Comp;
+                start();
+            }
+            run();
+        </script>
+
+        <!-- Main canvas -->
+        <canvas id="comp-canvas"></canvas>
+
+        <!-- Sidebar -->
+        <div id="sidebar" class="sidebar">
+            <!-- General -->
+            <div class="sidebar-box">
+                <h2>
+                    <span class="fold-button" style="float: left" id="general-box-fold">▼</span
+                    >General
+                </h2>
+                <div id="general-box-area">
+                    <p style="text-align: center">
+                        <span id="part-len">0</span> rows * <span id="num-parts">0</span> parts =
+                        <span id="num-rows">0</span> rows
+                    </p>
+                    <p style="text-align: center"><span id="falseness-info">true</span></p>
+                </div>
+            </div>
+
+            <!-- Keybindings -->
+            <div class="sidebar-box">
+                <h2>
+                    <span class="fold-button" style="float: left" id="keys-box-fold">▼</span>Key
+                    bindings
+                </h2>
+                <div id="keys-box-area" style="max-width: 310px">
+                    <p style="text-align: center">
+                        <i>
+                            Note: This is not automatically updated yet, so it might end up being
+                            out of sync with the code.
+                        </i>
+                    </p>
+                    <div class="keybindings">
+                        <h3>Add/remove rows</h3>
+                        <p><code>a</code>: Add a lead to the composition</p>
+                        <p><code>A</code>: Add a course to the composition</p>
+                        <p><code>d</code>: Delete fragment</p>
+                        <p>
+                            Adding rows whilst hovering the leftover row of a fragment will append
+                            that block onto the end of the fragment.
+                        </p>
+
+                        <h3>Modify fragment</h3>
+                        <p><code>t</code>: Transpose fragment by its first row</p>
+                        <p><code>T</code>: Transpose fragment by hovered row</p>
+                        <p><code>e</code>: Set call under the cursor</p>
+
+                        <h3>Split/combine</h3>
+                        <p><code>c</code>: Combine two linked frags into one</p>
+                        <p><code>x</code>: Split fragment at the cursor</p>
+
+                        <h3>Mute/solo</h3>
+                        <p><code>s</code>: Mute/unmute a fragment</p>
+                        <p><code>S</code>: Solo a fragment/unmute everything</p>
+
+                        <h3>View</h3>
+                        <p><code>f</code>: (Un)fold the lead under the cursor</p>
+                        <p><code>left-click + drag</code>: Move fragment</p>
+                        <p><code>middle-click + drag</code>: Pan view</p>
+                        <p><code>Home</code>: Reset view to 1<sup>st</sup> fragment</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parts -->
+            <div class="sidebar-box">
+                <h2>
+                    <span class="fold-button" style="float: left" id="partheads-box-fold">▼</span
+                    >Parts (<span id="part-head-count">0</span>)
+                </h2>
+                <div id="partheads-box-area">
+                    <!-- Part Heads -->
+                    <div class="flex-row"><input id="part-head-input" style="flex: 1" /></div>
+                    <p id="part-head-message" class="parse-err">Bell '2' repeated twice</p>
+                    <p id="part-head-group-message" class="parse-err" style="display: none">
+                        Parts don't form a group.
+                    </p>
+                    <p>
+                        Viewing Part:
+                        <select name="part-head" id="part-head">
+                            <!-- The part heads are filled in only when the wasm is loaded, which is far enough
+                     after page load to cause jank, so we fill this with a sensible default so that
+                     hopefully the jank is less noticeable. -->
+                            <option value="0">#1: 12345678</option>
+                        </select>
+                    </p>
+                </div>
+            </div>
+
+            <!-- Methods -->
+            <div class="sidebar-box">
+                <h2>
+                    <span class="fold-button" style="float: left" id="methods-box-fold">▼</span
+                    >Methods (<span id="num-methods">0</span>)
+                </h2>
+                <div id="methods-box-area">
+                    <div id="method-list">
+                        <!-- Method entries will go here -->
+                    </div>
+                    <p style="text-align: center">
+                        <button type="button" id="add-method">Add Method</button>
+                    </p>
+                    <p>
+                        Select method:
+                        <input
+                            id="selected-method"
+                            style="width: 2em"
+                            type="number"
+                            value="0"
+                            min="0"
+                        />
+                    </p>
+                </div>
+            </div>
+
+            <!-- Calls -->
+            <div class="sidebar-box">
+                <h2>
+                    <span class="fold-button" style="float: left" id="calls-box-fold">▼</span>Calls
+                    (<span id="num-calls">0</span>)
+                </h2>
+                <div id="calls-box-area">
+                    <p id="call-readout">&lt;Calls&gt;</p>
+
+                    <p>
+                        Select call:
+                        <input
+                            id="selected-call"
+                            style="width: 2em"
+                            type="number"
+                            value="0"
+                            min="-1"
+                        />
+                    </p>
+                </div>
+            </div>
+
+            <!-- Music -->
+            <div class="sidebar-box">
+                <h2>
+                    <span class="fold-button" style="float: left" id="music-box-fold">▼</span>Music
+                </h2>
+                <div id="music-box-area">
+                    <p>Blah</p>
+                    <p>Blah</p>
+                    <p>Blah</p>
+                    <p>Blah</p>
+                    <p>Blah</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transpose box -->
+        <div id="transpose-box">
+            <p><input id="transpose-input" /></p>
+            <p id="transpose-message" class="parse-err">Bell '2' repeated twice</p>
+        </div>
+
+        <!-- Method editing box -->
+        <div class="overlay-outer">
+            <div class="overlay-center" id="method-edit-box" style="display: none">
+                <h2>Editing Method</h2>
+                <div class="flex-row">
+                    <input id="method-edit-shorthand" placeholder="Shorthand" style="width: 6em" />
+                    <input
+                        id="method-edit-name"
+                        placeholder="Name"
+                        style="margin: 0 5px 0 5px; flex: 1"
+                    />
+                    <select name="method-stage" id="method-edit-stage" disabled>
+                        <option value="8">Major</option>
+                    </select>
+                </div>
+                <div class="flex-row">
+                    <input
+                        id="method-edit-pn-input"
+                        placeholder="Place Notation"
+                        style="min-width: 30em; flex: 1"
+                    />
+                </div>
+                <p id="method-edit-pn-message" class="parse-err">Some error!</p>
+                <p style="text-align: center">
+                    <button type="button" onclick="exit_method_edit()">Cancel</button>
+                    <button id="method-edit-save" type="button">Save</button>
+                </p>
+            </div>
+        </div>
+
+        <!-- Templates (i.e. HTML trees which will get cloned and populated with data to generate
+             the sidebar).  These are very reminiscent of templates from Vue or React except that
+             the interactions we require are very simple and are managed more easily without
+             external libraries. -->
+        <div style="display: none" id="templates">
+            <!-- Template for a single method entry -->
+            <div id="template-method-entry">
+                <!-- Title bar: Shorthand & name on the left -->
+                <p>
+                    <span class="fold-button" id="method-info-fold-btn">▶</span>(<span
+                        id="shorthand"
+                        >B</span
+                    >)
+                    <span id="name">Bristol</span>
+                    <!-- row counter/delete on the right -->
+                    <span style="float: right">
+                        <span id="row-count" style="display: none">0 rows</span>
+                        <span id="buttons">
+                            <span id="edit-button" class="link-button">edit</span>
+                            <span id="delete-button" class="link-button">del</span>
+                        </span>
+                    </span>
+                </p>
+                <!-- Fold out section (hidden by default) -->
+                <div class="method-fold-out" id="method-info-area">
+                    <div class="flex-row">
+                        <input
+                            id="shorthand-input"
+                            value="V"
+                            placeholder="Sym"
+                            style="width: 2em; margin-right: 5px"
+                        />
+                        <input id="name-input" placeholder="Name" value="Deva" style="flex: 1" />
+                    </div>
+                    <p id="place-notation-input">&lt;Place Notation&gt;</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Load the main JS script after the rest of the document has loaded.  We do this so that
+             we can initialise references to the HTML elements as global constants for the JS code
+             to re-use. -->
+        <script src="index.js"></script>
+    </body>
+</html>
