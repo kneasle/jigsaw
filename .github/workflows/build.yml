@@ -57,3 +57,5 @@ jobs:
               -H "Accept: application/vnd.github.v3+json" \
               https://api.github.com/repos/kneasle/kneasle.github.io/actions/workflows/zola/dispatches \
               -d '{"ref":"master"}'
+
+    - uses: Swatinem/rust-cache@v1
