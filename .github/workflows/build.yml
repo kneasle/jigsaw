@@ -51,8 +51,9 @@ jobs:
         branch: 'build'
 
     - name: Run my website's build
-      runs: curl \
-          -X POST \
-          -H "Accept: application/vnd.github.v3+json" \
-          https://api.github.com/repos/kneasle/kneasle.github.io/actions/workflows/zola/dispatches \
-          -d '{"ref":"master"}'
+      run: |
+          curl \
+              -X POST \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/kneasle/kneasle.github.io/actions/workflows/zola/dispatches \
+              -d '{"ref":"master"}'
