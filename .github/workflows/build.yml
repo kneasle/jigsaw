@@ -1,0 +1,49 @@
+name: Build
+
+on:
+  push:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Install wasm
+      uses: jetli/wasm-bindgen-action@v0.1.0
+      with:
+        version: 'latest'
+      run: rustup target add wasm32-unknown-unknown
+
+    - uses: actions/checkout@v2
+      with:
+        # otherwise, the token used is the GITHUB_TOKEN, instead of your personal token
+        persist-credentials: false
+        fetch-depth: 0 # otherwise, you will failed to push refs to dest repo
+
+    - name: Build
+      run: |
+          mkdir /tmp/jigsaw-build
+          ./build.py --release --out-dir /tmp/jigsaw-build
+
+    - name: Commit build
+      run: |
+        # Checkout the build branch
+        git checkout build
+        # Copy the built files into the firehose branch
+        mkdir -p firehose
+        cp -r /tmp/jigsaw-build/* firehose
+        # Commit these new files
+        git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+        git add firehose
+        git commit -m "Update firehose branch"
+
+    - name: Push changes
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        branch: ${{ build }}
