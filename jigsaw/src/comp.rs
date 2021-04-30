@@ -208,7 +208,7 @@ impl Comp {
     /// Create an example composition
     pub fn example() -> Comp {
         console_error_panic_hook::set_once();
-        Self::from_spec(Spec::cyclic_s8())
+        Self::from_spec(Spec::example())
     }
 
     /// Attempt to parse a new part head specification [`String`].  If it successfully parses then
@@ -589,7 +589,7 @@ impl Comp {
     pub fn reset(&mut self) {
         // We directly finish the action because we are fully overwriting it, and  calling
         // `self.make_action` would likely clone then immediately drop the current Spec
-        self.finish_action(Spec::cyclic_s8());
+        self.finish_action(Spec::example());
     }
 
     /* View Setters */

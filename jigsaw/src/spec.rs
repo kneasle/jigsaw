@@ -990,7 +990,7 @@ impl Frag {
     }
 
     /// Generates an example fragment (in this case, it's https://complib.org/composition/75822)
-    fn cyclic_s8() -> (Frag, Vec<Rc<MethodSpec>>, Vec<Rc<CallSpec>>) {
+    fn example() -> (Frag, Vec<Rc<MethodSpec>>, Vec<Rc<CallSpec>>) {
         const STAGE: Stage = Stage::MAJOR;
         let mut rows: Vec<AnnotRow<Annot>> = include_str!("cyclic-s8")
             .lines()
@@ -1079,10 +1079,10 @@ impl Spec {
         }
     }
 
-    /// Creates an example Spec
-    pub fn cyclic_s8() -> Spec {
-        let (frag, methods, calls) = Frag::cyclic_s8();
-        Self::single_frag(frag, methods, calls, "81234567", Stage::MAJOR)
+    /// Creates an example Spec (in this case it's a practice night touch of 7-spliced).
+    pub fn example() -> Spec {
+        let (frag, methods, calls) = Frag::example();
+        Self::single_frag(frag, methods, calls, "", Stage::MAJOR)
     }
 
     fn single_frag(
