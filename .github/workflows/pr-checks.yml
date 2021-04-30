@@ -16,6 +16,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    - uses: Swatinem/rust-cache@v1
+
     - name: Build
       run: cargo build --verbose
 
@@ -24,5 +26,3 @@ jobs:
 
     - name: Formatting
       run: cargo fmt -- --check
-
-    - uses: Swatinem/rust-cache@v1

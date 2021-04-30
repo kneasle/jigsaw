@@ -26,6 +26,9 @@ jobs:
         persist-credentials: false
         fetch-depth: 0 # otherwise, you will failed to push refs to dest repo
 
+    # Cache rust's build files to speed up the CI runs
+    - uses: Swatinem/rust-cache@v1
+
     - name: Build
       run: |
           mkdir /tmp/jigsaw-build
@@ -57,6 +60,3 @@ jobs:
               -H "Accept: application/vnd.github.v3+json" \
               https://api.github.com/repos/kneasle/kneasle.github.io/actions/workflows/zola/dispatches \
               -d '{"ref":"master"}'
-
-    # Cache rust's build files to speed up the CI runs
-    - uses: Swatinem/rust-cache@v1
