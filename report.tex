@@ -1,0 +1,390 @@
+\documentclass[12pt]{article}
+
+\title{Insert Report Title Here}
+\author{Benjamin White-Horne \\ \emph{Oxford University}}
+
+\newcommand{\row}[1]{\texttt{#1}}
+\newcommand{\br}[0]{\vspace{10pt} \noindent}
+
+\begin{document}
+
+% Title page & T.o.C.
+\maketitle
+\pagebreak
+\tableofcontents
+\pagebreak
+
+\section{What is Composing?}
+
+\section{What is my Project Trying to Do?}
+
+The purpose of the project is to build an application which \emph{helps} composers create better
+change ringing compositions with as little change to their workflow as possible.  This aim is
+roughly analogous to what applications like MuseScore and Sibelius do for musical composers --- the
+goal is to create some form of `helpful paper' which allows the composer to experiment more freely
+by providing instant feedback on everything that the composer wants to know about their composition.
+
+Within this overall goal, here are some more specific things that I would expect from such an
+application (most of these come from observations of existing programs, conversations with other
+composers, and knowledge gained from experimenting with prototypes early on in this project):
+
+\begin{enumerate}
+    \item \textbf{Ease of Use}: The application should be made so that anyone can install and use
+        it.
+    \item \textbf{Completeness}: Everything considered ``change ringing'' should be representable in
+        the application.  Completeness is defined by the Framework for Change Ringing.
+    \item \textbf{Generality}: If a composer has an idea for a composition then this should be
+        representable in the application, regardless of how complete the idea is.
+    \item \textbf{Incremental}: The application should allow the user to incrementally build up
+        their composition, in whatever order they want, starting wherever they want to.
+    \item \textbf{Instant}: Feedback on important measures like truth, music content and length
+        should always update instantly whenever the composer changes their composition.
+    \item \textbf{Visual}: The application should display the composition to the user in way that
+        makes it easy for the user to visually understand the composition they are working on.
+    \item \textbf{View-Independent}: The application should allow the user to choose how they view
+        the composition they are working on (and this should be configurable whilst midway through a
+        composition).
+\end{enumerate}
+
+\section{Why Would This be Useful?}
+
+There are several reasons why mechanical assistance would be useful for change ringing composers in
+particular.
+
+Firstly, change ringing compositions are at their core simply sequences of permuatations, and are
+therefore extremely ameanable to mathematical and computerised analysis.  Also, nearly all
+compositions are fundamentally designed for human consumption, putting very low upper bounds on the
+potential size of the compositions which computers have to deal with (there aren't any towers with
+more than 16 (ringable) bells and humans can ring about 1,500 rows per hour, so perhaps 99.99\% of
+compositions have at most 16 bells and are shorter than 10,000 rows --- and at least 99\% of these
+have at most 12 bells and not much over 5,000 changes).
+
+Secondly, mathematical properties of change ringing compositions (specifically the `truth' of a
+composition) are very, very important.  For the purposes of this report, a composition is `true' if
+every row contained in the composition is unique, otherwise it is `false'.  Maintaining truth of a
+composition is absolutely vital, since a performance of a false composition is considered invalid
+and therefore is a waste of the ringers' time.  Checking proof is also extremely easy to do with a
+computer (especially due to the bounds on the size of the problem) and as a result, even the
+earliest computers have been used to check compositions for truth (the story goes that one of the
+first programs run on the Manchester Baby was for composition proving, but this is hard to verify).
+With the increasing availability of processing power computers have been used to entirely generate
+compositions with minimal input from a human, but there is still something missing from computer
+generated compositions.
+
+What is currently missing, however, is a program which allows a human composer to combine the
+strengths of computers and humans (computers are incredibly fast and accurate for menial grunt-work
+tasks such as truth checking, whereas a skilled human composer has a good knowledge of what makes a
+`good' composition and what they are trying to achieve in each specific case).  Therefore, I propose
+an application which allows a human composer to get instant feedback (truth, music content, length,
+etc.) about their composition \emph{whilst they are making it}.  This support for `partial'
+compositions (i.e.\ compositions which are simply chunks of rows which will be rung in some
+yet-to-be-defined order) is the primary motivation for building a new program rather than simply
+modifying an existing one.
+
+\section{What has been done so far?}
+
+In this section, I will go through existing tools and review them against the goals set above.
+
+\subsection{Composition Library}
+
+This is a strange one, since Composition Library (shortened to `CompLib' for the rest of this
+document) is not trying to be a composition editor, but simply an attempt to build a complete
+central library of all the compositions that are known to ringing.  However, it does have a
+composition editor in order to allow people to add new compositions to the library, and this
+editor has a lot of features useful for experimenting with compositions (despite being designed for
+a different purpose).  In fact, it does well enough that I think it's probably the best composing
+tool out there right now, and I have made several compositions using only CompLib, paper and a
+pencil for assistance.  More than anything, I think the fact that the best tool right now isn't even
+designed for the purpose highlights how much promise a custom-designed composing tool holds.
+
+% TODO: Add numbers to these
+
+\paragraph{Ease of use:}  CompLib does really well for this.  It is really easy (in fact trivial) to
+install --- it is simply a website, and therefore has no software dependencies except a browser
+(which will be how most people download software anyway).  It does need an account in order to make
+compositions, but this is not really an issue.
+
+\paragraph{Incremental:}  CompLib can't handle partial compositions at all; compositions must start
+(and preferrably end) in rounds.  If the composition does not come round (as is the case for almost
+all unfinished compositions), then CompLib generates thousands of repeated rows on the end of your
+composition in the hope that the comp will come round, to the detriment of performance and
+usability.
+
+\paragraph{Instant:}  CompLib does reasonably well.  If the composition is a round block, then it
+gives a good visual indication of where the falseness occurs.  However, it isn't perfect.  The main
+problem is that all the row generation and proving is handled server-side, which means that any
+change to the composition has to travel across the internet before the user gets any feedback.
+Also, there is a related concurrency bug where making too many changes in quick succession will
+cause some of them to be overwritten and lost.
+
+\paragraph{Visual \& View-Independence:}  CompLib again does reasonably well (and it is flawed only
+because it is designed for inputting and later learning already finished compositions).
+CompLib allows the user to choose between a range of several ways of viewing their composition (even
+when it doesn't come round), and all of these are very easy to read.  On the other hand, the
+blueline view doesn't hightlight musical rows, which I think would be beneficial even for CompLib's
+use case of people learning comps.  Also, if you want to see more detail of one segment of a
+composition, there is no way to `unfold' only part of it --- you have to switch to an entirely new
+view and then find that location again.
+
+\begin{enumerate}
+    \item If the composition is complete, CompLib has a really nice music breakdown available to see
+        if your goals for the composition has been met.  However, this is only available for
+        complete compositions and viewing it requires saving and reopening the composition which is
+        not ideal.
+    \item CompLib's input format is very declarative --- in essence, the user enters the composition
+        as a sequence of instructions for how to build the rows and these instructions are read
+        in order and used to generate (`prick') the rows of your composition.  These rows are then
+        used to calculate the falseness of your composition, and what will be displayed to you.
+        This, however, is frustrating when you're experimenting with compositions, since a change
+        near the top of a composition will cause different rows to be generated for the rest of the
+        composition.  This behaviour makes perfect sense because CompLib's editor is designed for
+        inputting a composition which you already know (not for experimentally building up a new
+        composition) but is nonetheless makes experimentation frustrating.
+\end{enumerate}
+
+\subsection{Inpact}
+
+Inpact is a program written by Alexander Holroyd to support the workflow of experimenting with
+compositions.  It provides instant feedback on truth and music, but is visually quite clunky and
+doesn't support `partial' compositions.
+
+\paragraph{Ease of use:}
+
+\paragraph{Incremental:}
+
+\paragraph{Instant:}
+
+\paragraph{Visual \& View-Independence:}
+
+\subsubsection{Things that Inpact does well}
+
+\begin{enumerate}
+    \item It has a folding interface --- the user can fold away sections of the composition in order
+        to get a higher-level overview of the composition as a whole.
+    \item It doesn't require that your composition is complete before giving feedback about truth or
+        music content.
+    \item It has customisable music scoring --- the user decides what music they care about.
+\end{enumerate}
+
+\subsubsection{Things that Inpact doesn't do well}
+
+\begin{enumerate}
+    \item Doesn't handle `partial' compositions --- compositions have to be a single block starting
+        at rounds, but don't have to come round.
+    \item There isn't a visual way to see the music in the composition.
+\end{enumerate}
+
+\section{Initial Design}
+
+Now that we've taken a look at the state of the art, it's time to start making design decisions
+about this project.  To do this, I will lay out my initial design and why I think it will satisfy
+each of the design goals.
+
+\subsection{Technologies Used}
+
+When choosing technologies for a project, we must first decide what the project will require of
+them.  For this project, we will need to maintain a pretty-looking canvas-style user interface which
+can be updated in real time if the user were to pan the viewport or drag parts of the composition.
+However, behind the scenes, the application will have to perform a large amount of permutation logic
+every time the user changes anything and must do all of this without a noticable delay or hitch to
+the UI, regardless of the size and complexity of the composition.  This logic will be fairly complex
+and its correctness is vital for the application to work as expected.  Finally, the application
+should be as easy to get running as possible --- i.e.\ we want to minimise the time between the user
+discovering that this application exists and them starting to use it.
+
+\subsubsection{Application as a Static Web Page}
+
+Therefore, I propose that the application run as a single static web page (i.e.\ it is a fixed set
+of files that can be served by a simple HTTP server).  This has many advantages:
+\begin{enumerate}
+    \item There is no start-up time for a new user --- they open the page in any browser and the
+        application starts immediately.
+    \item HTML canvas rendering (while extremely inefficient compared to OpenGL or Vulkan) is easy,
+        fast enough to feel instant and consistently looks good an all browsers and operating
+        systems.  As of the first prototype, the performance of naively redrawing the whole canvas
+        every frame is more than adequate (at least on my brand-new PC).  However, if performance
+        does become an issue there are many obvious caching optimisations that would cause huge
+        speed-ups in rendering.
+    \item Having no dependence on a server both obviates the need for the user to make an account
+        and also makes it trivial to deploy using GitHub pages or a similar service.
+\end{enumerate}
+
+However, writing an application as a static web page is not without its challenges.  The first
+challenge is that of JavaScript: though JavaScript is excellent for writing a small amount of user
+interaction code (due to its first-class web support), it has two chief shortcomings: performance
+and scalability.
+
+Furthermore, as noted with CompLib, it is highly detrimental to the user experience if part of the
+code has to run on a web server.  Therefore, any replacement to JavaScript to must also be able to
+run natively inside a browser.
+
+\subsubsection{Move Complex Logic to Rust and WebAssembly}
+
+My solution to both of these is to write the code with a client/server architecture, where there is
+a thin client written in JavaScript (to handle user interaction and rendering) and the server is
+written in Rust and compiled to WebAssembly.  There are many other languages that could work for
+this purpose, for example TypeScript, C/C++ or Go but I chose Rust for the following reasons:
+
+\begin{enumerate}
+    \item Rust gives you direct control over memory layout which provides excellent performance when
+        manipulating complex data structures.  The performance of TypeScript, for instance, is by
+        definition no better than that of JavaScript.
+    \item The Rust compiler performs a large amount of strict compile-time correctness checks on
+        your code, making it easy to implement complex algorithms in ways that you know is correct
+        and fast.  C/C++ and Go cannot compete in this regard.
+    \item Rust's WebAssembly support is fantastic, with particular shout-out to \verb|wasm_bindgen|,
+        which generates binding code between native Rust and native JavaScript to let them interface
+        seamlessly.
+    \item I am already proficient in Rust, and have already developed a library with useful
+        datatypes for handling compositions efficiently.
+\end{enumerate}
+
+This approach has been very promising performance-wise: as of the first prototype, the latency
+between a user changing the composition and the result appearing on screen is 3ms for a composition
+with 2000 rows of 8 bells each.  This processess involves no caching --- the entire composition is
+completely expanded, proved, music checked, serialised to JSON, copied to JavaScript and
+deserialised in the 3ms.  The algorithms implemented are no worse than quadratic in the number of
+bells, so I would place a very paranoid upper bound to be about 103ms (for 6000 rows of 16 bells
+each).  I suspect there is a lot of low-hanging fruit for optimisations, but this is not run every
+frame so even 100ms will feel instant.
+
+The second, more problematic limitation of working inside a browser is that of storage.  Code
+running in a browser cannot (for security reasons) access the user's file system unless the user
+explicitly uploads or saves to a file, so accessing the file system to save without the user's
+express permission is not an option.  Also, the user experience will be massively improved if the
+user can close and reopen the page at any point and have everything stay as they left it (complete
+with as much undo history as possible).
+
+\subsubsection{Using Cookies as Persistent State}
+
+Fortunately for this project, there is some storage that web pages can use to store persistent data
+without the user's input, and those are cookies.  Unfortunately, cookies are severly size limited
+--- a web page can only expect to be able to save about 30 cookies per page, each of which can be at
+most 4096 bytes, so we have 122,800 bytes in which to save all the persistent state we need.  In
+reality, however, it's not a good idea to run too close to this limit because the page may have to
+store other cookies and these shouldn't suddenly fail to save.
+
+Saving just the current undo snapshot is fine, but I want to save the undo history which will
+require a complicated serialisation/deserialisation algorithm.  I have chosen not to implement this
+for the prototype, because I suspect that I will need to change the internal representation a lot
+and doing so will break any serialised data.
+
+\subsection{The Application Model}
+
+This is the high-level model that should define how the application should behave (even if the
+implementation details are different).  This model contributes to most of the learning curve for new
+users and therefore should be as simple as possible without losing expressivity.  I'm going to
+describe the model in terms of Haskell datatypes, using names identical to those used in the
+project's source code (the actual implementation will look largely similar due to Rust being heavily
+inspired by Haskell).
+
+\subsubsection{Specification vs Derived State}
+
+In order for the model to be as simple as possible, it is important to differentiate the
+\emph{specification} from any \emph{derived state} generated from it (in the code, these are stored
+in structures called \verb|Spec| and \verb|DerivedState| respectively, both in the \verb|jigsaw/|
+crate/directory).
+
+As a toy example, let us consider two integers ($a$ and $b$) and their sum and product ($a + b$ and
+$ab$) as the total information required to represent a particular state.  This overall state
+consists of 4 pieces of information ($\{a, b, a + b, ab\}$) but it's easy to see that the inclusion
+of $a + b$ and $ab$ does not add any extra information.  Therefore, we can say that $\{a, b\}$ is
+the \emph{specification} of $\{a, b, a + b, ab\}$, whereas $\{a + b, ab\}$ is the \emph{derived
+state}.  This dependence also means that we don't have to store any derived state in the undo
+history, drastically reducing the memory footprint of storing long undo histories (provided that the
+derivation process is not prohibitively expensive --- though in the case of this project it is quite
+cheap in both time and memory).  Plus, the mental load on the user is reduced because they only have
+to reason about the specification and the behaviour of the derived state should be intuitive given
+the changes to the specification.
+
+\subsubsection{High-Level Requirements of the Model}
+
+For this project, we have a few requirements which will constrain the model used (namely the
+completeness and generality goals).  Firstly, to satisfy generality the model must be able to
+express as many partial compositions as possible.  From discussions with other composers on this
+topic, I know that it is a very common workflow to begin a composition with ideas that fit into
+three broad categories:
+
+\begin{enumerate}
+    \item \textbf{Meta-data:} Some concept of overall structure, for example which method(s) to use,
+        what part structure to use, etc.  These are usually laid out before composing starts, and
+        it is likely that the finished composition will have the same metadata as the initial idea.
+    \item \textbf{Fragments:} Some chunks of the composition that they want to ring, perhaps with
+        some idea on what order these should be rung in (no assumptions are made about whether or
+        not these ``fragments'' are connectible or even mutually true).  These will almost certainly
+        have to be extended and joined in order to reach a final composition, and will therefore be
+        modified extensively over the composing process.
+    \item \textbf{Abstract} ideas about complexity, use of repeated blocks, etc.\ which are
+        relevant to the resulting composition but extremely difficult to represent in a
+        machine-compatible way.  This model will not attempt to encapsulate these ideas, since they
+        are so varied, abstract and complex that a sufficiently general model would be enourmously
+        complex for both the programmer and the user.  Also, these `rules' are usually strategically
+        bent by composers due to context that isn't available to the computer so having an
+        application that enforces them would likely feel overly restrictive.
+\end{enumerate}
+
+\subsubsection{Model Datatypes}
+
+Here, I will describe a model around which this project will be built.  As described above, we will
+only model the first two categories of ideas described above, as they are the most important and
+straightforward to implement.  I will describe the model as Haskell-style datatypes, using some
+light syntax extensions for things like \verb+{| .. |}+ for counted sets (a.k.a.\ bags).  For
+consistency between this report and the code, I have given datatypes the same
+names as their counterparts in the Rust source code wherever possible.
+
+First of all, a \verb|Spec|ification of a composition is a combination of a bag of \verb|Frag|ments
+coupled with some \verb|MetaData| (in the code, the meta-data is simply flattened into the
+\verb|Spec| struct):
+
+\begin{verbatim}
+data Spec = Spec {
+    frags :: {| Frag |},
+    meta_data :: MetaData
+}
+\end{verbatim}
+
+In this project, we will model fragments simply as an ordered sequence of annotated rows.  These
+`annotations' encode the higher-order structure of the composition in a view-independent format,
+so that the same composition can be displayed to the user in whatever way they prefer to view
+compositions (thus the exact calling of the composition becomes \emph{derived state}):
+
+\begin{verbatim}
+type Frag = [AnnotRow]
+
+data AnnotRow = AnnotRow {
+    row :: Row,
+    is_rule_off :: Bool,
+    call_str :: Maybe String,
+    -- more annotations omitted for brevity ...
+}
+\end{verbatim}
+
+The \verb|MetaData| contains the remaining information required to specify the composition,
+including part heads and the composition's stage:
+
+\begin{verbatim}
+data MetaData = MetaData {
+    part_heads :: [Row],
+    stage :: Stage
+}
+\end{verbatim}
+
+The remaining datatypes in this definition (\verb|Row|, \verb|Stage|, \verb|Bell|, etc.) are stored
+in a separate library to the project's business code in the \verb|core| directory (imported as
+\verb|proj_core| in the code).  For completeness, they could be defined in Haskell as follows:
+
+\begin{verbatim}
+type Row = [Bell]
+
+data Bell = Bell Int
+data Stage = Stage Int
+\end{verbatim}
+
+\subsubsection{Operations on the Data}
+
+Now that we know how a composition is specified, we now need to define how the user will be able to
+modify the datatypes defined above.
+
+(T.B.C.)
+
+\end{document}

@@ -1,0 +1,11 @@
+My project is concerned with designing and implementing software to aid composers of pieces of
+change ringing (myself included), without requiring a change in their workflow.  This would be
+roughly analagous to how programs like Musescore and Sibelius help musical composers by providing
+'digital paper' with additional features like copy/paste and instant playback.
+
+This term has been mostly spent finding a useful foundation and design that useful and intuitive
+software could be built upon, and researching how composers (myself included) currently make
+compositions.  I have written some of the lower level code for the project (for things like parsing
+human-readable notation).  No major problems have been encountered - weekly meetings with my
+supervisor are proving useful and progress should pick up since almost all of my non-project
+modules are in Michaelmas.
