@@ -5,4 +5,4 @@ authors = ["Ben White-Horne <kneasle@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-proj = { path = "../proj" }
+jigsaw = { path = "../jigsaw" }

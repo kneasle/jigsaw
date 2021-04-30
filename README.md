@@ -27,5 +27,6 @@ rustup target add wasm32-unknown-unknown
 cargo install wasm-bindgen-cli
 ```
 
-To build, run `build.py` (it doesn't matter where in the code you are, running `../build.sh`
-from `proj/` will work just fine - at least on Linux).
+To build, run `build.py` from anywhere on your filesystem.  By default, it will place the build
+files in `<repo root>/out/` but that can be overridden if necessary (run `build.py --help` for more
+info).

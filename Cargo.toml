@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "proj",
+    "jigsaw",
     "core",
     "bench",
 ]

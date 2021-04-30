@@ -6,8 +6,8 @@ import os
 import shutil
 import json
 
-RUST_CRATE_NAME = "proj"
-RUST_CRATE_PATH = "proj"
+RUST_CRATE_NAME = "jigsaw"
+RUST_CRATE_PATH = "jigsaw"
 
 
 def exit_with_message(msg):

@@ -10,10 +10,10 @@
     <body>
         <!-- Note the usage of `type=module` here as this is an ES6 module -->
         <script type="module">
-            import { Comp, default as init } from "./proj.js";
+            import { Comp, default as init } from "./jigsaw.js";
 
             async function run() {
-                await init("./proj_bg.wasm");
+                await init("./jigsaw_bg.wasm");
                 window.Comp = Comp;
                 start();
             }

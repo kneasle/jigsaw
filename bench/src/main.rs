@@ -1,4 +1,4 @@
-use proj::comp::Comp;
+use jigsaw::comp::Comp;
 
 pub fn main() {
     let state = Comp::example().ser_derived_state();
