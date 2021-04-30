@@ -45,7 +45,11 @@ jobs:
         git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
         git add firehose
-        git commit -m "Update firehose branch"
+        # If no changes have occurred since the last build, then `git commit` will fail and cause
+        # the entire run to fail.  This is not what we want - nothing will break if no new commits
+        # are made, so instead we use the `||` to echo an error message and stop the overall command
+        # from failing
+        git commit -m "Update firehose branch" || echo "No changes to commit!"
 
     - name: Push changes
       uses: ad-m/github-push-action@master
