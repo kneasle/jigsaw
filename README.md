@@ -1,6 +1,8 @@
-# 3rd Year Project
+# Jigsaw
 
-This repository contains source code & report for my 3rd year project.
+A visual, incremental composing tool for change ringing.  Since this program is currently my 3rd
+year project, there is an orphan branch `report` which contains the LaTeX files of the project
+report.
 
 ## Overview
 
