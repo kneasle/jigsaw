@@ -257,13 +257,31 @@ function draw_row(x, y, row) {
     }
 }
 
-function draw_falseness_indicator(unrounded_x, min_y, max_y, notch_width, notch_height) {
+function draw_falseness_indicator(
+    unrounded_x,
+    min_y,
+    max_y,
+    notch_width,
+    notch_height,
+    is_top_open,
+    is_bottom_open
+) {
     const x = round_line_coord(unrounded_x);
     ctx.beginPath();
-    ctx.moveTo(x + notch_width, min_y);
-    ctx.lineTo(x, min_y + notch_height);
-    ctx.lineTo(x, max_y - notch_height);
-    ctx.lineTo(x + notch_width, max_y);
+    // Draw lines for the top section
+    if (is_top_open) {
+        ctx.moveTo(x, min_y);
+    } else {
+        ctx.moveTo(x + notch_width, min_y);
+        ctx.lineTo(x, min_y + notch_height);
+    }
+    // Draw lines for the bottom section
+    if (is_bottom_open) {
+        ctx.lineTo(x, max_y);
+    } else {
+        ctx.lineTo(x, max_y - notch_height);
+        ctx.lineTo(x + notch_width, max_y);
+    }
     ctx.stroke();
 }
 
@@ -332,14 +350,18 @@ function draw_frag(frag) {
             y + ROW_HEIGHT * range.start,
             y + ROW_HEIGHT * range.end,
             FALSENESS_COL_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
-            ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT
+            ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT,
+            range.is_top_open,
+            range.is_bottom_open
         );
         draw_falseness_indicator(
             x + derived_state.stage * COL_WIDTH + FALSENESS_COL_WIDTH * 0.5,
             y + ROW_HEIGHT * range.start,
             y + ROW_HEIGHT * range.end,
             -FALSENESS_COL_WIDTH * FALSE_ROW_GROUP_NOTCH_WIDTH,
-            ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT
+            ROW_HEIGHT * FALSE_ROW_GROUP_NOTCH_HEIGHT,
+            range.is_top_open,
+            range.is_bottom_open
         );
     }
     // Link group lines

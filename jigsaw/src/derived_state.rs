@@ -304,6 +304,10 @@ impl DisplayRow {
 struct FalseRowRange {
     #[serde(flatten)]
     range: Range<usize>,
+    #[serde(skip_serializing_if = "crate::ser_utils::is_false")]
+    is_top_open: bool,
+    #[serde(skip_serializing_if = "crate::ser_utils::is_false")]
+    is_bottom_open: bool,
     group: usize,
 }
 
@@ -508,7 +512,10 @@ impl DerivedState {
                         }
                     }
                     // Modify the false row ranges by either moving them to the correct place on
-                    // display or adding them to folded rows as dots
+                    // display or adding them to folded rows as dots.  This works by iterating over
+                    // `all_false_row_ranges`, adding dots to the rows and pushing the ranges we
+                    // want to keep to `false_row_ranges` which then will be used to construct the
+                    // `DerivedFrag`.
                     let mut false_row_ranges = Vec::with_capacity(all_false_row_ranges.len());
                     for r in all_false_row_ranges {
                         let (start_row, start_sub_index) = source_row_to_display_row[r.range.start];
@@ -538,9 +545,59 @@ impl DerivedState {
                                 .contained_false_row_ranges
                                 .push(r.group);
                         } else {
-                            /* The range overlaps partially between two on-screen rows.  I don't
-                             * know what to do about this, so for the time being just panic. */
-                            unimplemented!();
+                            /* The range overlaps partially between two on-screen rows.  In this
+                             * case, we trim the top and bottom off the range and and add dots to
+                             * the rows which contain part of this range.  It's entirely possible
+                             * that the previous `else if` is a special case, but this is probably
+                             * clearer. */
+
+                            // Check if start of the range should be folded
+                            let trimmed_start_row = if start_sub_index != 0 {
+                                // Make sure to place a dot on the row so that we don't lose
+                                // information about the falseness
+                                display_rows[start_row]
+                                    .contained_false_row_ranges
+                                    .push(r.group);
+                                Some(start_row + 1)
+                            } else {
+                                None
+                            };
+                            // Check if end of the range should be folded
+                            let trimmed_end_row = if end_sub_index != 0 {
+                                // Make sure to place a dot on the row so that we don't lose
+                                // information about the falseness
+                                display_rows[end_row]
+                                    .contained_false_row_ranges
+                                    .push(r.group);
+                                Some(end_row)
+                            } else {
+                                None
+                            };
+
+                            // Keep the trimmed range if doesn't have length 0
+                            let new_start_row = trimmed_start_row.unwrap_or(start_row);
+                            let new_end_row = trimmed_end_row.unwrap_or(end_row);
+                            if new_start_row < new_end_row {
+                                false_row_ranges.push(FalseRowRange {
+                                    range: new_start_row..new_end_row,
+                                    is_top_open: trimmed_start_row.is_some(),
+                                    is_bottom_open: trimmed_end_row.is_some(),
+                                    ..r
+                                });
+                            }
+
+                            // If the case matching is correct, at least one of the two `if`
+                            // statements should always execute.  However, it's always worth doing
+                            // cheap sanity checks since a miniscule performance hit and a crash
+                            // is infinitely preferable to silent UB.
+                            assert!(
+                                trimmed_start_row.is_some() || trimmed_end_row.is_some(),
+                                "Start: {}/{}, end: {}/{}",
+                                start_row,
+                                start_sub_index,
+                                end_row,
+                                end_sub_index
+                            );
                         }
                     }
 
@@ -825,6 +882,8 @@ fn add_ranges(
             // The `+ 1` makes sure that the range represents `start_loc..=end_loc`
             range: start_loc.row.min(end_loc.row)..start_loc.row.max(end_loc.row) + 1,
             group: group_id,
+            is_top_open: false,
+            is_bottom_open: false,
         };
         // Insert the newly created group to the HashMap to make sure it's displayed on
         // the correct fragment
