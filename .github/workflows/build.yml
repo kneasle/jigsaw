@@ -58,4 +58,5 @@ jobs:
               https://api.github.com/repos/kneasle/kneasle.github.io/actions/workflows/zola/dispatches \
               -d '{"ref":"master"}'
 
+    # Cache rust's build files to speed up the CI runs
     - uses: Swatinem/rust-cache@v1
