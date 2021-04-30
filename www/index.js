@@ -1,11 +1,5 @@
 /* ===== GLOBAL VALUES ===== */
 
-// The 'Device Pixel Ratio'.  For screens with lots of pixels, `1px` might correspond to multiple
-// real life pixels - so dpr provides that scale-up
-const dpr = window.devicePixelRatio || 1;
-
-/* === Commonly used HTML elements === */
-
 // Stats
 const elem_part_len = document.getElementById("part-len");
 const elem_num_parts = document.getElementById("num-parts");
@@ -109,9 +103,11 @@ const FALSE_COUNT_COL_FALSE = "red";
 const FALSE_COUNT_COL_TRUE = "green";
 const FALSENESS_BLOB_RADIUS = 0.3; // multiple of min(ROW_HEIGHT, COL_WIDTH)
 
-// Debug settings
+/* ===== DEBUG SETTINGS ===== */
+
 const DBG_PROFILE_SERIALISE_STATE = false; // profile `sync_derived_state` in `start`?
 const DBG_LOG_STATE_TRANSITIONS = false; // log to console whenever the UI changes state
+const DBG_SHOW_CURSOR_LOCATION = false; // renders where Jigsaw thinks the mouse cursor is
 
 /* ===== GLOBAL VARIABLES ===== */
 
@@ -429,7 +425,7 @@ function draw() {
     ctx.save();
     ctx.fillStyle = BACKGROUND_COL;
     ctx.fillRect(0, 0, canv.width, canv.height);
-    ctx.scale(dpr, dpr);
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
     const v = view_rect();
     // Move so that the camera's origin is in the centre of the screen
     ctx.translate(Math.round(v.w / 2), Math.round(v.h / 2));
@@ -446,6 +442,21 @@ function draw() {
     // Draw all the fragments
     for (let f = 0; f < derived_state.frags.length; f++) {
         draw_frag(derived_state.frags[f]);
+    }
+
+    // Draw the cursor's location
+    if (DBG_SHOW_CURSOR_LOCATION) {
+        const c = world_space_cursor_pos();
+        const r = 10;
+        ctx.strokeStyle = "black";
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(c.x - r, c.y - r);
+        ctx.lineTo(c.x + r, c.y + r);
+        ctx.moveTo(c.x - r, c.y + r);
+        ctx.lineTo(c.x + r, c.y - r);
+        ctx.stroke();
     }
 
     /* RESTORE CANVAS */
@@ -468,8 +479,8 @@ function request_frame() {
 function on_window_resize() {
     // Set the canvas size according to its new on-screen size
     var rect = canv.getBoundingClientRect();
-    canv.width = rect.width * dpr;
-    canv.height = rect.height * dpr;
+    canv.width = rect.width * window.devicePixelRatio;
+    canv.height = rect.height * window.devicePixelRatio;
     // Request a frame to be drawn
     request_frame();
 }
@@ -504,6 +515,10 @@ function on_mouse_move(e) {
     // next time the mouse moves).
     mouse_coords.x = e.offsetX;
     mouse_coords.y = e.offsetY;
+    // Always repaint the screen if we need to debug the cursor's location
+    if (DBG_SHOW_CURSOR_LOCATION) {
+        request_frame();
+    }
 }
 
 function on_mouse_down(e) {
@@ -1071,8 +1086,8 @@ function round_line_coord(coord, width) {
 function world_space_cursor_pos() {
     // First, transform the mouse coords out of screen space and into world space
     return {
-        x: mouse_coords.x - canv.width / 2 + view.view_x,
-        y: mouse_coords.y - canv.height / 2 + view.view_y,
+        x: mouse_coords.x - canv.width / 2 / window.devicePixelRatio + view.view_x,
+        y: mouse_coords.y - canv.height / 2 / window.devicePixelRatio + view.view_y,
     };
 }
 
