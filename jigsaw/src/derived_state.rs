@@ -371,6 +371,148 @@ struct DerivedFrag {
     y: f32,
 }
 
+impl DerivedFrag {
+    fn new(
+        coords: (f32, f32),
+        expanded_rows: Vec<ExpandedRow>,
+        link_groups: FragLinkGroups,
+        mut all_false_row_ranges: Vec<FalseRowRange>,
+        is_proved: bool,
+    ) -> Self {
+        // Sanity check that leftover rows should never be used in the proving
+        assert!(expanded_rows.last().map_or(false, |r| !r.is_proved));
+        // Unpack/derive useful data about this Frag
+        let (x, y) = coords;
+        let fold_regions = get_fold_ranges(&expanded_rows);
+        let line_ranges = get_line_ranges(&fold_regions, &expanded_rows);
+        // We sort the false row ranges by their starting point so that the order of falseness
+        // blobs on a folded row is the same as the order of the original groups.
+        all_false_row_ranges.sort_by_key(|f| f.range.start);
+
+        /* Calculate the rows that should be displayed to the user */
+
+        // Calculate a mapping between source rows and which display row they appear on (before
+        // consuming `fold_regions`)
+        //
+        // TODO: We should probably cache this and/or send it to JS so that we can easily determine
+        // which on-screen rows correspond to source rows
+        let mut source_row_to_display_row: Vec<(usize, usize)> =
+            Vec::with_capacity(expanded_rows.len());
+        for (i, r) in fold_regions.iter().enumerate() {
+            for sub_index in 0..(r.end - r.start) {
+                source_row_to_display_row.push((i, sub_index));
+            }
+        }
+        // Create the display_rows.  Some of the fields will be edited after initialisation using
+        // external information (line_ranges, false_row_ranges, etc.)
+        let mut display_rows: Vec<DisplayRow> = fold_regions
+            .into_iter()
+            .map(|r| DisplayRow::from_range(&expanded_rows, r))
+            .collect();
+        // Prevent JS from drawing coloured bell names where there are line ranges
+        for l in &line_ranges {
+            for r in &mut display_rows[l.range.clone()] {
+                r.use_bell_names = false;
+            }
+        }
+        // Modify the false row ranges by either moving them to the correct place on display or
+        // adding them to folded rows as dots.  This works by iterating over
+        // `all_false_row_ranges`, adding dots to the rows and pushing the ranges we want to keep
+        // to `false_row_ranges` which then will be used to construct the `DerivedFrag`.
+        let mut false_row_ranges = Vec::with_capacity(all_false_row_ranges.len());
+        for r in all_false_row_ranges {
+            let (start_row, start_sub_index) = source_row_to_display_row[r.range.start];
+            let (end_row, end_sub_index) = source_row_to_display_row[r.range.end];
+            // Decide how this range should be displayed
+            if start_sub_index == 0 && end_sub_index == 0 {
+                /* Pattern: (_, 0) -> (_, 0)
+                 * The range completely covers some set of on-screen rows.  This means that it
+                 * should be displayed as a range (which might cover folded rows, but that doesn't
+                 * matter) */
+                // Something has gone very wrong if we somehow manage to create a zero-length
+                // falseness range
+                assert_ne!(start_row, end_row);
+                false_row_ranges.push(FalseRowRange {
+                    range: start_row..end_row,
+                    ..r
+                });
+            } else if start_row == end_row || start_row + 1 == end_row && end_sub_index == 0 {
+                /* Patterns: (x, _) -> (x, _)
+                 *         | (x, _) -> (x + 1, 0)
+                 * The range is strictly within a single on-screen row.  This means that it should
+                 * be displayed as a dot next to the row, to prevent groups overlapping. */
+                display_rows[start_row]
+                    .contained_false_row_ranges
+                    .push(r.group);
+            } else {
+                /* The range overlaps partially between two on-screen rows.  In this case, we trim
+                 * the top and bottom off the range and and add dots to the rows which contain part
+                 * of this range.  It's entirely possible that the previous `else if` is a special
+                 * case, but this is probably clearer. */
+
+                // Check if start of the range should be folded
+                let trimmed_start_row = if start_sub_index != 0 {
+                    // Make sure to place a dot on the row so that we don't lose information about
+                    // the falseness
+                    display_rows[start_row]
+                        .contained_false_row_ranges
+                        .push(r.group);
+                    Some(start_row + 1)
+                } else {
+                    None
+                };
+                // Check if end of the range should be folded
+                let trimmed_end_row = if end_sub_index != 0 {
+                    // Make sure to place a dot on the row so that we don't lose information about
+                    // the falseness
+                    display_rows[end_row]
+                        .contained_false_row_ranges
+                        .push(r.group);
+                    Some(end_row)
+                } else {
+                    None
+                };
+
+                // Keep the trimmed range if doesn't have length 0
+                let new_start_row = trimmed_start_row.unwrap_or(start_row);
+                let new_end_row = trimmed_end_row.unwrap_or(end_row);
+                if new_start_row < new_end_row {
+                    false_row_ranges.push(FalseRowRange {
+                        range: new_start_row..new_end_row,
+                        is_top_open: trimmed_start_row.is_some(),
+                        is_bottom_open: trimmed_end_row.is_some(),
+                        ..r
+                    });
+                }
+
+                // If the case matching is correct, at least one of the two `if` statements should
+                // always execute.  However, it's always worth doing cheap sanity checks since a
+                // miniscule performance hit and a crash is infinitely preferable to silent UB.
+                assert!(
+                    trimmed_start_row.is_some() || trimmed_end_row.is_some(),
+                    "Start: {}/{}, end: {}/{}",
+                    start_row,
+                    start_sub_index,
+                    end_row,
+                    end_sub_index
+                );
+            }
+        }
+
+        /* Combine all this data into a single struct */
+        DerivedFrag {
+            is_proved,
+            false_row_ranges,
+            display_rows,
+            line_ranges,
+            expanded_rows,
+            link_groups,
+            x,
+            y,
+        }
+    }
+}
+
 /* ========== DERIVED STATE NOT SPECIFIC TO EACH FRAGMENTS ========== */
 
 /// The derived state of a single method definition.
@@ -416,7 +558,7 @@ impl DerivedCall {
     }
 }
 
-/// General statistics about the composition, to be displayed in the top-left corner of the screen
+/// General statistics about the composition
 #[derive(Serialize, Debug, Clone)]
 struct DerivedStats {
     part_len: usize,
@@ -473,145 +615,13 @@ impl DerivedState {
                 .zip(frag_link_groups.into_iter())
                 .enumerate()
                 .map(|(i, (expanded_rows, link_groups))| {
-                    // Sanity check that leftover rows should never be used in the proving
-                    assert!(expanded_rows.last().map_or(false, |r| !r.is_proved));
-                    // Unpack/derive useful data about this Frag
-                    let (x, y) = spec.frag_pos(i).unwrap();
-                    let fold_regions = get_fold_ranges(&expanded_rows);
-                    let line_ranges = get_line_ranges(&fold_regions, &expanded_rows);
-                    let mut all_false_row_ranges = ranges_by_frag.remove(&i).unwrap_or_default();
-                    // We sort the false row ranges by their starting point so that the order of
-                    // falseness blobs on a folded row is the same as the order of the original
-                    // groups.
-                    all_false_row_ranges.sort_by_key(|f| f.range.start);
-
-                    /* Calculate the rows that should be displayed to the user */
-                    // Calculate a mapping between source rows and which display row they appear on
-                    // (before consuming `fold_regions`)
-                    //
-                    // TODO: We should probably cache this and/or send it to JS so that we can
-                    // easily determine which on-screen rows correspond to source rows
-                    let mut source_row_to_display_row: Vec<(usize, usize)> =
-                        Vec::with_capacity(expanded_rows.len());
-                    for (i, r) in fold_regions.iter().enumerate() {
-                        for sub_index in 0..(r.end - r.start) {
-                            source_row_to_display_row.push((i, sub_index));
-                        }
-                    }
-                    // Create the display_rows.  Some of the fields will be edited after
-                    // initialisation using external information (line_ranges, false_row_ranges,
-                    // etc.)
-                    let mut display_rows: Vec<DisplayRow> = fold_regions
-                        .into_iter()
-                        .map(|r| DisplayRow::from_range(&expanded_rows, r))
-                        .collect();
-                    // Prevent JS from drawing coloured bell names where there are line ranges
-                    for l in &line_ranges {
-                        for r in &mut display_rows[l.range.clone()] {
-                            r.use_bell_names = false;
-                        }
-                    }
-                    // Modify the false row ranges by either moving them to the correct place on
-                    // display or adding them to folded rows as dots.  This works by iterating over
-                    // `all_false_row_ranges`, adding dots to the rows and pushing the ranges we
-                    // want to keep to `false_row_ranges` which then will be used to construct the
-                    // `DerivedFrag`.
-                    let mut false_row_ranges = Vec::with_capacity(all_false_row_ranges.len());
-                    for r in all_false_row_ranges {
-                        let (start_row, start_sub_index) = source_row_to_display_row[r.range.start];
-                        let (end_row, end_sub_index) = source_row_to_display_row[r.range.end];
-                        // Decide how this range should be displayed
-                        if start_sub_index == 0 && end_sub_index == 0 {
-                            /* Pattern: (_, 0) -> (_, 0)
-                             * The range completely covers some set of on-screen rows.  This means
-                             * that it should be displayed as a range (which might cover folded
-                             * rows, but that doesn't matter) */
-                            // Something has gone very wrong if we somehow manage to create a
-                            // zero-length falseness range
-                            assert_ne!(start_row, end_row);
-                            false_row_ranges.push(FalseRowRange {
-                                range: start_row..end_row,
-                                ..r
-                            });
-                        } else if start_row == end_row
-                            || start_row + 1 == end_row && end_sub_index == 0
-                        {
-                            /* Patterns: (x, _) -> (x, _)
-                             *         | (x, _) -> (x + 1, 0)
-                             * The range is strictly within a single on-screen row.  This means
-                             * that it should be displayed as a dot next to the row, to prevent
-                             * groups overlapping. */
-                            display_rows[start_row]
-                                .contained_false_row_ranges
-                                .push(r.group);
-                        } else {
-                            /* The range overlaps partially between two on-screen rows.  In this
-                             * case, we trim the top and bottom off the range and and add dots to
-                             * the rows which contain part of this range.  It's entirely possible
-                             * that the previous `else if` is a special case, but this is probably
-                             * clearer. */
-
-                            // Check if start of the range should be folded
-                            let trimmed_start_row = if start_sub_index != 0 {
-                                // Make sure to place a dot on the row so that we don't lose
-                                // information about the falseness
-                                display_rows[start_row]
-                                    .contained_false_row_ranges
-                                    .push(r.group);
-                                Some(start_row + 1)
-                            } else {
-                                None
-                            };
-                            // Check if end of the range should be folded
-                            let trimmed_end_row = if end_sub_index != 0 {
-                                // Make sure to place a dot on the row so that we don't lose
-                                // information about the falseness
-                                display_rows[end_row]
-                                    .contained_false_row_ranges
-                                    .push(r.group);
-                                Some(end_row)
-                            } else {
-                                None
-                            };
-
-                            // Keep the trimmed range if doesn't have length 0
-                            let new_start_row = trimmed_start_row.unwrap_or(start_row);
-                            let new_end_row = trimmed_end_row.unwrap_or(end_row);
-                            if new_start_row < new_end_row {
-                                false_row_ranges.push(FalseRowRange {
-                                    range: new_start_row..new_end_row,
-                                    is_top_open: trimmed_start_row.is_some(),
-                                    is_bottom_open: trimmed_end_row.is_some(),
-                                    ..r
-                                });
-                            }
-
-                            // If the case matching is correct, at least one of the two `if`
-                            // statements should always execute.  However, it's always worth doing
-                            // cheap sanity checks since a miniscule performance hit and a crash
-                            // is infinitely preferable to silent UB.
-                            assert!(
-                                trimmed_start_row.is_some() || trimmed_end_row.is_some(),
-                                "Start: {}/{}, end: {}/{}",
-                                start_row,
-                                start_sub_index,
-                                end_row,
-                                end_sub_index
-                            );
-                        }
-                    }
-
-                    /* Combine all this data into a single struct */
-                    DerivedFrag {
-                        is_proved: !spec.is_frag_muted(i).unwrap(),
-                        false_row_ranges,
-                        display_rows,
-                        line_ranges,
+                    DerivedFrag::new(
+                        spec.frag_pos(i).unwrap(),
                         expanded_rows,
                         link_groups,
-                        x,
-                        y,
-                    }
+                        ranges_by_frag.remove(&i).unwrap_or_default(),
+                        !spec.is_frag_muted(i).unwrap(),
+                    )
                 })
                 .collect(),
             stats: DerivedStats {
