@@ -547,7 +547,13 @@ impl Comp {
 
     /// Toggles the lead folding at a given **on screen** row index.  This doesn't update the undo
     /// history.
-    pub fn toggle_lead_fold(&mut self, frag_ind: usize, on_screen_row_ind: usize) {
+    pub fn toggle_lead_fold(&mut self, frag_ind: usize, on_screen_row_ind: isize) {
+        // Handle the possiblity that JS could pass a negative row index
+        let on_screen_row_ind: usize = if let Ok(i) = usize::try_from(on_screen_row_ind) {
+            i
+        } else {
+            return;
+        };
         // Figure out which source row the on-screen row actually corresponds to
         let foldable_row = self
             .derived_state
