@@ -2,14 +2,5 @@
 **/target/
 **/Cargo.lock
 
-# Latex files
-**.aux
-**.fdb_latexmk
-**.fls
-report/*.log
-report/report*.pdf
-report/*.synctex.gz
-report/*.toc
-
-# The output directory of the build script
+# The default output directory of `build.py`
 out/
