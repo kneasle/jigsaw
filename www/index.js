@@ -669,6 +669,10 @@ function on_key_down(e) {
             comp.reset();
             on_comp_change();
         }
+        // print a save file
+        if (e.key === "g") {
+            console.log(JSON.parse(comp.get_save_file()));
+        }
         // ctrl-z or simply z to undo (of course)
         if (e.key === "z") {
             comp.undo();

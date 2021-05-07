@@ -1,6 +1,6 @@
 use crate::{
     derived_state::DerivedState,
-    spec::{Frag, PartHeads, Spec},
+    spec::{self, Frag, PartHeads, Spec},
     view::View,
 };
 use proj_core::{place_not::PnBlockParseError, PnBlock, Row};
@@ -596,6 +596,11 @@ impl Comp {
         // We directly finish the action because we are fully overwriting it, and  calling
         // `self.make_action` would likely clone then immediately drop the current Spec
         self.finish_action(Spec::example());
+    }
+
+    /// Returns the saved JSON of the current undo history
+    pub fn get_save_file(&self) -> String {
+        spec::save_load::ser_history(&self.undo_history[..=self.history_index])
     }
 
     /* View Setters */

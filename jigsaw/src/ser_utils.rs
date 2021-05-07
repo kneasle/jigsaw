@@ -47,6 +47,16 @@ pub fn ser_rows<S: Serializer>(rows: &[Row], s: S) -> Result<S::Ok, S::Error> {
     seq_ser.end()
 }
 
+/// Custom serialiser to serialise `[&Row]` into `[[<bell-index>]]`.  This way, we don't have to
+/// mutilate our own data structures to get nice serialisation.
+pub fn ser_borrowed_rows<S: Serializer>(rows: &[&Row], s: S) -> Result<S::Ok, S::Error> {
+    let mut seq_ser = s.serialize_seq(Some(rows.len()))?;
+    for r in rows {
+        seq_ser.serialize_element(&r.bells().map(Bell::index).collect::<Vec<_>>())?;
+    }
+    seq_ser.end()
+}
+
 /// Custom serialiser to serialise `Stage` as an integer
 pub fn ser_stage<S: Serializer>(stage: &Stage, s: S) -> Result<S::Ok, S::Error> {
     s.serialize_u64(stage.as_usize() as u64)
