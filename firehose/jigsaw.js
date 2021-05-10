@@ -567,6 +567,22 @@ export class Comp {
         wasm.comp_reset(this.ptr);
     }
     /**
+    * Returns the saved JSON of the current undo history
+    * @returns {string}
+    */
+    get_save_file() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.comp_get_save_file(retptr, this.ptr);
+            var r0 = getInt32Memory0()[retptr / 4 + 0];
+            var r1 = getInt32Memory0()[retptr / 4 + 1];
+            return getStringFromWasm0(r0, r1);
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+            wasm.__wbindgen_free(r0, r1);
+        }
+    }
+    /**
     * Moves the view's camera to a given location
     * @param {number} new_cam_x
     * @param {number} new_cam_y
