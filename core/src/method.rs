@@ -1,4 +1,4 @@
-use crate::{block::AnnotRowIter, AnnotBlock, PnBlock, Stage};
+use crate::{block::AnnotRowIter, AnnotBlock, AnnotRow, PnBlock, Stage};
 
 // Imports used solely for doc comments
 #[allow(unused_imports)]
@@ -70,6 +70,26 @@ impl Method {
         CourseIter::new(self, starting_row)
     }
 
+    /// Returns an [`AnnotBlock`] representing the plain course of this method
+    pub fn plain_course(&self) -> AnnotBlock<(usize, Option<&str>)> {
+        // TODO: If we prevent labelling of leftover rows, then this turns into a one-line iterator
+        // chain
+        let mut annot_rows = Vec::new();
+        let mut is_first_row = true;
+        for (i, label, row) in self.plain_course_iter() {
+            let is_rounds_at_lead_end = i == 0 && row.is_rounds();
+            annot_rows.push(AnnotRow::new(row, (i, label)));
+            if is_rounds_at_lead_end && !is_first_row {
+                break;
+            }
+            is_first_row = false;
+        }
+        // This unsafety is OK because:
+        // - There must be at most one copy of `self.lead`, which must have length at least 2
+        // - [`CourseIter`] guarutees that all returned rows have the same [`Stage`]
+        unsafe { AnnotBlock::from_annot_rows_unchecked(annot_rows) }
+    }
+
     /// Generates a new [`CourseIter`] which generates the plain course of this [`Method`] forever.
     #[inline]
     pub fn plain_course_iter(&self) -> CourseIter<'_> {
@@ -118,7 +138,11 @@ impl<'m> CourseIter<'m> {
 
     /// Gets a new [`_InternalIter`] from a [`Method`]
     fn get_iter(method: &'m Method) -> _InternalIter<'m> {
-        method.first_lead.annot_rows().iter().enumerate().peekable()
+        // TODO: If leftover rows can't be annotated, then this slice is unnecessary
+        method.first_lead.annot_rows()[..method.lead_len()]
+            .iter()
+            .enumerate()
+            .peekable()
     }
 }
 
