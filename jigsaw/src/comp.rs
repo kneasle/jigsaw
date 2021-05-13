@@ -3,7 +3,7 @@ use crate::{
     spec::{self, Frag, PartHeads, Spec},
     view::View,
 };
-use proj_core::{place_not::PnBlockParseError, PnBlock, Row};
+use proj_core::{place_not::PnBlockParseError, PnBlock, Row, RowTrait};
 use serde::Serialize;
 use std::convert::TryFrom;
 use wasm_bindgen::prelude::*;

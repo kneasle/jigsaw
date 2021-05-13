@@ -1,8 +1,8 @@
-use crate::{block::AnnotRowIter, AnnotBlock, AnnotRow, PnBlock, Stage};
+use crate::{block::AnnotRowIter, AnnotBlock, AnnotRow, PnBlock, Row, RowTrait, Stage};
 
 // Imports used solely for doc comments
 #[allow(unused_imports)]
-use crate::{Block, Row};
+use crate::Block;
 
 /// A standard label name used for denoting the 'lead end' of a method
 pub const LABEL_LEAD_END: &str = "LE";

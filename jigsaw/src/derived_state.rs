@@ -1,6 +1,6 @@
 use crate::spec::{CallSpec, MethodRef, MethodSpec, PartHeads, Spec};
 use itertools::Itertools;
-use proj_core::{run_len, Row, Stage};
+use proj_core::{run_len, Row, RowTrait, Stage};
 use serde::Serialize;
 use std::rc::Rc;
 use std::{
@@ -157,12 +157,12 @@ impl ExpandedRow {
         // For each part that contains music, add one to the bells which are covered by the music
         for (part, r) in all_rows.iter().enumerate() {
             // Highlight runs of >=4 bells of the **front**
-            let run_len_f = run_len(r.bells());
+            let run_len_f = run_len(r.bell_iter());
             if run_len_f >= 4 {
                 music[..run_len_f].iter_mut().for_each(|m| m.push(part));
             }
             // Highlight runs of >=4 bells of the **back**
-            let run_len_b = run_len(r.bells().rev());
+            let run_len_b = run_len(r.bell_iter().rev());
             if run_len_b >= 4 {
                 // The 'max' prevents the two ranges from overlapping and causing music in multiple
                 // runs from being counted twice

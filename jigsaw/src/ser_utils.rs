@@ -42,7 +42,7 @@ pub fn ser_opt_rows<S: Serializer>(rows: &Option<Vec<Row>>, s: S) -> Result<S::O
 pub fn ser_rows<S: Serializer>(rows: &[Row], s: S) -> Result<S::Ok, S::Error> {
     let mut seq_ser = s.serialize_seq(Some(rows.len()))?;
     for r in rows {
-        seq_ser.serialize_element(&r.bells().map(Bell::index).collect::<Vec<_>>())?;
+        seq_ser.serialize_element(&r.bell_iter().map(Bell::index).collect::<Vec<_>>())?;
     }
     seq_ser.end()
 }
@@ -52,7 +52,7 @@ pub fn ser_rows<S: Serializer>(rows: &[Row], s: S) -> Result<S::Ok, S::Error> {
 pub fn ser_borrowed_rows<S: Serializer>(rows: &[&Row], s: S) -> Result<S::Ok, S::Error> {
     let mut seq_ser = s.serialize_seq(Some(rows.len()))?;
     for r in rows {
-        seq_ser.serialize_element(&r.bells().map(Bell::index).collect::<Vec<_>>())?;
+        seq_ser.serialize_element(&r.bell_iter().map(Bell::index).collect::<Vec<_>>())?;
     }
     seq_ser.end()
 }

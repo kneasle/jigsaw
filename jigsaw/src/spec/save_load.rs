@@ -1,4 +1,4 @@
-use proj_core::Row;
+use proj_core::{Row, RowTrait};
 use serde::Serialize;
 use std::{collections::HashMap, hash::Hash, rc::Rc};
 
