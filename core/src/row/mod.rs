@@ -9,6 +9,7 @@ use std::{
 
 use crate::{Bell, IncompatibleStages, Stage};
 
+pub mod simd;
 pub(crate) mod vec_row;
 
 // Imports used solely for doc comments
