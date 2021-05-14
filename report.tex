@@ -1,5 +1,9 @@
 \documentclass[12pt]{article}
 
+\usepackage{amsmath}
+\usepackage{fancyvrb}
+\usepackage{hyperref}
+
 \title{Insert Report Title Here}
 \author{Benjamin White-Horne \\ \emph{Oxford University}}
 
@@ -14,12 +18,141 @@
 \tableofcontents
 \pagebreak
 
-\section{What is Composing?}
+\section{Overview of Change Ringing}
+
+This project concerns building a tool to help people design pieces of change ringing (herein known
+as ``composers'' composing ``compositions'').  However, change ringing is a very niche and varied
+past-time so this section will serve as a quick overview of the things which are relevant to this
+project.  A more complete overview can be found
+\href{https://en.wikipedia.org/wiki/Change_ringing}{on Wikipedia}.
+
+\br{}Change ringing (sometimes known as full-circle church bell ringing) originated in England
+churches in around 1600, where churches began hanging sets of tuned bells on wheels in towers.
+Sets of bells range from 3 to 16 bells, with even numbers from 6 to 12 being almost ubiquitous.
+By convention, the bells are numbered sequentially with `1' referring to the highest-pitched bell in
+the tower.  These bells are typically quite heavy (bells over a ton are fairly common) and are spun
+back and forth through 360 degrees like a pendulum.
+
+Therefore, the bells can only ring at near their natural frequency and it is nearly impossible to
+play traditional music on bells hung like this.  Instead, a piece of change ringing is a sequence of
+permutations, known as `changes' (hence `change ringing') or `rows' in this project.  These rows
+have the additional property that bells always move by at most one place between two adjacent rows.
+On paper, we write these permutations in order as separate lines:
+
+\begin{verbatim}
+12345678
+21436587
+21345678
+12436587
+12345678
+\end{verbatim}
+
+\subsection{Insert some stuff about methods here}
+
+A `composition' is a sequence of rows of some length which satisfies the adjacency property and
+starts and finishes with the row containing bells in descending order (\row{123456\ldots}, known as
+`rounds').  Thus, the above diagram shows a valid composition.
+
+Therefore, the task of a composer is to create compositions which have some set of desirable
+features (which is likely to depend heavily on the circumstances of each performance).  In order to
+understand the rationale behind this project and gauge its success, we must first understand some of
+the most important features or constraints of compositions.
+
+\subsection{Features of Compositions}
+
+\subsubsection{Truth/Falseness}
+
+A composition is called \emph{true} if every row is unique, and is called \emph{false} otherwise.
+This is \emph{the} most important property that a composition can have, since any performance of a
+false composition is considered invalid and therefore a waste of the ringers' time.  When we write
+out compositions we usually write out rounds twice, but when considering falseness it is only
+counted once (thus, rounds in the middle of a composition is still false).
+
+\subsubsection{Length}
+
+The `length' of a composition is the number of rows which it contains.  Like falseness, external
+rounds is only considered once.  90\% of performances have one of two length ranges:
+
+\begin{enumerate}
+    \item A \textbf{Peal} consists of at least 5000 rows (about 3 hours' of ringing).
+        The number 5000 is that historically the pinnacle of ringing was to ring every
+        permutation of 7 bells, which results in $7! = 5040$ rows.  This was recently rounded down
+        to 5000 for all numbers of bells, but the majority of people prefer the completeness of
+        5040 rows for peals of 5, 6 or 7 bells (where every possible row is rung the same number of
+        times).
+    \item A \textbf{Quarter Peal} consists of at least 1250 rows (a quarter of a peal's length, and
+        about 45 minutes of ringing).  Due to the reduced completion time, these are much more
+        common than peals.  Half peals ($\ge 2500$ rows) and double-length peals ($\ge 10,000$ rows)
+        are both recognised lengths but performances of them are very rare.
+\end{enumerate}
+
+Also, every row above the lower bound is extra ringing time for little gain in performance merit,
+and therefore composers try to make compositions which are fairly tight to these lower bounds.
+Indeed, lengths within the ranges $1250 \le l < 1300$ or $5000 \le l < 5100$ are almost ubiquitous.
+
+\subsubsection{Music}
+
+If we are composing for $\ge 8$ bells, then our composition will not contain every possible row and
+we therefore have the opportunity to decide which rows get included and which don't.  Of these, some
+may be more favourable than others --- in general ringers prefer rows with low entropy over those
+which sound more random.
+
+Some common forms of music are as follows (examples are given on 8 bells, but logical extensions
+usually exist on other numbers).  By convention I will use \row{x} as a wild card for any bell (like
+\verb"." in regexes):
+
+\begin{enumerate}
+    \item \textbf{Runs of bells}: Rows which start or finish with $\ge 4$ consecutive bells.
+        The exact bells are unimportant and the longer the run the better.  For example
+        \row{345678xx} starts with a descending run of 6 bells, and is therefore preferable to
+        \row{xxxx4321} which ends with an ascending run of 4 bells.
+    \item \textbf{Named rows}: Single rows which people deem especially pleasing.  Some examples:
+        \begin{itemize}
+            \item Queens: \row{13572468} --- odds then evens
+            \item Backrounds: \row{87654321} --- rounds but reversed
+            \item Tittums: \row{15263748} --- alternates high and low, sounds like `tee-tum-tee-tum'
+        \end{itemize}
+    \item \textbf{Musical patterns}: Where part of the row forms an interesting pattern.  For
+        example \row{xxxx6578} (known as `65s') or \row{x5x6x7x8} (from Tittums).
+\end{enumerate}
+
+\subsubsection{Complexity}
+
+Complexity does not have a nice mathematical definition, but can roughly be broken down into three
+parts:
+
+\begin{enumerate}
+    \item \textbf{Method choice}: Which methods are used as building blocks for the composition?
+        This is what the entire band of ringers will have to learn in order to ring your
+        composition.
+    \item \textbf{Memorisability}: How easy is your composition for a conductor to memorise?  One
+        member of your band will have to learn the calling of your composition.  Things which make
+        this easier are having sections of the calling be repeated so that they only have to be
+        memorised once.
+    \item \textbf{Putting right}: If two people swap over part way through a composition, how hard
+        will it be to figure this out and correct the situation?  Often this is achieved by fixing
+        certain bells (i.e.\ not changing the relation between the \row{7} and the \row{8}), and
+        having fewer calls in the composition to reduce the number of times that the conductor has
+        to change their mental picture of the ringing.
+\end{enumerate}
+
+In general, we want to make these 3 things as simple as possible (i.e.\ few standard methods with a
+very predictable calling) because that will open your composition to the most potential bands.
+However, sometimes bands \emph{do} want to ring a hard composition or complex non-standard methods.
+
+\subsubsection{Summary}
+
+In general, length and falseness are hard constraints which composers have little choice over and
+must work around.  Therefore, most compositions are made by the composer fixing some ideal level of
+complexity and trying to get as much music as possible within that constraint.  Also, many composers
+are also conductors and conduct their own compositions, which minimises the learning requirement.
+
+
 
 \section{What is my Project Trying to Do?}
 
 The purpose of the project is to build an application which \emph{helps} composers create better
-change ringing compositions with as little change to their workflow as possible.  This aim is
+change ringing compositions with as little change to their work-flow as possible.  This aim is
 roughly analogous to what applications like MuseScore and Sibelius do for musical composers --- the
 goal is to create some form of `helpful paper' which allows the composer to experiment more freely
 by providing instant feedback on everything that the composer wants to know about their composition.
@@ -51,8 +184,8 @@ composers, and knowledge gained from experimenting with prototypes early on in t
 There are several reasons why mechanical assistance would be useful for change ringing composers in
 particular.
 
-Firstly, change ringing compositions are at their core simply sequences of permuatations, and are
-therefore extremely ameanable to mathematical and computerised analysis.  Also, nearly all
+Firstly, change ringing compositions are at their core simply sequences of permutations, and are
+therefore extremely amenable to mathematical and computerised analysis.  Also, nearly all
 compositions are fundamentally designed for human consumption, putting very low upper bounds on the
 potential size of the compositions which computers have to deal with (there aren't any towers with
 more than 16 (ringable) bells and humans can ring about 1,500 rows per hour, so perhaps 99.99\% of
@@ -105,7 +238,7 @@ install --- it is simply a website, and therefore has no software dependencies e
 compositions, but this is not really an issue.
 
 \paragraph{Incremental:}  CompLib can't handle partial compositions at all; compositions must start
-(and preferrably end) in rounds.  If the composition does not come round (as is the case for almost
+(and preferably end) in rounds.  If the composition does not come round (as is the case for almost
 all unfinished compositions), then CompLib generates thousands of repeated rows on the end of your
 composition in the hope that the comp will come round, to the detriment of performance and
 usability.
@@ -121,7 +254,7 @@ cause some of them to be overwritten and lost.
 because it is designed for inputting and later learning already finished compositions).
 CompLib allows the user to choose between a range of several ways of viewing their composition (even
 when it doesn't come round), and all of these are very easy to read.  On the other hand, the
-blueline view doesn't hightlight musical rows, which I think would be beneficial even for CompLib's
+blue line view doesn't highlight musical rows, which I think would be beneficial even for CompLib's
 use case of people learning comps.  Also, if you want to see more detail of one segment of a
 composition, there is no way to `unfold' only part of it --- you have to switch to an entirely new
 view and then find that location again.
@@ -144,7 +277,7 @@ view and then find that location again.
 
 \subsection{Inpact}
 
-Inpact is a program written by Alexander Holroyd to support the workflow of experimenting with
+Inpact is a program written by Alexander Holroyd to support the work-flow of experimenting with
 compositions.  It provides instant feedback on truth and music, but is visually quite clunky and
 doesn't support `partial' compositions.
 
@@ -186,7 +319,7 @@ When choosing technologies for a project, we must first decide what the project 
 them.  For this project, we will need to maintain a pretty-looking canvas-style user interface which
 can be updated in real time if the user were to pan the viewport or drag parts of the composition.
 However, behind the scenes, the application will have to perform a large amount of permutation logic
-every time the user changes anything and must do all of this without a noticable delay or hitch to
+every time the user changes anything and must do all of this without a noticeable delay or hitch to
 the UI, regardless of the size and complexity of the composition.  This logic will be fairly complex
 and its correctness is vital for the application to work as expected.  Finally, the application
 should be as easy to get running as possible --- i.e.\ we want to minimise the time between the user
@@ -236,12 +369,12 @@ this purpose, for example TypeScript, C/C++ or Go but I chose Rust for the follo
         which generates binding code between native Rust and native JavaScript to let them interface
         seamlessly.
     \item I am already proficient in Rust, and have already developed a library with useful
-        datatypes for handling compositions efficiently.
+        data types for handling compositions efficiently.
 \end{enumerate}
 
 This approach has been very promising performance-wise: as of the first prototype, the latency
 between a user changing the composition and the result appearing on screen is 3ms for a composition
-with 2000 rows of 8 bells each.  This processess involves no caching --- the entire composition is
+with 2000 rows of 8 bells each.  This process involves no caching --- the entire composition is
 completely expanded, proved, music checked, serialised to JSON, copied to JavaScript and
 deserialised in the 3ms.  The algorithms implemented are no worse than quadratic in the number of
 bells, so I would place a very paranoid upper bound to be about 103ms (for 6000 rows of 16 bells
@@ -258,7 +391,7 @@ with as much undo history as possible).
 \subsubsection{Using Cookies as Persistent State}
 
 Fortunately for this project, there is some storage that web pages can use to store persistent data
-without the user's input, and those are cookies.  Unfortunately, cookies are severly size limited
+without the user's input, and those are cookies.  Unfortunately, cookies are severely size limited
 --- a web page can only expect to be able to save about 30 cookies per page, each of which can be at
 most 4096 bytes, so we have 122,800 bytes in which to save all the persistent state we need.  In
 reality, however, it's not a good idea to run too close to this limit because the page may have to
@@ -274,7 +407,7 @@ and doing so will break any serialised data.
 This is the high-level model that should define how the application should behave (even if the
 implementation details are different).  This model contributes to most of the learning curve for new
 users and therefore should be as simple as possible without losing expressivity.  I'm going to
-describe the model in terms of Haskell datatypes, using names identical to those used in the
+describe the model in terms of Haskell data types, using names identical to those used in the
 project's source code (the actual implementation will look largely similar due to Rust being heavily
 inspired by Haskell).
 
@@ -302,13 +435,13 @@ the changes to the specification.
 For this project, we have a few requirements which will constrain the model used (namely the
 completeness and generality goals).  Firstly, to satisfy generality the model must be able to
 express as many partial compositions as possible.  From discussions with other composers on this
-topic, I know that it is a very common workflow to begin a composition with ideas that fit into
+topic, I know that it is a very common work-flow to begin a composition with ideas that fit into
 three broad categories:
 
 \begin{enumerate}
     \item \textbf{Meta-data:} Some concept of overall structure, for example which method(s) to use,
         what part structure to use, etc.  These are usually laid out before composing starts, and
-        it is likely that the finished composition will have the same metadata as the initial idea.
+        it is likely that the finished composition will have the same meta data as the initial idea.
     \item \textbf{Fragments:} Some chunks of the composition that they want to ring, perhaps with
         some idea on what order these should be rung in (no assumptions are made about whether or
         not these ``fragments'' are connectible or even mutually true).  These will almost certainly
@@ -317,7 +450,7 @@ three broad categories:
     \item \textbf{Abstract} ideas about complexity, use of repeated blocks, etc.\ which are
         relevant to the resulting composition but extremely difficult to represent in a
         machine-compatible way.  This model will not attempt to encapsulate these ideas, since they
-        are so varied, abstract and complex that a sufficiently general model would be enourmously
+        are so varied, abstract and complex that a sufficiently general model would be enormously
         complex for both the programmer and the user.  Also, these `rules' are usually strategically
         bent by composers due to context that isn't available to the computer so having an
         application that enforces them would likely feel overly restrictive.
@@ -327,14 +460,14 @@ three broad categories:
 
 Here, I will describe a model around which this project will be built.  As described above, we will
 only model the first two categories of ideas described above, as they are the most important and
-straightforward to implement.  I will describe the model as Haskell-style datatypes, using some
+straightforward to implement.  I will describe the model as Haskell-style data types, using some
 light syntax extensions for things like \verb+{| .. |}+ for counted sets (a.k.a.\ bags).  For
-consistency between this report and the code, I have given datatypes the same
+consistency between this report and the code, I have given data types the same
 names as their counterparts in the Rust source code wherever possible.
 
 First of all, a \verb|Spec|ification of a composition is a combination of a bag of \verb|Frag|ments
 coupled with some \verb|MetaData| (in the code, the meta-data is simply flattened into the
-\verb|Spec| struct):
+\verb|Spec| structure):
 
 \begin{verbatim}
 data Spec = Spec {
@@ -369,7 +502,7 @@ data MetaData = MetaData {
 }
 \end{verbatim}
 
-The remaining datatypes in this definition (\verb|Row|, \verb|Stage|, \verb|Bell|, etc.) are stored
+The remaining data types in this definition (\verb|Row|, \verb|Stage|, \verb|Bell|, etc.) are stored
 in a separate library to the project's business code in the \verb|core| directory (imported as
 \verb|proj_core| in the code).  For completeness, they could be defined in Haskell as follows:
 
@@ -383,8 +516,34 @@ data Stage = Stage Int
 \subsubsection{Operations on the Data}
 
 Now that we know how a composition is specified, we now need to define how the user will be able to
-modify the datatypes defined above.
+modify the data types defined above.
 
 (T.B.C.)
+
+\section{Glossary of Change Ringing Terms}
+
+\paragraph{Stage:} The number of bells which the composition uses.  This is not necessarily the
+number of bells used to ring a given composition, but for the purposes of this project the
+distinction is not relevant.
+
+\paragraph{Row:} A sequence of bells which forms a permutation.  Rows are the fundamental building
+blocks of compositions.  The words `change' and `row' are often used interchangeably (hence the name
+`Change Ringing'), but to avoid confusion I will always use `row' in this report.
+
+\paragraph{Composition:} An ordered sequence of rows which tell ringers in which order the bells
+should be rung.
+
+\paragraph{Truth:} For the purposes of this project, a composition is \emph{`true'} if all the rows
+are unique, otherwise it is \emph{`false'}.  This is the single most important property of a
+composition, since any performance of a `false' composition is considered invalid.
+
+\paragraph{Method:} A short, usually symmetrical, pattern that is repeated throughout a composition
+with small and well-defined modifications (known as `calls').  This is the key to how human ringers
+can ring over 5000 rows worth of composition without any memory aid --- in reality, they memorise
+the method(s) and one `conductor' memorises the pattern of calls and calls them in the right places
+for the other ringers to take effect.  It is usually the job of the composer to make sure that the
+call sequence is predictable and easy to memorise.
+
+\paragraph{Lead:} A single instance of the repeating pattern of a method.
 
 \end{document}

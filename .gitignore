@@ -2,7 +2,8 @@
 **.aux
 **.fdb_latexmk
 **.fls
-report.log
-report.pdf
-report.synctex.gz
-report.toc
+**.log
+**.pdf
+**.synctex.gz
+**.toc
+**.out
