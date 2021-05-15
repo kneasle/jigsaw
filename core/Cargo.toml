@@ -12,3 +12,6 @@ simd_row = ["safe_arch"]
 [dependencies]
 itertools = "0.10.0"
 safe_arch = { version = "0.5", optional = true }
+
+[dev-dependencies]
+proptest = "1.0"

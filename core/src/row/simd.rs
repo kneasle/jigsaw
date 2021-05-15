@@ -1,6 +1,9 @@
-// #![cfg(target_feature = "ssse3")]
-// #![cfg(target_feature = "sse4.1")]
+#![cfg(target_feature = "ssse3")]
+#![cfg(target_feature = "sse4.1")]
+// Because of the unsafety, this module is hidden behind a feature flag
 #![cfg(feature = "simd_row")]
+// The SIMD intrinsics we're using are only valid on x86
+#![cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 
 use std::hash::{Hash, Hasher};
 
@@ -12,17 +15,19 @@ use super::{check_validity, check_validity_with_stage};
 
 const ROUNDS: u128 = 0x0f0e0d0c_0b0a0908_07060504_03020100;
 
-/// A `Row` type which uses SIMD to peform permuations, copying and equality in a single clock
-/// cycle.  In return, the current CPU must support the `ssse3` instruction set and [`SimdRow`]s
-/// are limited to 16 [`Bell`]s (which should cover ~99% of cases anyway).
+/// A `Row` type which uses SIMD to perform permutation and equality each in a single clock cycle.
+/// In return, the current CPU must support the `ssse3` and `sse4.1` x86 extensions and
+/// [`SimdRow`]s are limited to 16 [`Bell`]s (which should cover ~99% of cases anyway).  **You have
+/// to check this using [`SimdRow::are_cpu_features_enabled`] before using `SimdRow`**, since
+/// running this SIMD code on processors without the required instruction extensions is instant UB.
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub struct SimdRow {
     /// The bells contained in this [`SimdRow`], packed as individual bytes with the first [`Bell`]
     /// in the least significant byte.
     ///
     /// **Invariant:** The unused bytes **must** be set their own indices (making this always a
-    /// valid `Row` on 16 bells).  This is because that bitpattern is preserved by multiplication,
-    /// meaning that simple bit equality is sufficient without any extra bitmasking.
+    /// valid `Row` on 16 bells).  This is because that bit pattern is preserved by multiplication,
+    /// meaning that simple bit equality is sufficient without any extra bit masking.
     bells: m128i,
     stage: Stage,
 }
@@ -85,15 +90,12 @@ impl RowTrait for SimdRow {
         *out = self.mul_unchecked(rhs);
     }
 
-    #[inline]
-    #[allow(unreachable_code)]
+    #[inline(always)]
     fn swap(&mut self, a: usize, b: usize) {
-        panic!("I don't think `SimdRow::swap` works.  Test it before using it.");
-
         // A 128 bit integer with 1s in the locations of bytes a and b
-        let byte_mask = (0xffu128 << a) | (0xffu128 << b);
+        let byte_mask = (0xffu128 << (a * 8)) | (0xffu128 << (b * 8));
         // A 128 bit integer with `b` in byte index a and `a` in byte index b
-        let swap_bytes = ((b as u128) << a) | ((a as u128) << b);
+        let swap_bytes = ((b as u128) << (a * 8)) | ((a as u128) << (b * 8));
         // A 128 bit integer with each byte containing its own index except for bytes `a` and `b`,
         // which have been replaced by each other's index.  Therefore, this is the permutation
         // which swaps bells at `a` and `b`
@@ -107,10 +109,7 @@ impl RowTrait for SimdRow {
         *out = self.inv();
     }
 
-    #[allow(unreachable_code)]
     fn inv(&self) -> Self {
-        panic!("I don't think `SimdRow::inv` works.  Test it before using it.");
-
         // 128 bit integer where we'll put the lower bytes representing the inverse of `self`.  The
         // higher/unused bits will be added later.
         let mut inverted_bytes = 0u128;
@@ -229,7 +228,7 @@ impl std::ops::Not for SimdRow {
 
     /// Find the inverse of a [`Row`].  If `X` is the input [`Row`], and `Y = !X`, then
     /// `XY = YX = I` where `I` is the identity on the same stage as `X` (i.e. rounds).  This
-    /// operation cannot fail, since valid [`Row`]s are guaruteed to have an inverse.
+    /// operation cannot fail, since valid [`Row`]s are guaranteed to have an inverse.
     ///
     /// # Example
     /// ```
@@ -276,5 +275,70 @@ impl Iterator for BellIter {
 impl From<Row> for SimdRow {
     fn from(r: Row) -> Self {
         unsafe { Self::from_iter_unchecked(r.bell_iter()) }
+    }
+}
+
+// Test to check that transmutations are safe
+#[test]
+fn test_m128i_size_align() {
+    assert_eq!(core::mem::size_of::<m128i>(), 16);
+    assert_eq!(core::mem::align_of::<m128i>(), 16);
+
+    assert_eq!(core::mem::size_of::<u128>(), 16);
+    assert_eq!(core::mem::align_of::<u128>(), 8);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    fn perm_to_16() -> BoxedStrategy<Vec<usize>> {
+        (0usize..16)
+            .prop_map(|n| (0..n).collect_vec())
+            .prop_shuffle()
+            .boxed()
+    }
+
+    proptest! {
+        #[test]
+        fn inv(a in perm_to_16()) {
+            let r = SimdRow::from_iter(a.iter().map(|v| Bell::from_index(*v))).unwrap();
+            let r_inv = r.inv();
+            let rounds = SimdRow::rounds(r.stage());
+
+            assert_eq!(r.stage(), r_inv.stage());
+            assert_eq!(r.mul(&r_inv), Ok(rounds));
+            assert_eq!(r_inv.mul(&r), Ok(rounds));
+        }
+
+        #[test]
+        fn mul_matches_row(a in perm_to_16(), b in perm_to_16()) {
+            let r1 = Row::from_iter(a.iter().map(|v| Bell::from_index(*v))).unwrap();
+            let r2 = Row::from_iter(b.iter().map(|v| Bell::from_index(*v))).unwrap();
+
+            let standard_mul = r1.mul(&r2).map(SimdRow::from);
+            let simd_mul = SimdRow::from(r1).mul(&SimdRow::from(r2));
+
+            // Converting then multiplying should give the same result as vice versa
+            assert_eq!(standard_mul, simd_mul);
+        }
+
+        #[test]
+        fn swap_matches_row(a in perm_to_16(), i1 in 0usize..16, i2 in 0usize..16) {
+            // Swapping out of range will panic
+            if i1 < a.len() && i2 < a.len() {
+                let mut standard_swap = Row::from_iter(
+                    a.iter().map(|v| Bell::from_index(*v))
+                ).unwrap();
+                let mut simd_swap = SimdRow::from(standard_swap.clone());
+
+                standard_swap.swap(i1, i2);
+                simd_swap.swap(i1, i2);
+
+                // Converting then swapping should give the same result as vice versa
+                assert_eq!(SimdRow::from(standard_swap), simd_swap);
+            }
+        }
     }
 }
