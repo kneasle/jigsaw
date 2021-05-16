@@ -3,6 +3,8 @@
 \usepackage{amsmath}
 \usepackage{fancyvrb}
 \usepackage{hyperref}
+\usepackage{multicol}
+\usepackage{wrapfig}
 
 \title{Insert Report Title Here}
 \author{Benjamin White-Horne \\ \emph{Oxford University}}
@@ -20,24 +22,22 @@
 
 \section{Overview of Change Ringing}
 
-This project concerns building a tool to help people design pieces of change ringing (herein known
-as ``composers'' composing ``compositions'').  However, change ringing is a very niche and varied
-past-time so this section will serve as a quick overview of the things which are relevant to this
-project.  A more complete overview can be found
+This project is to build a tool to help composers design complex sequences of ringing of church
+bells.  Change ringing is a very niche and varied activity so this section will serve as a quick
+introduction to the topic and overview of the aspects of change ringing which are most relevant to
+this project.  A more complete overview can be found
 \href{https://en.wikipedia.org/wiki/Change_ringing}{on Wikipedia}.
 
-\br{}Change ringing (sometimes known as full-circle church bell ringing) originated in England
+\br{}Change ringing (sometimes known as full-circle church bell ringing) originated in English
 churches in around 1600, where churches began hanging sets of tuned bells on wheels in towers.
-Sets of bells range from 3 to 16 bells, with even numbers from 6 to 12 being almost ubiquitous.
-By convention, the bells are numbered sequentially with `1' referring to the highest-pitched bell in
-the tower.  These bells are typically quite heavy (bells over a ton are fairly common) and are spun
-back and forth through 360 degrees like a pendulum.
-
-Therefore, the bells can only ring at near their natural frequency and it is nearly impossible to
-play traditional music on bells hung like this.  Instead, a piece of change ringing is a sequence of
-permutations, known as `changes' (hence `change ringing') or `rows' in this project.  These rows
-have the additional property that bells always move by at most one place between two adjacent rows.
-On paper, we write these permutations in order as separate lines:
+The installations range from 3 to 16 bells, with even numbers from 6 to 12 being almost ubiquitous.
+These bells are typically quite heavy (bells over a ton are fairly common) and are spun
+back and forth through 360 degrees like a pendulum.  All the bells are rung once in a sequence which
+changes each time.  A piece of change ringing is a sequence of permutations, known as `changes'
+(hence `change ringing').  Bells only move by at most one place between two adjacent rows.  On
+paper, we write these permutations in order as rows of numbers and by convention, the bells
+are numbered sequentially with `1' referring to the highest-pitched bell in the tower.  For
+example:
 
 \begin{verbatim}
 12345678
@@ -47,23 +47,123 @@ On paper, we write these permutations in order as separate lines:
 12345678
 \end{verbatim}
 
-\subsection{Insert some stuff about methods here}
+\subsection{Methods}
+A performance of ringing will often contain thousands of individual rows.  Physical aids to memory
+are not permitted during performances so the ringers must ring thousands of unique rows completely
+from memory.  Memorising them all directly is clearly not feasible, so compositions are built up
+from repeating patterns known as `methods'.
+
+A method has a name (often with historical or geographical connections). In the method each bell
+moves through a pre-determined path, moving back and forth within the sequence. Ringers learn this
+path to help them remember where to ring in the sequence of rows.
+
+\begin{wrapfigure}{r}{0.2\textwidth}
+\centering
+\begin{BVerbatim}
+12345678
+21436587
+24163857
+42618375
+46213857
+64128375
+61482735
+16847253
+--------
+16482735
+61847253
+68174523
+86715432
+87614523
+78165432
+71856342
+17583624
+--------
+17856342
+\end{BVerbatim}
+\caption{Two leads concatenated}
+\label{fig:two-leads-lb8}
+\end{wrapfigure}
+
+A single instance of a method is called a `lead' and can be thought of as a super-permutation; it
+takes a start row and produces a sequence of rows, ending with the row which the next lead should be
+started (rows like this are not considered part of the super-permutation).
+
+For example,
+the following are all leads of the same method\footnote{This particular method is known as `Little
+Bob Major'.} (we write the `leftover' row under a dashed line because it belongs to the lead
+\emph{after} the others):
+
+\begin{multicols}{3}
+
+\centering
+\begin{BVerbatim}
+12345678
+21436587
+24163857
+42618375
+46213857
+64128375
+61482735
+16847253
+--------
+16482735
+\end{BVerbatim}
+
+\centering
+\begin{BVerbatim}
+16482735
+61847253
+68174523
+86715432
+87614523
+78165432
+71856342
+17583624
+--------
+17856342
+\end{BVerbatim}
+
+\centering
+\begin{BVerbatim}
+12486753
+21847635
+28174365
+82713456
+87214365
+78123456
+71832546
+17385264
+--------
+17832546
+\end{BVerbatim}
+
+\end{multicols}
+
+Note that a single lead of this method preserves the location of the bell at the front of the
+change.  This is an extremely common feature of methods because it allows ringers to orient
+themselves around this `fixed' bell and therefore helps prevent mistakes.
+
+One observation we can make here is that the second column begins with the leftover row of the
+first.  Therefore, we could concatenate the two leads together to form a longer piece (as in
+fig~\ref{fig:two-leads-lb8}). Note how the dashed lines split consecutive leads.
+
+\subsection{Compositions}
 
 A `composition' is a sequence of rows of some length which satisfies the adjacency property and
 starts and finishes with the row containing bells in descending order (\row{123456\ldots}, known as
 `rounds').  Thus, the above diagram shows a valid composition.
 
-Therefore, the task of a composer is to create compositions which have some set of desirable
-features (which is likely to depend heavily on the circumstances of each performance).  In order to
-understand the rationale behind this project and gauge its success, we must first understand some of
-the most important features or constraints of compositions.
+The task of a composer is to create compositions which have some set of desirable features (which is
+likely to depend heavily on the circumstances of each performance).  In order to understand the
+rationale behind this project and gauge its success, we must first understand some of the most
+important features or constraints of compositions.
 
 \subsection{Features of Compositions}
 
 \subsubsection{Truth/Falseness}
 
 A composition is called \emph{true} if every row is unique, and is called \emph{false} otherwise.
-This is \emph{the} most important property that a composition can have, since any performance of a
+This is \emph{the} most important property that a composition must have, since any performance of a
 false composition is considered invalid and therefore a waste of the ringers' time.  When we write
 out compositions we usually write out rounds twice, but when considering falseness it is only
 counted once (thus, rounds in the middle of a composition is still false).
@@ -149,6 +249,8 @@ are also conductors and conduct their own compositions, which minimises the lear
 
 
 
+\pagebreak
+
 \section{What is my Project Trying to Do?}
 
 The purpose of the project is to build an application which \emph{helps} composers create better
@@ -178,6 +280,10 @@ composers, and knowledge gained from experimenting with prototypes early on in t
         the composition they are working on (and this should be configurable whilst midway through a
         composition).
 \end{enumerate}
+
+
+
+\pagebreak
 
 \section{Why Would This be Useful?}
 
@@ -213,6 +319,10 @@ etc.) about their composition \emph{whilst they are making it}.  This support fo
 compositions (i.e.\ compositions which are simply chunks of rows which will be rung in some
 yet-to-be-defined order) is the primary motivation for building a new program rather than simply
 modifying an existing one.
+
+
+
+\pagebreak
 
 \section{What has been done so far?}
 
@@ -306,6 +416,10 @@ doesn't support `partial' compositions.
         at rounds, but don't have to come round.
     \item There isn't a visual way to see the music in the composition.
 \end{enumerate}
+
+
+
+\pagebreak
 
 \section{Initial Design}
 
@@ -519,6 +633,10 @@ Now that we know how a composition is specified, we now need to define how the u
 modify the data types defined above.
 
 (T.B.C.)
+
+
+
+\pagebreak
 
 \section{Glossary of Change Ringing Terms}
 
