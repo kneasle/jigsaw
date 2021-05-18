@@ -139,8 +139,8 @@ Bob Major'.} (we write the `leftover' row under a dashed line because it belongs
 
 \end{multicols}
 
-Note that a single lead of this method preserves the location of the bell at the front of the
-change.  This is an extremely common feature of methods because it allows ringers to orient
+Note that a single lead of this method preserves the location of the bell at the start of the
+row.  This is an extremely common feature of methods because it allows ringers to orient
 themselves around this `fixed' bell and therefore helps prevent mistakes.
 
 One observation we can make here is that the second column begins with the leftover row of the
@@ -175,9 +175,9 @@ rounds is only considered once.  90\% of performances have one of two length ran
 
 \begin{enumerate}
     \item A \textbf{Peal} consists of at least 5000 rows (about 3 hours' of ringing).
-        The number 5000 is that historically the pinnacle of ringing was to ring every
-        permutation of 7 bells, which results in $7! = 5040$ rows.  This was recently rounded down
-        to 5000 for all numbers of bells, but the majority of people prefer the completeness of
+        The number 5000 is chosen because historically the pinnacle of ringing challenge was to ring
+        every permutation of 7 bells, which results in $7! = 5040$ rows.  This was recently rounded
+        down to 5000 for all numbers of bells, but the majority of people prefer the completeness of
         5040 rows for peals of 5, 6 or 7 bells (where every possible row is rung the same number of
         times).
     \item A \textbf{Quarter Peal} consists of at least 1250 rows (a quarter of a peal's length, and
@@ -218,107 +218,64 @@ usually exist on other numbers).  By convention I will use \row{x} as a wild car
 
 \subsubsection{Complexity}
 
-Complexity does not have a nice mathematical definition, but can roughly be broken down into three
-parts:
+Complexity does not have a nice mathematical definition and therefore this project will make no
+attempt to automate it.  However, it is still an important concept which roughly corresponds to how
+repetitive and predictable is your composition.
 
-\begin{enumerate}
-    \item \textbf{Method choice}: Which methods are used as building blocks for the composition?
-        This is what the entire band of ringers will have to learn in order to ring your
-        composition.
-    \item \textbf{Memorisability}: How easy is your composition for a conductor to memorise?  One
-        member of your band will have to learn the calling of your composition.  Things which make
-        this easier are having sections of the calling be repeated so that they only have to be
-        memorised once.
-    \item \textbf{Putting right}: If two people swap over part way through a composition, how hard
-        will it be to figure this out and correct the situation?  Often this is achieved by fixing
-        certain bells (i.e.\ not changing the relation between the \row{7} and the \row{8}), and
-        having fewer calls in the composition to reduce the number of times that the conductor has
-        to change their mental picture of the ringing.
-\end{enumerate}
-
-In general, we want to make these 3 things as simple as possible (i.e.\ few standard methods with a
-very predictable calling) because that will open your composition to the most potential bands.
-However, sometimes bands \emph{do} want to ring a hard composition or complex non-standard methods.
+In general, we want to make these things as simple as possible because that will open your
+composition to the most potential bands.  However, sometimes \emph{the point} of a composition is to
+be a challenge, in which case complexity is fair game.
 
 \subsubsection{Summary}
 
 In general, length and falseness are hard constraints which composers have little choice over and
-must work around.  Therefore, most compositions are made by the composer fixing some ideal level of
-complexity and trying to get as much music as possible within that constraint.  Also, many composers
-are also conductors and conduct their own compositions, which minimises the learning requirement.
+must work around.  Most of the time, the composer fixes some target level of complexity and tries
+to get as much music or interest as possible within that constraint.  Also, many composers make
+compositions that they intend to conduct themselves, allowing for a higher level of complexity
+because they already have an intimate knowledge of the composition when learning it.
 
 
 
 \pagebreak
 
-\section{What is my Project Trying to Do?}
+\section{Project Goals}
 
-The purpose of the project is to build an application which \emph{helps} composers create better
-change ringing compositions with as little change to their work-flow as possible.  This aim is
-roughly analogous to what applications like MuseScore and Sibelius do for musical composers --- the
-goal is to create some form of `helpful paper' which allows the composer to experiment more freely
-by providing instant feedback on everything that the composer wants to know about their composition.
+This project concerns prototyping an application to \emph{aid} composers whilst requiring the
+smallest possible change to their existing workflow.  This is analogous to what Microsoft Word
+provides for writers --- a kind of `automated paper' which automatically annotates your work with
+data that is tedious to compute manually whilst still providing it in a format that you are familiar
+with (i.e.\ words on a page).
 
-Within this overall goal, here are some more specific things that I would expect from such an
-application (most of these come from observations of existing programs, conversations with other
-composers, and knowledge gained from experimenting with prototypes early on in this project):
+There is currently nothing like this in the composing ecosystem, which I believe is a bad omission.
 
-\begin{enumerate}
-    \item \textbf{Ease of Use}: The application should be made so that anyone can install and use
-        it.
-    \item \textbf{Completeness}: Everything considered ``change ringing'' should be representable in
-        the application.  Completeness is defined by the Framework for Change Ringing.
-    \item \textbf{Generality}: If a composer has an idea for a composition then this should be
-        representable in the application, regardless of how complete the idea is.
-    \item \textbf{Incremental}: The application should allow the user to incrementally build up
-        their composition, in whatever order they want, starting wherever they want to.
-    \item \textbf{Instant}: Feedback on important measures like truth, music content and length
-        should always update instantly whenever the composer changes their composition.
-    \item \textbf{Visual}: The application should display the composition to the user in way that
-        makes it easy for the user to visually understand the composition they are working on.
-    \item \textbf{View-Independent}: The application should allow the user to choose how they view
-        the composition they are working on (and this should be configurable whilst midway through a
-        composition).
-\end{enumerate}
+\subsection{Specific Aims}
 
+Whilst this goal is good for general direction, we need more specific goals in order to build a
+cohesive application.  Therefore, I will split up this general goal into simpler goals which can
+easily be used to rate the resulting application.  Most of these come from observations of existing
+programs, conversations with well-known composers, and knowledge gained from experimenting with
+prototypes early on in this project.
 
+\paragraph{Ease of Use} The application should be made so that anyone can install and use it easily,
+without any technological knowledge or a lengthy installation process.
 
-\pagebreak
+\paragraph{Completeness} There is a concrete definition of what is considered `change
+ringing'\footnote{The
+\href{https://cccbr.github.io/method_ringing_framework/classification.html}{Framework for Method
+Ringing}}, and the states representable in the application must be a superset of this definition.
 
-\section{Why Would This be Useful?}
+\paragraph{Incremental} The application should allow the user to incrementally build up their
+composition, in whatever order they want, starting wherever they want to.
 
-There are several reasons why mechanical assistance would be useful for change ringing composers in
-particular.
+\paragraph{Instant} Feedback on important measures like truth, music content and length should
+always update instantly whenever the composer changes their composition.
 
-Firstly, change ringing compositions are at their core simply sequences of permutations, and are
-therefore extremely amenable to mathematical and computerised analysis.  Also, nearly all
-compositions are fundamentally designed for human consumption, putting very low upper bounds on the
-potential size of the compositions which computers have to deal with (there aren't any towers with
-more than 16 (ringable) bells and humans can ring about 1,500 rows per hour, so perhaps 99.99\% of
-compositions have at most 16 bells and are shorter than 10,000 rows --- and at least 99\% of these
-have at most 12 bells and not much over 5,000 changes).
+\paragraph{Visual} Everything that can be understood visually should be displayed visually.  Where
+concrete numbers are required (e.g.\ length), these should also be provided.
 
-Secondly, mathematical properties of change ringing compositions (specifically the `truth' of a
-composition) are very, very important.  For the purposes of this report, a composition is `true' if
-every row contained in the composition is unique, otherwise it is `false'.  Maintaining truth of a
-composition is absolutely vital, since a performance of a false composition is considered invalid
-and therefore is a waste of the ringers' time.  Checking proof is also extremely easy to do with a
-computer (especially due to the bounds on the size of the problem) and as a result, even the
-earliest computers have been used to check compositions for truth (the story goes that one of the
-first programs run on the Manchester Baby was for composition proving, but this is hard to verify).
-With the increasing availability of processing power computers have been used to entirely generate
-compositions with minimal input from a human, but there is still something missing from computer
-generated compositions.
-
-What is currently missing, however, is a program which allows a human composer to combine the
-strengths of computers and humans (computers are incredibly fast and accurate for menial grunt-work
-tasks such as truth checking, whereas a skilled human composer has a good knowledge of what makes a
-`good' composition and what they are trying to achieve in each specific case).  Therefore, I propose
-an application which allows a human composer to get instant feedback (truth, music content, length,
-etc.) about their composition \emph{whilst they are making it}.  This support for `partial'
-compositions (i.e.\ compositions which are simply chunks of rows which will be rung in some
-yet-to-be-defined order) is the primary motivation for building a new program rather than simply
-modifying an existing one.
+\paragraph{View-Independent} The application should allow the user to choose how they view the
+composition they are working on (and this should be configurable whilst midway through a
+composition).  (N.B. I actually didn't do this, so it might be worth removing it?)
 
 
 
@@ -339,8 +296,6 @@ a different purpose).  In fact, it does well enough that I think it's probably t
 tool out there right now, and I have made several compositions using only CompLib, paper and a
 pencil for assistance.  More than anything, I think the fact that the best tool right now isn't even
 designed for the purpose highlights how much promise a custom-designed composing tool holds.
-
-% TODO: Add numbers to these
 
 \paragraph{Ease of use:}  CompLib does really well for this.  It is really easy (in fact trivial) to
 install --- it is simply a website, and therefore has no software dependencies except a browser
@@ -421,7 +376,7 @@ doesn't support `partial' compositions.
 
 \pagebreak
 
-\section{Initial Design}
+\section{Initial Design Decisions}
 
 Now that we've taken a look at the state of the art, it's time to start making design decisions
 about this project.  To do this, I will lay out my initial design and why I think it will satisfy
@@ -633,6 +588,22 @@ Now that we know how a composition is specified, we now need to define how the u
 modify the data types defined above.
 
 (T.B.C.)
+
+
+
+\pagebreak
+
+\section{The Trials and Tribulations of Actually Coding this Thing}
+
+Blah Blah Blah\ldots
+
+
+
+\pagebreak
+
+\section{Conclusion}
+
+Blah Blah Blah\ldots
 
 
 
