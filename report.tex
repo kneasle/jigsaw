@@ -17,6 +17,7 @@
 % Title page & T.o.C.
 \maketitle
 \pagebreak
+
 \tableofcontents
 \pagebreak
 
@@ -80,18 +81,16 @@ path to help them remember where to ring in the sequence of rows.
 --------
 17856342
 \end{BVerbatim}
-\caption{Two leads concatenated}
-\label{fig:two-leads-lb8}
+\caption{Two leads concatenated}\label{fig:two-leads-lb8}
 \end{wrapfigure}
 
 A single instance of a method is called a `lead' and can be thought of as a super-permutation; it
 takes a start row and produces a sequence of rows, ending with the row which the next lead should be
 started (rows like this are not considered part of the super-permutation).
 
-For example,
-the following are all leads of the same method\footnote{This particular method is known as `Little
-Bob Major'.} (we write the `leftover' row under a dashed line because it belongs to the lead
-\emph{after} the others):
+For example, the following are all leads of the same method\footnote{This particular method is known
+as `Little Bob Major'.} (we write the `leftover' row under a dashed line because it belongs to the
+lead \emph{after} the others):
 
 \begin{multicols}{3}
 
@@ -253,14 +252,14 @@ There is currently nothing like this in the composing ecosystem, which I believe
 Whilst this goal is good for general direction, we need more specific goals in order to build a
 cohesive application.  Therefore, I will split up this general goal into simpler goals which can
 easily be used to rate the resulting application.  Most of these come from observations of existing
-programs, conversations with well-known composers, and knowledge gained from experimenting with
-prototypes early on in this project.
+programs, conversations with well-known composers, and experience gained from experimentation early
+in the project.
 
 \paragraph{Ease of Use} The application should be made so that anyone can install and use it easily,
 without any technological knowledge or a lengthy installation process.
 
-\paragraph{Completeness} There is a concrete definition of what is considered `change
-ringing'\footnote{The
+\paragraph{Completeness} There is a concrete definition of what is considered `Change
+Ringing'\footnote{The
 \href{https://cccbr.github.io/method_ringing_framework/classification.html}{Framework for Method
 Ringing}}, and the states representable in the application must be a superset of this definition.
 
@@ -284,23 +283,27 @@ composition).  (N.B. I actually didn't do this, so it might be worth removing it
 \section{What has been done so far?}
 
 In this section, I will go through existing tools and review them against the goals set above.
+These examples also influenced the core design decisions of the resulting prototype.
 
 \subsection{Composition Library}
 
-This is a strange one, since Composition Library (shortened to `CompLib' for the rest of this
-document) is not trying to be a composition editor, but simply an attempt to build a complete
-central library of all the compositions that are known to ringing.  However, it does have a
-composition editor in order to allow people to add new compositions to the library, and this
-editor has a lot of features useful for experimenting with compositions (despite being designed for
-a different purpose).  In fact, it does well enough that I think it's probably the best composing
-tool out there right now, and I have made several compositions using only CompLib, paper and a
-pencil for assistance.  More than anything, I think the fact that the best tool right now isn't even
-designed for the purpose highlights how much promise a custom-designed composing tool holds.
+Composition Library\footnote{Found at \href{https://complib.org/}{https://complib.org/}} (usually
+known as CompLib) is not trying to be a composition editor, but instead is an attempt to build a
+complete central library of all known compositions.
 
-\paragraph{Ease of use:}  CompLib does really well for this.  It is really easy (in fact trivial) to
-install --- it is simply a website, and therefore has no software dependencies except a browser
-(which will be how most people download software anyway).  It does need an account in order to make
-compositions, but this is not really an issue.
+However, it does have a composition editor in order to allow people to add new compositions to the
+library.  Despite not being designed with experimentation in mind, this editor is good enough that
+I think it's probably the best composing tool out there right now.  I have made several
+compositions using only CompLib, paper and a pencil for assistance.  More than anything, I think the
+fact that the best tool right now isn't even designed for the purpose highlights how much promise a
+custom-designed composing tool holds.
+
+\subsubsection{Pros of CompLib}
+
+Firstly, CompLib nails \emph{ease of use}.  It is simply a web application which works across all
+browsers and therefore requires no installation (assuming that most users would need a browser to
+install software).  It does need an account in order to add compositions, but in return it stores
+all your work (published or private) on its server which can then be accessed anywhere.
 
 \paragraph{Incremental:}  CompLib can't handle partial compositions at all; compositions must start
 (and preferably end) in rounds.  If the composition does not come round (as is the case for almost
@@ -401,24 +404,37 @@ of files that can be served by a simple HTTP server).  This has many advantages:
 \begin{enumerate}
     \item There is no start-up time for a new user --- they open the page in any browser and the
         application starts immediately.
+    \item Having no dependence on a server both obviates the need for the user to make an account
+        and also makes it trivial to deploy using GitHub pages or a similar service.
+    \item Everyone is always using the most up-to-date version of the code unless they build a
+        specific version from source themselves.  This is not to be taken for granted --- I have
+        learned from releasing other projects into production that people rarely update your code on
+        their own accord.
+    \item As shown by CompLib, running application logic on a separate server produces a marked drop
+        in user experience.  Running all the logic on the same computer means that concurrency bugs
+        and network delay are both eliminated.
     \item HTML canvas rendering (while extremely inefficient compared to OpenGL or Vulkan) is easy,
         fast enough to feel instant and consistently looks good an all browsers and operating
         systems.  As of the first prototype, the performance of naively redrawing the whole canvas
-        every frame is more than adequate (at least on my brand-new PC).  However, if performance
+        every update is more than adequate (at least on my brand-new PC).  However, if performance
         does become an issue there are many obvious caching optimisations that would cause huge
         speed-ups in rendering.
-    \item Having no dependence on a server both obviates the need for the user to make an account
-        and also makes it trivial to deploy using GitHub pages or a similar service.
 \end{enumerate}
 
-However, writing an application as a static web page is not without its challenges.  The first
-challenge is that of JavaScript: though JavaScript is excellent for writing a small amount of user
-interaction code (due to its first-class web support), it has two chief shortcomings: performance
-and scalability.
+\br{}However, static web pages come with their own challenges.
 
-Furthermore, as noted with CompLib, it is highly detrimental to the user experience if part of the
-code has to run on a web server.  Therefore, any replacement to JavaScript to must also be able to
-run natively inside a browser.
+\begin{enumerate}
+    \item None of the code can run server-side so the entire application must run entirely within
+        browsers.  The obvious language here is JavaScript since it is reliably supported by every
+        browser, but JavaScript is in no way well-suited to writing complex applications.  It lacks
+        any static typing which makes complex code difficult to write and maintain.  It also has
+        very unpredictable runtime performance (being entirely dependent on JIT compilation),
+        particularly when doing operations which involve handling large amounts of data in complex
+        ways (which this project relies heavily on).
+    \item Storing persistent data in a cross-browser format is very challenging.  Cookies are an
+        option but they are sent to the server with every HTTP request, making them unsuitable for
+        storing large save states.
+\end{enumerate}
 
 \subsubsection{Move Complex Logic to Rust and WebAssembly}
 
@@ -437,25 +453,9 @@ this purpose, for example TypeScript, C/C++ or Go but I chose Rust for the follo
     \item Rust's WebAssembly support is fantastic, with particular shout-out to \verb|wasm_bindgen|,
         which generates binding code between native Rust and native JavaScript to let them interface
         seamlessly.
-    \item I am already proficient in Rust, and have already developed a library with useful
-        data types for handling compositions efficiently.
+    \item I am already proficient in Rust, and I can share code between ringing-related projects to
+        save development time.
 \end{enumerate}
-
-This approach has been very promising performance-wise: as of the first prototype, the latency
-between a user changing the composition and the result appearing on screen is 3ms for a composition
-with 2000 rows of 8 bells each.  This process involves no caching --- the entire composition is
-completely expanded, proved, music checked, serialised to JSON, copied to JavaScript and
-deserialised in the 3ms.  The algorithms implemented are no worse than quadratic in the number of
-bells, so I would place a very paranoid upper bound to be about 103ms (for 6000 rows of 16 bells
-each).  I suspect there is a lot of low-hanging fruit for optimisations, but this is not run every
-frame so even 100ms will feel instant.
-
-The second, more problematic limitation of working inside a browser is that of storage.  Code
-running in a browser cannot (for security reasons) access the user's file system unless the user
-explicitly uploads or saves to a file, so accessing the file system to save without the user's
-express permission is not an option.  Also, the user experience will be massively improved if the
-user can close and reopen the page at any point and have everything stay as they left it (complete
-with as much undo history as possible).
 
 \subsubsection{Using Cookies as Persistent State}
 
@@ -595,7 +595,52 @@ modify the data types defined above.
 
 \section{The Trials and Tribulations of Actually Coding this Thing}
 
-Blah Blah Blah\ldots
+\subsection{Facebook Poll}
+
+(Dec 3, Poll linked
+below\footnote{\href{link}{https://www.facebook.com/groups/601658156640471/permalink/2097786800360925}})
+
+Having lain down a rough initial design, I wanted to see what other composers thought of it before
+investing large amounts of time exploring a dead-end in the space of compositions.  I am self-taught
+in composing, and it's entirely possible that I have a completely non-standard workflow.
+
+To achieve this, I posted an open question on a Facebook group that I know is frequented by other
+composers asking (in general terms) what their composing workflow was.  I got a good number of
+responses (64 comments in total), and there was a surprising variety in approaches.  Some people
+generate compositions entirely through computer search (which is out of scope for this project) but
+most composers compose by hand.  Of these, nearly everyone builds up compositions from small pieces
+and agrees that my design would be interesting and potentially useful.
+
+\subsection{Starting with a Core Utility Library}
+
+(mid-December, 9e2dba6 $\to$ 490cfa2)
+
+When starting this project, it quickly became clear that I was going to need a core library of
+common data types and functions.  Thus, the first thing I did was to lay down a basic version of
+this library which would then increase the speed of development later down the line.
+
+This initial version of the library had newtypes for \verb|Bell|, \verb|Row|, \verb|Perm|utation,
+\verb|Stage| and \verb|Block|.  All of these could be parsed and formatted in a human-friendly way,
+and use Rust's type system to enforce invariants (e.g.\ a \verb|Row| can't contain the same
+\verb|Bell| twice).  Doing this allows most runtime checks to be removed, increasing the performance
+of manipulating data at the cost of slightly slower creation or parsing.  Also, I put a lot of
+effort into good documentation for this library so it can be easily used in other projects or by
+other developers.
+
+Initially, I thought that the concept of rows and permutations were different enough to warrant
+separate data types.  My thinking was that a \verb|Row| is a sequence of \verb|Bell|s (plus some
+additional invariants), and a permutation can be thought of as a function of type \verb|[a] -> [a]|
+which can permute sequences of any item.  Mathematically this feels like an elegant separation, but
+using the library in ernest made me realise that the \verb|Perm| doesn't pull its weight given its
+large overlap with the \verb|Row| type.  I would almost always use \verb|Perm| as an intermediate
+step to use one \verb|Row| to permute another.  Therefore, a few months later (Feb 9th, 81d1120) the
+operations of the \verb|Perm| structure was merged into \verb|Row|.
+
+\subsection{Final Stats}
+
+As of writing this report, the project clocks in at 275 commits, 5,736 source lines of code
+(including 4,233 of Rust, 1,033 of JavaScript, 240 of HTML, 114 of CSS and 85 of Python for the
+build script).
 
 
 
