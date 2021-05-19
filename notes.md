@@ -112,7 +112,7 @@ type Block = Chain Block Block | SinglePermutation Perm
   [screenshot](https://www.math.ubc.ca/~holroyd/inpact/scrsht.gif),
   [download](https://www.math.ubc.ca/~holroyd/inpact/inpact1_2.zip)
 
-## 16/12/20
+## 2020-12-16
 
 - Started writing code.  Implemented `Perm` and `Block` as generic permutations and blocks that can
   be used to permute any input.
