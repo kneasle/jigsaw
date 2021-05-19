@@ -27,7 +27,7 @@ This project is to build a tool to help composers design complex sequences of ri
 bells.  Change ringing is a very niche and varied activity so this section will serve as a quick
 introduction to the topic and overview of the aspects of change ringing which are most relevant to
 this project.  A more complete overview can be found
-\href{https://en.wikipedia.org/wiki/Change_ringing}{on Wikipedia}.
+on Wikipedia\footnote{\url{https://en.wikipedia.org/wiki/Change_ringing}}.
 
 \br{}Change ringing (sometimes known as full-circle church bell ringing) originated in English
 churches in around 1600, where churches began hanging sets of tuned bells on wheels in towers.
@@ -259,9 +259,9 @@ in the project.
 without any technological knowledge or a lengthy installation process.
 
 \paragraph{Completeness} There is a concrete definition of what is considered `Change
-Ringing'\footnote{The
-\href{https://cccbr.github.io/method_ringing_framework/classification.html}{Framework for Method
-Ringing}}, and the states representable in the application must be a superset of this definition.
+Ringing'\footnote{The definition is defined by the Framework for Method Ringing, found here:
+\url{https://cccbr.github.io/method_ringing_framework/classification.html}}, and the states
+representable in the application must be a superset of this definition.
 
 \paragraph{Incremental} The application should allow the user to incrementally build up their
 composition, in whatever order they want, starting wherever they want to.
@@ -287,7 +287,7 @@ These examples also influenced the core design decisions of the resulting protot
 
 \subsection{Composition Library}
 
-Composition Library\footnote{Found at \href{https://complib.org/}{https://complib.org/}} (usually
+Composition Library\footnote{Found at \url{https://complib.org/}} (usually
 known as CompLib) is not trying to be a composition editor, but instead is an attempt to build a
 complete central library of all known compositions.
 
@@ -450,7 +450,7 @@ this purpose, for example TypeScript, C/C++ or Go but I chose Rust for the follo
     \item The Rust compiler performs a large amount of strict compile-time correctness checks on
         your code, making it easy to implement complex algorithms in ways that you know is correct
         and fast.  C/C++ and Go cannot compete in this regard.
-    \item Rust's WebAssembly support is fantastic, with particular shout-out to \verb|wasm_bindgen|,
+    \item Rust's WebAssembly support is fantastic, with particular shout-out to \verb|wasm-bindgen|,
         which generates binding code between native Rust and native JavaScript to let them interface
         seamlessly.
     \item I am already proficient in Rust, and I can share code between ringing-related projects to
@@ -598,18 +598,19 @@ modify the data types defined above.
 \subsection{Facebook Poll}
 
 (Dec 3, Poll linked
-below\footnote{\href{link}{https://www.facebook.com/groups/601658156640471/permalink/2097786800360925}})
+below\footnote{\url{https://www.facebook.com/groups/601658156640471/permalink/2097786800360925}})
 
-Having lain down a rough initial design, I wanted to see what other composers thought of it before
-investing large amounts of time exploring a dead-end in the space of compositions.  I am self-taught
-in composing, and it's entirely possible that I have a completely non-standard workflow.
+Having lain down a rough initial design, I wanted feedback from other composers to determine if it
+would be widely useful.  I am self-taught in composing, and it's entirely possible that I have a
+completely non-standard workflow.
 
 To achieve this, I posted an open question on a Facebook group that I know is frequented by other
 composers asking (in general terms) what their composing workflow was.  I got a good number of
 responses (64 comments in total), and there was a surprising variety in approaches.  Some people
 generate compositions entirely through computer search (which is out of scope for this project) but
-most composers compose by hand.  Of these, nearly everyone builds up compositions from small pieces
-and agrees that my design would be interesting and potentially useful.
+most composers compose by hand.  Of these, nearly everyone said that they build up compositions from
+small pieces and agreed that my design would be interesting and potentially useful.  (N.B. Possibly
+put somethinghere about coursing orders/course heads, but I'm not sure if it's relevant).
 
 \subsection{Starting with a Core Utility Library}
 
@@ -624,17 +625,115 @@ This initial version of the library had newtypes for \verb|Bell|, \verb|Row|, \v
 and use Rust's type system to enforce invariants (e.g.\ a \verb|Row| can't contain the same
 \verb|Bell| twice).  Doing this allows most runtime checks to be removed, increasing the performance
 of manipulating data at the cost of slightly slower creation or parsing.  Also, I put a lot of
-effort into good documentation for this library so it can be easily used in other projects or by
-other developers.
+effort into maintaining good documentation (including examples) for this library so it can be easily
+used in other projects or by other developers.
 
-Initially, I thought that the concept of rows and permutations were different enough to warrant
-separate data types.  My thinking was that a \verb|Row| is a sequence of \verb|Bell|s (plus some
-additional invariants), and a permutation can be thought of as a function of type \verb|[a] -> [a]|
-which can permute sequences of any item.  Mathematically this feels like an elegant separation, but
-using the library in ernest made me realise that the \verb|Perm| doesn't pull its weight given its
-large overlap with the \verb|Row| type.  I would almost always use \verb|Perm| as an intermediate
-step to use one \verb|Row| to permute another.  Therefore, a few months later (Feb 9th, 81d1120) the
-operations of the \verb|Perm| structure was merged into \verb|Row|.
+\subsection{Talk with Anders Holroyd}
+
+TODO
+
+\subsection{Row vs Perm}
+
+After taking with Anders, I thought that the concept of rows and permutations were different enough
+to warrant separate data types.  My thinking was that a \verb|Row| is a sequence of \verb|Bell|s
+(plus some additional invariants), and a permutation can be thought of as a function of type
+\verb|[a] -> [a]| which can permute sequences of any type.  Mathematically this feels like an
+elegant separation, but using the library in ernest made me realise that the \verb|Perm| doesn't
+pull its weight given its large overlap with the \verb|Row| type.  I would almost always use
+\verb|Perm| only as an intermediate step to use one \verb|Row| to permute another.  Therefore, a few
+months into the project (Feb 9th, 81d1120) the operations of the \verb|Perm| structure was merged
+into \verb|Row|.  This made the library much more ergonomic (if slightly less mathematically
+elegant).
+
+\subsection{Setting up Web Project}
+
+After the Christmas vacation, I set to work getting Rust and JavaScript to work nicely together when
+Rust is compiled to WebAssembly.  This is easier said than done, because an infamous limitation of
+WebAssembly is that only integers and floating-point numbers can be passed over its API.\@  This is
+severely limiting but sufficient since JavaScript and WebAssembly can share an address space and
+thus pass pointers across the boundary and copy the data.
+
+Creating binding code like this by hand is incredibly tedious and error-prone and one of the reasons
+I chose Rust was because of
+\emph{wasm-bindgen}\footnote{\url{https://github.com/rustwasm/wasm-bindgen}}, a tool which generates
+this binding code automatically and requiring only minimal changes to the source code.  This means
+that the hand-written JavaScript and Rust code can both use native types, and the fiddly API details
+are taken care of.  There are still some limitations (mostly due to Rust and JavaScript having
+radically different memory models) but after a few iterations I found a project architecture which
+plays to \emph{wasm-bindgen}'s strengths and avoids its limitations.
+
+I initially struggled to discover how to serve \verb|.wasm| files
+without using NodeJS, but eventually I stumbled on a tutorial which allowed me to build the static
+web page that I was after.  At this point, the build process involved running several commands in
+sequence so I created a simple shell script (\verb|build.sh|) to run the full build in one command.
+In order to publish the project to GitHub pages, this script was later improved and translated to
+Python (April 27, d8d388b).
+
+\subsection{Maintaining Undo History}
+
+\subsection{Passing Data}
+
+As the project progressed, it became clear that a large amount of relatively complex data had to be
+communicated between JavaScript and Rust.  Even with \emph{wasm-bindgen}, the types that can be sent
+over the language interface is limited to flat structures with no references.  This is unfortunate,
+since the internal data structures have 3 layers of references (\verb|Spec| $\to$ \verb|Frag|s $\to$
+\verb|Row|s $\to$ \verb|Bell|s or \verb|DerivedState| $\to$ \verb|DerivedFrag|s $\to$
+\verb|AnnotRow|s $\to$ \verb|Bell|s).
+
+Initially, I didn't want JavaScript and Rust to hold their own copies of the same data, since there
+would be two potentially divergent sources of the truth.  Also, I wanted to limit the complexity of
+the JavaScript code (due to its inferior performance and maintainability) so it made sense for Rust
+to handle all the state and then expose a simple API to JavaScript to read or modify this data.
+
+The modification part of the API provides one function per operation on the composition, which
+enforces a separation of concerns because JavaScript has no knowledge of how Rust chooses to
+implement these functions.  This worked excellently and I had no issues with it.
+
+In order to work round the inherent issues of WebAssembly, the initial data read API was a flat set
+of getter functions, looking like Figure~\ref{fig:initial_api}.
+
+This worked fine for a while but as the complexity of the datatypes grew, the number of exported
+functions exploded and refactoring the API became an unnecessary challenge.  Also, every WebAssembly
+function call takes a non-trivial amount of time and this flat API encourages huge numbers of calls
+each frame which started causing performance issues.  Also this data won't change each frame so we
+may as well cache the data in a native JavaScript data structure.
+
+It is worth noting here that the API is split 
+
+\begin{figure}
+\begin{verbatim}
+/// Get the number of fragments
+fn get_num_frags() -> usize { ... }
+
+/// Get the number of rows in the fragment at a given index
+fn get_frag_length(frag_index: usize) -> usize { ... }
+
+/// Get the bell at a given location
+fn get_row(
+    frag_index: usize,
+    row_index: usize,
+    bell_index: usize
+) -> Bell { ... }
+\end{verbatim}
+\caption{Initial getter API design}\label{fig:initial_api}
+\end{figure}
+
+\subsection{Project Architecture}
+
+\subsection{Mute/Solo}
+
+\subsection{Line Rendering}
+
+\subsection{Implementing Folding}
+
+- Bluelines
+- Falseness ranges
+
+\subsection{API Design of Core Library}
+
+\subsection{Releasing Prototype to GitHub Pages}
+
+- It's just sooooooo hard
 
 \subsection{Final Stats}
 
