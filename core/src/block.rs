@@ -381,6 +381,15 @@ impl<A> AnnotBlock<A> {
 
     /// Convert this `AnnotBlock` into another `AnnotBlock` with identical [`Row`]s, but where each
     /// annotation is passed through the given function.
+    pub fn into_rows(self) -> Vec<Row> {
+        self.rows
+            .into_iter()
+            .map(|annot_row| annot_row.row)
+            .collect()
+    }
+
+    /// Convert this `AnnotBlock` into another `AnnotBlock` with identical [`Row`]s, but where each
+    /// annotation is passed through the given function.
     pub fn prefix(&self, limit: usize) -> Self
     where
         A: Clone,
