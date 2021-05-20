@@ -17,9 +17,21 @@
 
 % Title page & T.o.C.
 \maketitle
+
+
+
 \pagebreak
 
 \tableofcontents
+
+
+
+\pagebreak
+
+\section{Abstract}
+
+
+
 \pagebreak
 
 \section{Overview of Change Ringing}
@@ -288,9 +300,9 @@ These examples also influenced the core design decisions of the resulting protot
 
 \subsection{Composition Library}
 
-Composition Library\footnote{Found at \url{https://complib.org/}} (usually
-known as CompLib) is not trying to be a composition editor, but instead is an attempt to build a
-complete central library of all known compositions.
+Composition Library\footurl{https://complib.org/} (shortened to CompLib) is not
+trying to be a composition editor, but instead is an attempt to build a complete central library of
+all known compositions.
 
 However, it does have a composition editor in order to allow people to add new compositions to the
 library.  Despite not being designed with experimentation in mind, this editor is good enough that
@@ -437,27 +449,6 @@ of files that can be served by a simple HTTP server).  This has many advantages:
         storing large save states.
 \end{enumerate}
 
-\subsubsection{Move Complex Logic to Rust and WebAssembly}
-
-My solution to both of these is to write the code with a client/server architecture, where there is
-a thin client written in JavaScript (to handle user interaction and rendering) and the server is
-written in Rust and compiled to WebAssembly.  There are many other languages that could work for
-this purpose, for example TypeScript, C/C++ or Go but I chose Rust for the following reasons:
-
-\begin{enumerate}
-    \item Rust gives you direct control over memory layout which provides excellent performance when
-        manipulating complex data structures.  The performance of TypeScript, for instance, is by
-        definition no better than that of JavaScript.
-    \item The Rust compiler performs a large amount of strict compile-time correctness checks on
-        your code, making it easy to implement complex algorithms in ways that you know is correct
-        and fast.  C/C++ and Go cannot compete in this regard.
-    \item Rust's WebAssembly support is fantastic, with particular shout-out to \verb|wasm-bindgen|,
-        which generates binding code between native Rust and native JavaScript to let them interface
-        seamlessly.
-    \item I am already proficient in Rust, and I can share code between ringing-related projects to
-        save development time.
-\end{enumerate}
-
 \subsubsection{Using Cookies as Persistent State}
 
 Fortunately for this project, there is some storage that web pages can use to store persistent data
@@ -480,25 +471,6 @@ users and therefore should be as simple as possible without losing expressivity.
 describe the model in terms of Haskell data types, using names identical to those used in the
 project's source code (the actual implementation will look largely similar due to Rust being heavily
 inspired by Haskell).
-
-\subsubsection{Specification vs Derived State}
-
-In order for the model to be as simple as possible, it is important to differentiate the
-\emph{specification} from any \emph{derived state} generated from it (in the code, these are stored
-in structures called \verb|Spec| and \verb|DerivedState| respectively, both in the \verb|jigsaw/|
-crate/directory).
-
-As a toy example, let us consider two integers ($a$ and $b$) and their sum and product ($a + b$ and
-$ab$) as the total information required to represent a particular state.  This overall state
-consists of 4 pieces of information ($\{a, b, a + b, ab\}$) but it's easy to see that the inclusion
-of $a + b$ and $ab$ does not add any extra information.  Therefore, we can say that $\{a, b\}$ is
-the \emph{specification} of $\{a, b, a + b, ab\}$, whereas $\{a + b, ab\}$ is the \emph{derived
-state}.  This dependence also means that we don't have to store any derived state in the undo
-history, drastically reducing the memory footprint of storing long undo histories (provided that the
-derivation process is not prohibitively expensive --- though in the case of this project it is quite
-cheap in both time and memory).  Plus, the mental load on the user is reduced because they only have
-to reason about the specification and the behaviour of the derived state should be intuitive given
-the changes to the specification.
 
 \subsubsection{High-Level Requirements of the Model}
 
@@ -594,6 +566,136 @@ modify the data types defined above.
 
 \pagebreak
 
+\section{Project Architecture}\label{sec:proj_arch}
+
+\subsection{Overview}
+
+The code for Jigsaw is split into 3 main parts: two Rust libraries which together form a `server'
+and `client' in the form of a web GUI.\@  The Rust code is compiled to WebAssembly, and exports an
+API which allows the JavaScript client to make changes to the internal `model' and then request a
+JSON serialisation of the information to display to the user.
+
+This architecture plays to the strengths of both languages --- Rust provides fast and reliable data
+manipulation whilst JavaScript, HTML and CSS provide a user-friendly cross-platform GUI.\@  The
+binding and serialisation code is automatically generated at compile time using
+\emph{wasm-bindgen}\footurl{https://github.com/rustwasm/wasm-bindgen} and
+\emph{serde}\footurl{https://github.com/serde-rs/serde} to prevent human error.
+
+\subsection{Utility Library}
+
+Roughly half of the Rust code in the project is a cross-platform utility library for core datatypes
+which are not specific to Jigsaw.  This provides safe and performant Rust datatypes for common
+constructs related to change ringing (\verb|Row|, \verb|Bell|, \verb|Method|, \verb|Call|, etc.).
+Its development and API design was motivated by Jigsaw but once its API is stable it will be
+published to Rust's central package repository for general use.
+
+The stable part of the API has good documentation and is well tested, and all datatypes only provide
+public functions which preserve internal invariants and therefore obviate the need for unnecessary
+checks.  It also provides `unsafe' versions of functions which remove runtime checks but in rely on
+their caller to uphold the invariants.  Therefore, no undefined behaviour is possible if the user
+only writes `safe' code.
+
+Despite have no stable API, I have already built other projects on it.  In its own right, this
+library is a valuable product of this project.
+
+\subsection{Application Logic}
+
+\subsubsection{Model View Presenter}
+
+Over the course of the project, the architecture of the application settled naturally into the
+`Model-View-Presenter'
+model\footurl{https://en.wikipedia.org/wiki/Model\%E2\%80\%93view\%E2\%80\%93presenter}.  The View
+is the web code in \verb|www/| (written in JavaScript/HTML/CSS) while the \verb|jigsaw| library
+holds both the Model and the Presenter.
+
+\subsubsection{Specification vs Derived State}
+
+The code in the jigsaw library differentiates between the unique specification of a composition
+(the \verb|Spec| type) and the information required to display it to the user (the
+\verb|DerivedState| type).  The \verb|DerivedState| contains additional data like the music
+locations, falseness and other annotations.  That is completely specified by the contents of the
+current \verb|Spec|, so every change to the \verb|Spec| must also cause the \verb|DerivedState| to
+be updated before the changes can be displayed to the user.
+
+In terms of Model-View-Presenter, the \verb|Spec| type is the Model whereas the \verb|DerivedState|
+is the data sent from the Presenter to the View.
+
+The undo history is simply a list of \verb|Spec| types along with an index.  The internal data of
+\verb|Spec|s is always stored through immutable reference counted pointers, which prevents
+unnecessary cloning without data leaks or mutation of shared memory.
+
+\subsection{Architectural Invariants}
+
+This architecture of Model-View-Presenter and immutable history requires a number of invariants to
+be upheld while the application is running.
+
+Firstly, there are two separate copies of \verb|DerivedState| which must be kept in sync.
+Additionally, the \verb|DerivedState| is entirely specified by the \verb|Spec| currently being
+displayed so both copies must be kept in sync with that too (because the \verb|DerivedState| is
+where JavaScript gets its display data from).  In two cases this invariant is temporarily broken
+(while dragging fragments and panning the viewport) for performance reasons.  Upholding the
+invariant in these cases would (currently) cause the entire \verb|DerivedState| to be regenerated
+every time the user moves the mouse, creating a completely unnecessary drop in performance.
+
+Secondly, the JavaScript code and the \verb|Spec| datatypes should be be completely decoupled, and
+should only communicate through the \verb|Comp| singleton.  This constraint is inherited from the
+Model-View-Presenter model (where the Model and View can only communicate through the Presenter).
+
+\subsection{Data Flow}
+
+These invariants enforce a very specific data flow whenever the user changes the composition
+(summarised in Figure~\ref{fig:app_data_flow}).  The user's input events are all captured by
+JavaScript, which calls a corresponding function in \verb|Comp|'s API.\@ The \verb|Comp| singleton
+then clones the current \verb|Spec|, performs the required modifications and then pushes it onto the
+history stack.  Next, \verb|Comp| rebuilds its copy of \verb|DerivedState| to reflect the changes in
+the \verb|Spec| (thus upholding the invariants).  At this point, the WebAssembly function returns
+control to JavaScript which immediately calls \verb|Comp::ser_derived_state| which returns a JSON
+string with which to overwrite the \verb|derived_state| variable.
+
+\begin{figure}
+    \centering
+    \begin{BVerbatim}
+        JS          |        Rust
+--------------------+--------------------
+     User input     |
+         |          |
+         v      API Call
+       Event -------------> Comp API
+         |          |          |
+         |          |          v
+         |          |      Clone Spec
+         | undo/    |          |
+         | redo     |          v
+         |          |    Modify new Spec
+         |          |          |
+         |          |          v
+         \-------------> Update History
+             API Call          |
+                    |          v
+         /------------ Rebuild DerivedState
+         |   return |
+         |          |
+ sync_derived_state |
+         \-------------> ser_derived_state
+             API Call          |
+                    |       (serde)
+                    |          v
+   JSON String <--------- JSON String
+        |        return
+  (deserialise)     |
+        v           |
+  derived_state     |
+        |           |
+        v           |
+     repaint        |
+    \end{BVerbatim}
+    \caption{The data flow of user's changes}\label{fig:app_data_flow}
+\end{figure}
+
+
+
+\pagebreak
+
 \section{The Trials and Tribulations of Actually Coding this Thing}
 
 \subsection{Facebook Poll}
@@ -611,23 +713,7 @@ responses (64 comments in total), and there was a surprising variety in approach
 generate compositions entirely through computer search (which is out of scope for this project) but
 most composers compose by hand.  Of these, nearly everyone said that they build up compositions from
 small pieces and agreed that my design would be interesting and potentially useful.  (N.B. Possibly
-put somethinghere about coursing orders/course heads, but I'm not sure if it's relevant).
-
-\subsection{Starting with a Core Utility Library}
-
-(mid-December, 9e2dba6 $\to$ 490cfa2)
-
-When starting this project, it quickly became clear that I was going to need a core library of
-common data types and functions.  Thus, the first thing I did was to lay down a basic version of
-this library which would then increase the speed of development later down the line.
-
-This initial version of the library had newtypes for \verb|Bell|, \verb|Row|, \verb|Perm|utation,
-\verb|Stage| and \verb|Block|.  All of these could be parsed and formatted in a human-friendly way,
-and use Rust's type system to enforce invariants (e.g.\ a \verb|Row| can't contain the same
-\verb|Bell| twice).  Doing this allows most runtime checks to be removed, increasing the performance
-of manipulating data at the cost of slightly slower creation or parsing.  Also, I put a lot of
-effort into maintaining good documentation (including examples) for this library so it can be easily
-used in other projects or by other developers.
+put something here about coursing orders/course heads, but I'm not sure if it's relevant).
 
 \subsection{Talk with Anders Holroyd}
 
@@ -645,30 +731,6 @@ pull its weight given its large overlap with the \verb|Row| type.  I would almos
 months into the project (Feb 9th, 81d1120) the operations of the \verb|Perm| structure was merged
 into \verb|Row|.  This made the library much more ergonomic (if slightly less mathematically
 elegant).
-
-\subsection{Setting up Web Project}
-
-After the Christmas vacation, I set to work getting Rust and JavaScript to work nicely together when
-Rust is compiled to WebAssembly.  This is easier said than done, because an infamous limitation of
-WebAssembly is that only integers and floating-point numbers can be passed over its API.\@  This is
-severely limiting but sufficient since JavaScript and WebAssembly can share an address space and
-thus pass pointers across the boundary and copy the data.
-
-Creating binding code like this by hand is incredibly tedious and error-prone and one of the reasons
-I chose Rust was because of
-\emph{wasm-bindgen}\footurl{https://github.com/rustwasm/wasm-bindgen}, a tool which generates
-this binding code automatically and requiring only minimal changes to the source code.  This means
-that the hand-written JavaScript and Rust code can both use native types, and the fiddly API details
-are taken care of.  There are still some limitations (mostly due to Rust and JavaScript having
-radically different memory models) but after a few iterations I found a project architecture which
-plays to \emph{wasm-bindgen}'s strengths and avoids its limitations.
-
-I initially struggled to discover how to serve \verb|.wasm| files
-without using NodeJS, but eventually I stumbled on a tutorial which allowed me to build the static
-web page that I was after.  At this point, the build process involved running several commands in
-sequence so I created a simple shell script (\verb|build.sh|) to run the full build in one command.
-In order to publish the project to GitHub pages, this script was later improved and translated to
-Python (April 27, d8d388b).
 
 \subsection{Passing Data Between Rust and JavaScript}
 
@@ -726,89 +788,6 @@ reduced and long-term divergence is impossible because JavaScript overwrites its
 \verb|DerivedState|.  Also, refactoring the data is usually a simple matter of find/replace of the
 JavaScript code.  
 
-\subsection{Project Architecture}\label{sec:proj_arch}
-
-The code for the project is in overall split into two parts of roughly equal size.  The first of
-these is the utility library (in \verb|core/| but imported as \verb|proj_core|) containing optimised
-and idiomatic functions and data types for Change Ringing, which are not specific to this project.
-After this project is done, this will be published to Rust's package repository for general use.  In
-its own right, this library is a valuable result of this project.
-
-The rest of the code is the application itself.  This contains a Rust library (in \verb|jigsaw/|)
-and the web files which provide a nice GUI over the lower level library (in \verb|www/|).
-
-Over the course of the project, the architecture of the application settled naturally into the
-`Model-View-Presenter'
-model\footurl{https://en.wikipedia.org/wiki/Model\%E2\%80\%93view\%E2\%80\%93presenter}.  All
-of the user-facing code (the `view') is the JavaScript/HTML/CSS;\@ all the application's
-data (the `model') is stored in the \verb|jigsaw::spec| module; and finally the \verb|Comp|
-singleton and the \verb|DerivedState| struct provide an interface between these (the `presenter').
-
-\subsubsection{Undo History}
-
-There are two general strategies for handling undo history: event systems and immutable data
-structures.
-
-Event systems store the current state, and some form of `events' which can be applied to that data.
-Every action has an event to apply that action and one to undo it.  Each time an action is
-made on the data, the reverse action is pushed onto a stack in order to later be used to undo the
-change.  Whilst this can work well, it is generally difficult to get right and any bugs in the undo
-system are extremely hard to debug.
-
-Using immutable data structures, the undo history becomes a stack of immutable states.  Undo/redo
-is simply incrementing/decrementing an index and any new edits push the new state onto the stack.
-Due to the immutability, these can share data without worrying about corruption.  Most imperative
-languages have no real concept of immutability and therefore sharing data by reference is a
-liability.  In Rust, however, everything (including reference counted references) is immutable by
-default so the compiler will prevent us from corrupting the undo history by accidentally modifying
-shared state.
-
-Because of this, I used immutable data structures for the undo history in Jigsaw.  The history is a
-stack of \verb|Spec|ifications, which all use reference counted pointers
-(shortened to \verb|Rc|\footurl{https://doc.rust-lang.org/std/rc/index.html}) to store any large
-structures, allowing data to be safely shared without accidental mutations or memory leaks.  Thanks
-to some excellent API design in \verb|Rc|, handling the undo history code is quite clean, performant
-and has caused many compiler errors but no run-time bugs.
-
-\subsubsection{Data Flow}
-
-TODO
-
-\begin{figure}
-    \begin{verbatim}
-        JS        |        Rust
-------------------+--------------------
-     User input   |
-         |        |
-         v     API Call
-       Event -----------> Comp API
-         |        |          |
-         | undo/  |          v
-         | redo   |      Clone Spec
-         |        |          |
-         |        |          v
-         |        |    Modify new Spec
-         |        |          |
-         |   API Call        v
-         +-----------> Update History
-                  |          |
-                  |          v
-                  | Rebuild DerivedState
-                  |          |
-                  |       (serde)
-               API Call      v
-   JSON String <------- JSON String
-        |         |
-  (deserialise)   |
-        v         |
-  derived_state   |
-        |         |
-        v         |
-      paint       |
-    \end{verbatim}
-    \caption{Jigsaw's data flow}\label{fig:app_data_flow}
-\end{figure}
-
 \subsection{Mute/Solo}
 
 TODO
@@ -821,10 +800,6 @@ TODO
 
 - Bluelines
 - Falseness ranges
-
-\subsection{API Design of Core Library}
-
-TODO
 
 \subsection{Releasing Prototype to GitHub Pages}
 
