@@ -33,7 +33,13 @@ pub struct SimdRow {
 }
 
 impl SimdRow {
-    fn bell_iter(self) -> BellIter {
+    #[inline(always)]
+    pub fn to_m128i(self) -> m128i {
+        self.bells
+    }
+
+    #[inline(always)]
+    pub fn bell_iter(self) -> BellIter {
         BellIter {
             bells: u128::from(self.bells),
             bells_left: self.stage.as_usize(),
