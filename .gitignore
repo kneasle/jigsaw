@@ -4,3 +4,6 @@
 
 # The default output directory of `build.py`
 out/
+
+# Report files (seen when switching between the `report` branch)
+report*
