@@ -11,6 +11,7 @@
 
 \newcommand{\row}[1]{\texttt{#1}}
 \newcommand{\br}[0]{\vspace{10pt} \noindent}
+\newcommand{\footurl}[1]{\footnote{\url{#1}}}
 
 \begin{document}
 
@@ -27,7 +28,7 @@ This project is to build a tool to help composers design complex sequences of ri
 bells.  Change ringing is a very niche and varied activity so this section will serve as a quick
 introduction to the topic and overview of the aspects of change ringing which are most relevant to
 this project.  A more complete overview can be found
-on Wikipedia\footnote{\url{https://en.wikipedia.org/wiki/Change_ringing}}.
+on Wikipedia\footurl{https://en.wikipedia.org/wiki/Change_ringing}.
 
 \br{}Change ringing (sometimes known as full-circle church bell ringing) originated in English
 churches in around 1600, where churches began hanging sets of tuned bells on wheels in towers.
@@ -598,7 +599,7 @@ modify the data types defined above.
 \subsection{Facebook Poll}
 
 (Dec 3, Poll linked
-below\footnote{\url{https://www.facebook.com/groups/601658156640471/permalink/2097786800360925}})
+below\footurl{https://www.facebook.com/groups/601658156640471/permalink/2097786800360925})
 
 Having lain down a rough initial design, I wanted feedback from other composers to determine if it
 would be widely useful.  I am self-taught in composing, and it's entirely possible that I have a
@@ -632,7 +633,7 @@ used in other projects or by other developers.
 
 TODO
 
-\subsection{Row vs Perm}
+\subsection{Rows vs Permutations}
 
 After taking with Anders, I thought that the concept of rows and permutations were different enough
 to warrant separate data types.  My thinking was that a \verb|Row| is a sequence of \verb|Bell|s
@@ -655,7 +656,7 @@ thus pass pointers across the boundary and copy the data.
 
 Creating binding code like this by hand is incredibly tedious and error-prone and one of the reasons
 I chose Rust was because of
-\emph{wasm-bindgen}\footnote{\url{https://github.com/rustwasm/wasm-bindgen}}, a tool which generates
+\emph{wasm-bindgen}\footurl{https://github.com/rustwasm/wasm-bindgen}, a tool which generates
 this binding code automatically and requiring only minimal changes to the source code.  This means
 that the hand-written JavaScript and Rust code can both use native types, and the fiddly API details
 are taken care of.  There are still some limitations (mostly due to Rust and JavaScript having
@@ -669,9 +670,7 @@ sequence so I created a simple shell script (\verb|build.sh|) to run the full bu
 In order to publish the project to GitHub pages, this script was later improved and translated to
 Python (April 27, d8d388b).
 
-\subsection{Maintaining Undo History}
-
-\subsection{Passing Data}
+\subsection{Passing Data Between Rust and JavaScript}
 
 As the project progressed, it became clear that a large amount of relatively complex data had to be
 communicated between JavaScript and Rust.  Even with \emph{wasm-bindgen}, the types that can be sent
@@ -690,18 +689,14 @@ enforces a separation of concerns because JavaScript has no knowledge of how Rus
 implement these functions.  This worked excellently and I had no issues with it.
 
 In order to work round the inherent issues of WebAssembly, the initial data read API was a flat set
-of getter functions, looking like Figure~\ref{fig:initial_api}.
-
-This worked fine for a while but as the complexity of the datatypes grew, the number of exported
-functions exploded and refactoring the API became an unnecessary challenge.  Also, every WebAssembly
-function call takes a non-trivial amount of time and this flat API encourages huge numbers of calls
-each frame which started causing performance issues.  Also this data won't change each frame so we
-may as well cache the data in a native JavaScript data structure.
-
-It is worth noting here that the API is split 
+of getter functions, looking like Figure~\ref{fig:initial_api}.  This worked fine for a while but as
+the complexity of the datatypes grew, the number of exported functions exploded and refactoring the
+API became an unnecessary challenge.  Also, every WebAssembly function call takes a non-trivial
+amount of time and this flat API encourages huge numbers of calls each frame which started causing
+performance issues.
 
 \begin{figure}
-\begin{verbatim}
+    \begin{verbatim}
 /// Get the number of fragments
 fn get_num_frags() -> usize { ... }
 
@@ -714,15 +709,113 @@ fn get_row(
     row_index: usize,
     bell_index: usize
 ) -> Bell { ... }
-\end{verbatim}
-\caption{Initial getter API design}\label{fig:initial_api}
+    \end{verbatim}
+    \caption{Initial getter API design}\label{fig:initial_api}
 \end{figure}
 
-\subsection{Project Architecture}
+It's also worth noting that the data being read only changes when the user edits the composition,
+not every frame.  Also, we are rebuilding the \verb|DerivedState| anyway every time the user edits
+the composition, and this structure holds all the data required for JavaScript to render the
+composition (see Section~\ref{sec:proj_arch} for the final architecture).  Therefore, I tried
+passing the entire \verb|DerivedState| as a JSON string for JavaScript to deserialise and store.
+Serialisation in Rust is extremely easy due to
+\emph{serde}\footurl{https://github.com/serde-rs/serde}, a library which generates
+(de)serialisation code for any data type at compile-time.  This turned out to work really well ---
+almost no WebAssembly calls are made during each frame, the API size and complexity is significantly
+reduced and long-term divergence is impossible because JavaScript overwrites its copy of the
+\verb|DerivedState|.  Also, refactoring the data is usually a simple matter of find/replace of the
+JavaScript code.  
+
+\subsection{Project Architecture}\label{sec:proj_arch}
+
+The code for the project is in overall split into two parts of roughly equal size.  The first of
+these is the utility library (in \verb|core/| but imported as \verb|proj_core|) containing optimised
+and idiomatic functions and data types for Change Ringing, which are not specific to this project.
+After this project is done, this will be published to Rust's package repository for general use.  In
+its own right, this library is a valuable result of this project.
+
+The rest of the code is the application itself.  This contains a Rust library (in \verb|jigsaw/|)
+and the web files which provide a nice GUI over the lower level library (in \verb|www/|).
+
+Over the course of the project, the architecture of the application settled naturally into the
+`Model-View-Presenter'
+model\footurl{https://en.wikipedia.org/wiki/Model\%E2\%80\%93view\%E2\%80\%93presenter}.  All
+of the user-facing code (the `view') is the JavaScript/HTML/CSS;\@ all the application's
+data (the `model') is stored in the \verb|jigsaw::spec| module; and finally the \verb|Comp|
+singleton and the \verb|DerivedState| struct provide an interface between these (the `presenter').
+
+\subsubsection{Undo History}
+
+There are two general strategies for handling undo history: event systems and immutable data
+structures.
+
+Event systems store the current state, and some form of `events' which can be applied to that data.
+Every action has an event to apply that action and one to undo it.  Each time an action is
+made on the data, the reverse action is pushed onto a stack in order to later be used to undo the
+change.  Whilst this can work well, it is generally difficult to get right and any bugs in the undo
+system are extremely hard to debug.
+
+Using immutable data structures, the undo history becomes a stack of immutable states.  Undo/redo
+is simply incrementing/decrementing an index and any new edits push the new state onto the stack.
+Due to the immutability, these can share data without worrying about corruption.  Most imperative
+languages have no real concept of immutability and therefore sharing data by reference is a
+liability.  In Rust, however, everything (including reference counted references) is immutable by
+default so the compiler will prevent us from corrupting the undo history by accidentally modifying
+shared state.
+
+Because of this, I used immutable data structures for the undo history in Jigsaw.  The history is a
+stack of \verb|Spec|ifications, which all use reference counted pointers
+(shortened to \verb|Rc|\footurl{https://doc.rust-lang.org/std/rc/index.html}) to store any large
+structures, allowing data to be safely shared without accidental mutations or memory leaks.  Thanks
+to some excellent API design in \verb|Rc|, handling the undo history code is quite clean, performant
+and has caused many compiler errors but no run-time bugs.
+
+\subsubsection{Data Flow}
+
+TODO
+
+\begin{figure}
+    \begin{verbatim}
+        JS        |        Rust
+------------------+--------------------
+     User input   |
+         |        |
+         v     API Call
+       Event -----------> Comp API
+         |        |          |
+         | undo/  |          v
+         | redo   |      Clone Spec
+         |        |          |
+         |        |          v
+         |        |    Modify new Spec
+         |        |          |
+         |   API Call        v
+         +-----------> Update History
+                  |          |
+                  |          v
+                  | Rebuild DerivedState
+                  |          |
+                  |       (serde)
+               API Call      v
+   JSON String <------- JSON String
+        |         |
+  (deserialise)   |
+        v         |
+  derived_state   |
+        |         |
+        v         |
+      paint       |
+    \end{verbatim}
+    \caption{Jigsaw's data flow}\label{fig:app_data_flow}
+\end{figure}
 
 \subsection{Mute/Solo}
 
+TODO
+
 \subsection{Line Rendering}
+
+TODO
 
 \subsection{Implementing Folding}
 
@@ -730,6 +823,8 @@ fn get_row(
 - Falseness ranges
 
 \subsection{API Design of Core Library}
+
+TODO
 
 \subsection{Releasing Prototype to GitHub Pages}
 
