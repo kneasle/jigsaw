@@ -5,6 +5,8 @@
 \usepackage{hyperref}
 \usepackage{multicol}
 \usepackage{wrapfig}
+\usepackage{graphicx}
+\graphicspath{ {./images/} }
 
 \title{Insert Report Title Here}
 \author{Benjamin White-Horne \\ \emph{Oxford University}}
@@ -29,6 +31,26 @@
 \pagebreak
 
 \section{Abstract}
+
+(Copied from my original report, and needs rewriting)
+
+Change ringing is an artform which is almost exclusive to England, where people ring sets of bells
+in continually evolving sequences, known as ``changes'' or ``rows''.
+
+More specifically, this project is concerned with the art of `composing' --- designing sequences of
+rows for ringers to perform.  The art of composing predates computers by several centuries (the
+ealiest surviving record of composing come from Fabian Stedman in the 1700s), so composers have
+historically created compositions using pen, paper and copious amounts of both skill and patience.
+However, change ringing compositions are at their core sequences of permutations and are therefore
+extremely ameanable to both mathematical and computer analysis.  Even the first computers have been
+used to mechanise parts of composing (namely ``proving'' --- verifying that a composition contains
+no repeated rows), and as the increasing speed of computers has been exploited to allow computers to
+fully generate some compositions.
+
+But brute force is still no match for the creativity of human composers, and one mostly unexplored area
+of composing is software that \emph{aids} human composers by giving instant feedback and
+visualisations to a composer whilst not requiring them to make drastic changes to their workflow.
+This is analogous to what software like Musescore or Sibelius do for composing music.
 
 
 
@@ -157,7 +179,7 @@ themselves around this `fixed' bell and therefore helps prevent mistakes.
 
 One observation we can make here is that the second column begins with the leftover row of the
 first.  Therefore, we could concatenate the two leads together to form a longer piece (as in
-fig~\ref{fig:two-leads-lb8}). Note how the dashed lines split consecutive leads.
+Figure~\ref{fig:two-leads-lb8}). Note how the dashed lines split consecutive leads.
 
 \subsection{Compositions}
 
@@ -256,9 +278,8 @@ This project concerns prototyping an application to \emph{aid} composers whilst 
 smallest possible change to their existing workflow.  This is analogous to what Microsoft Word
 provides for writers --- a kind of `automated paper' which automatically annotates your work with
 data that is tedious to compute manually whilst still providing it in a format that you are familiar
-with (i.e.\ words on a page).
-
-There is currently nothing like this in the composing ecosystem, which I believe is a bad omission.
+with (i.e.\ words on a page).  Additionally, it must provide correct feedback regardless of the
+completeness of the composition.
 
 \subsection{Specific Aims}
 
@@ -358,35 +379,19 @@ view and then find that location again.
 
 \subsection{Inpact}
 
-Inpact is a program written by Alexander Holroyd to support the work-flow of experimenting with
-compositions.  It provides instant feedback on truth and music, but is visually quite clunky and
-doesn't support `partial' compositions.
+Inpact is a program written by Alexander Holroyd in 2004 to support the workflow of experimenting
+with compositions.  It provides instant feedback on truth and music, but is visually quite clunky
+and doesn't fully support `partial' compositions (compositions must start in rounds, but don't have
+to also end in rounds).
 
-\paragraph{Ease of use:}
+Inpact has a folding GUI, allowing the user to fold away information that they didn't need.  It also
+has a neat customisable music system.
 
-\paragraph{Incremental:}
-
-\paragraph{Instant:}
-
-\paragraph{Visual \& View-Independence:}
-
-\subsubsection{Things that Inpact does well}
-
-\begin{enumerate}
-    \item It has a folding interface --- the user can fold away sections of the composition in order
-        to get a higher-level overview of the composition as a whole.
-    \item It doesn't require that your composition is complete before giving feedback about truth or
-        music content.
-    \item It has customisable music scoring --- the user decides what music they care about.
-\end{enumerate}
-
-\subsubsection{Things that Inpact doesn't do well}
-
-\begin{enumerate}
-    \item Doesn't handle `partial' compositions --- compositions have to be a single block starting
-        at rounds, but don't have to come round.
-    \item There isn't a visual way to see the music in the composition.
-\end{enumerate}
+\begin{figure}
+    \centering
+    \includegraphics[width=0.4\textwidth]{inpact}
+    \caption{Screenshot of Inpact}
+\end{figure}
 
 
 
@@ -792,6 +797,10 @@ JavaScript code.
 
 TODO
 
+\subsection{Block Structure}
+
+TODO
+
 \subsection{Line Rendering}
 
 TODO
@@ -799,6 +808,7 @@ TODO
 \subsection{Implementing Folding}
 
 - Bluelines
+
 - Falseness ranges
 
 \subsection{Releasing Prototype to GitHub Pages}
