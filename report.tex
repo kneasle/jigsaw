@@ -298,7 +298,9 @@ Ringing'\footnote{The definition is defined by the Framework for Method Ringing,
 representable in the application must be a superset of this definition.
 
 \paragraph{Incremental} The application should allow the user to incrementally build up their
-composition, in whatever order they want, starting wherever they want to.
+composition, in whatever order they want, starting wherever they want to.  Specifically, it must
+be able to represent `partial' compositions --- i.e.\ a set of composition `fragments' which will
+eventually be combined into a full composition.
 
 \paragraph{Instant} Feedback on important measures like truth, music content and length should
 always update instantly whenever the composer changes their composition.
@@ -314,7 +316,7 @@ composition).  (N.B. I actually didn't do this, so it might be worth removing it
 
 \pagebreak
 
-\section{What has been done so far?}
+\section{Existing Projects}
 
 In this section, I will go through existing tools and review them against the goals set above.
 These examples also influenced the core design decisions of the resulting prototype.
@@ -397,7 +399,7 @@ has a neat customisable music system.
 
 \pagebreak
 
-\section{Initial Design Decisions}
+\section{(TO REMOVE) Initial Design Decisions}
 
 Now that we've taken a look at the state of the art, it's time to start making design decisions
 about this project.  To do this, I will lay out my initial design and why I think it will satisfy
@@ -571,9 +573,96 @@ modify the data types defined above.
 
 \pagebreak
 
-\section{Project Architecture}\label{sec:proj_arch}
+\section{Project Overview}\label{sec:proj_arch}
 
-\subsection{Overview}
+\subsection{Final Design}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{current-screenshot-w-mute}
+    \caption{Screenshot of Jigsaw, showing the folding UI and canvas display}\label{fig:cur-screenshot}
+\end{figure}
+
+The overall design of Jigsaw is an infinitely scrollable canvas which contains any number of
+fragments in any location.  It is also designed to be used on a desktop with a 3-button mouse and
+keyboard, and for maximal efficiency all common operations are triggered by keys on the left side of
+the keyboard.  For consistency, all operations are applied at the location of the mouse cursor.
+
+Overlaid on this canvas is a sidebar containing information which can't be represented using the
+canvas interface.  This contains a lot of dense information, so all sections can be folded to hide
+irrelevant information.
+
+// List of keyboard shortcuts/operations
+
+Fragments can be created or extended with \verb|a| (a single lead) or \verb|A| (a full course).
+
+\subsubsection{Music Highlighting}
+
+When music appears in a composition, the bells causing the music are highlighted green, giving an
+an obvious visual indication of where the music is.
+
+Additionally, non-musical rows can generate music in other parts of the composition, and in this
+case the music is `onion-skinned' --- the more parts contain music, the darker the colour.  In
+Figure~\ref{fig:multi-part-music}, for example, \row{4328} in the $1^{st}$ lead is highlighted quite
+densely because it generates \row{5432}, \row{6543}, etc.\ in other parts.  However, \row{8761} in
+the $4^{th}$ lead is highlighted very lightly because it only creates \row{4321} in the $2^{nd}$
+lead.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.6\textwidth]{multi-part-music-clean}
+    \caption{The same lead in four different parts (rotating 2--8)}\label{fig:multi-part-music}
+\end{figure}
+
+\subsubsection{Falseness Display}
+
+Falseness is visually communicated by marking groups of identical rows with the same coloured
+brackets (see Figure~\ref{fig:falseness}).  As far as I know, this is the most efficient way of
+visually communicating exact falseness.  The main drawbacks of this approach is that the number of
+different groups can get very large causing Jigsaw to run out of easily differentiable colours.
+Additionally, it is very reliant on colours which will likely be problematic for colour-blind
+people.  A fix for this would be to add a switch to number the groups rather than just relying on
+colour.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\textwidth]{falseness-clean}
+    \caption{Leads which are false in 3 different ways}\label{fig:falseness}
+\end{figure}
+
+\subsubsection{Lead Folding}
+
+To prevent the user from having to look at thousands of rows at the same time, Jigsaw allows leads
+to be folded into a single row.  Jigsaw then converts falseness groups into dots next to the row
+number (see Figure~\ref{fig:lead-folding}), and switches between lines and numbers for displaying
+bells when necessary.
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=0.4\textwidth]{lead-fold-false}
+    \caption{Folded and unfolded versions of the same lead}\label{fig:lead-folding}
+\end{figure}
+
+\subsubsection{Linking Fragments}
+
+Two fragments can be linked together if the leftover row of one is equal to the first row of the
+other.  To represent this visually, Jigsaw draws a coloured line between the two (see
+Figure~\ref{fig:linking}).  Hovering this line and pressing \verb|c| (for `connect') will join those
+fragments into one.  Note how this operation doesn't change the rows contained in the composition.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{linking}
+    \caption{Two fragments which link together, and one that doesn't.}\label{fig:linking}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\textwidth]{linking-insane}
+    \caption{A lot of fragment links on one screen.}\label{fig:linking-insane}
+\end{figure}
+
+\subsection{Architecture}
 
 The code for Jigsaw is split into 3 main parts: two Rust libraries which together form a `server'
 and `client' in the form of a web GUI.\@  The Rust code is compiled to WebAssembly, and exports an
@@ -586,7 +675,7 @@ binding and serialisation code is automatically generated at compile time using
 \emph{wasm-bindgen}\footurl{https://github.com/rustwasm/wasm-bindgen} and
 \emph{serde}\footurl{https://github.com/serde-rs/serde} to prevent human error.
 
-\subsection{Utility Library}
+\subsubsection{Utility Library}
 
 Roughly half of the Rust code in the project is a cross-platform utility library for core datatypes
 which are not specific to Jigsaw.  This provides safe and performant Rust datatypes for common
@@ -602,8 +691,6 @@ only writes `safe' code.
 
 Despite have no stable API, I have already built other projects on it.  In its own right, this
 library is a valuable product of this project.
-
-\subsection{Application Logic}
 
 \subsubsection{Model View Presenter}
 
@@ -629,7 +716,7 @@ The undo history is simply a list of \verb|Spec| types along with an index.  The
 \verb|Spec|s is always stored through immutable reference counted pointers, which prevents
 unnecessary cloning without data leaks or mutation of shared memory.
 
-\subsection{Architectural Invariants}
+\subsubsection{Architectural Invariants}
 
 This architecture of Model-View-Presenter and immutable history requires a number of invariants to
 be upheld while the application is running.
@@ -646,7 +733,7 @@ Secondly, the JavaScript code and the \verb|Spec| datatypes should be be complet
 should only communicate through the \verb|Comp| singleton.  This constraint is inherited from the
 Model-View-Presenter model (where the Model and View can only communicate through the Presenter).
 
-\subsection{Data Flow}
+\subsubsection{Data Flow}
 
 These invariants enforce a very specific data flow whenever the user changes the composition
 (summarised in Figure~\ref{fig:app_data_flow}).  The user's input events are all captured by
@@ -701,7 +788,7 @@ string with which to overwrite the \verb|derived_state| variable.
 
 \pagebreak
 
-\section{The Trials and Tribulations of Actually Coding this Thing}
+\section{Failed Design Decisions}
 
 \subsection{Facebook Poll}
 
@@ -795,7 +882,29 @@ JavaScript code.
 
 \subsection{Mute/Solo}
 
-TODO
+The system for muting/soloing fragments went through several iterations.  Mute/solo is most common
+in music production applications, where it's often useful to listen to only some sounds in
+isolation.
+
+The dominant design gives each item 3 states: \emph{normal}, \emph{muted} or \emph{soloed}.  If any
+items are soloed, then all the non-soloed items are silent.  Items which are muted are always
+silent.  However, visual feedback for all 3 states is required because normal and muted are
+indistinguishable when items are soloed.  This didn't fit with the minimalist design aesthetic of
+Jigsaw, so I used a strategy inspired by the music software FL
+Studio\footurl{https://www.image-line.com/}.
+
+In this design, each item has only two states: \emph{normal} or \emph{muted}, visually indicated by
+greying out muted fragments (see Figure~\ref{fig:frag-mute}).  There are still two operations:
+`mute' (key: \verb|s|) and `solo' (key: \verb|S|).  Mute simply toggles the state.  If the fragment
+is the only unmuted fragment, then solo unmutes everything, otherwise it mutes everything except the
+hovered fragment.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.3\textwidth]{muted-frag}
+    \caption{Normal vs muted fragments}\label{fig:frag-mute}
+\end{figure}
+
 
 \subsection{Block Structure}
 
@@ -805,7 +914,7 @@ TODO
 
 TODO
 
-\subsection{Implementing Folding}
+\subsection{Implementing Folding}\label{sec:folding}
 
 - Bluelines
 
