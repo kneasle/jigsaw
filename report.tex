@@ -228,27 +228,12 @@ Indeed, lengths within the ranges $1250 \le l < 1300$ or $5000 \le l < 5100$ are
 
 If we are composing for $\ge 8$ bells, then our composition will not contain every possible row and
 we therefore have the opportunity to decide which rows get included and which don't.  Of these, some
-may be more favourable than others --- in general ringers prefer rows with low entropy over those
-which sound more random.
+may be more favourable than others.
 
-Some common forms of music are as follows (examples are given on 8 bells, but logical extensions
-usually exist on other numbers).  By convention I will use \row{x} as a wild card for any bell (like
-\verb"." in regexes):
-
-\begin{enumerate}
-    \item \textbf{Runs of bells}: Rows which start or finish with $\ge 4$ consecutive bells.
-        The exact bells are unimportant and the longer the run the better.  For example
-        \row{345678xx} starts with a descending run of 6 bells, and is therefore preferable to
-        \row{xxxx4321} which ends with an ascending run of 4 bells.
-    \item \textbf{Named rows}: Single rows which people deem especially pleasing.  Some examples:
-        \begin{itemize}
-            \item Queens: \row{13572468} --- odds then evens
-            \item Backrounds: \row{87654321} --- rounds but reversed
-            \item Tittums: \row{15263748} --- alternates high and low, sounds like `tee-tum-tee-tum'
-        \end{itemize}
-    \item \textbf{Musical patterns}: Where part of the row forms an interesting pattern.  For
-        example \row{xxxx6578} (known as `65s') or \row{x5x6x7x8} (from Tittums).
-\end{enumerate}
+Currently, people like rows which start or finish with $\ge 4$ consecutive bells.  The exact bells
+are unimportant and the longer the run the better.  For example \row{34567812} starts with a
+descending run of 6 bells, and is therefore preferable to \row{57864321} which ends with an
+ascending run of 4 bells.
 
 \subsubsection{Complexity}
 
@@ -505,70 +490,6 @@ three broad categories:
         application that enforces them would likely feel overly restrictive.
 \end{enumerate}
 
-\subsubsection{Model Datatypes}
-
-Here, I will describe a model around which this project will be built.  As described above, we will
-only model the first two categories of ideas described above, as they are the most important and
-straightforward to implement.  I will describe the model as Haskell-style data types, using some
-light syntax extensions for things like \verb+{| .. |}+ for counted sets (a.k.a.\ bags).  For
-consistency between this report and the code, I have given data types the same
-names as their counterparts in the Rust source code wherever possible.
-
-First of all, a \verb|Spec|ification of a composition is a combination of a bag of \verb|Frag|ments
-coupled with some \verb|MetaData| (in the code, the meta-data is simply flattened into the
-\verb|Spec| structure):
-
-\begin{verbatim}
-data Spec = Spec {
-    frags :: {| Frag |},
-    meta_data :: MetaData
-}
-\end{verbatim}
-
-In this project, we will model fragments simply as an ordered sequence of annotated rows.  These
-`annotations' encode the higher-order structure of the composition in a view-independent format,
-so that the same composition can be displayed to the user in whatever way they prefer to view
-compositions (thus the exact calling of the composition becomes \emph{derived state}):
-
-\begin{verbatim}
-type Frag = [AnnotRow]
-
-data AnnotRow = AnnotRow {
-    row :: Row,
-    is_rule_off :: Bool,
-    call_str :: Maybe String,
-    -- more annotations omitted for brevity ...
-}
-\end{verbatim}
-
-The \verb|MetaData| contains the remaining information required to specify the composition,
-including part heads and the composition's stage:
-
-\begin{verbatim}
-data MetaData = MetaData {
-    part_heads :: [Row],
-    stage :: Stage
-}
-\end{verbatim}
-
-The remaining data types in this definition (\verb|Row|, \verb|Stage|, \verb|Bell|, etc.) are stored
-in a separate library to the project's business code in the \verb|core| directory (imported as
-\verb|proj_core| in the code).  For completeness, they could be defined in Haskell as follows:
-
-\begin{verbatim}
-type Row = [Bell]
-
-data Bell = Bell Int
-data Stage = Stage Int
-\end{verbatim}
-
-\subsubsection{Operations on the Data}
-
-Now that we know how a composition is specified, we now need to define how the user will be able to
-modify the data types defined above.
-
-(T.B.C.)
-
 
 
 \pagebreak
@@ -647,8 +568,11 @@ bells when necessary.
 
 Two fragments can be linked together if the leftover row of one is equal to the first row of the
 other.  To represent this visually, Jigsaw draws a coloured line between the two (see
-Figure~\ref{fig:linking}).  Hovering this line and pressing \verb|c| (for `connect') will join those
-fragments into one.  Note how this operation doesn't change the rows contained in the composition.
+Figure~\ref{fig:linking}).  If multiple different sets of fragments link, then each group is
+coloured separately (see Figure~\ref{fig:linking-insane}).
+
+Hovering a line and pressing \verb|c| (for `connect') will join those fragments into one.  Note how
+this operation doesn't change the rows contained in the composition.
 
 \begin{figure}
     \centering
