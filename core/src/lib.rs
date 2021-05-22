@@ -22,6 +22,7 @@ pub use utils::run_len;
 // Re-export the SIMD row if the feature is enabled
 #[cfg(feature = "simd_row")]
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-#[cfg(target_feature = "ssse3")]
-#[cfg(target_feature = "sse4.1")]
+// Don't cfg on feature flags so that rust-analyzer is able to provide autocomplete
+// #[cfg(target_feature = "ssse3")]
+// #[cfg(target_feature = "sse4.1")]
 pub use row::simd::SimdRow;

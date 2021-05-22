@@ -1,5 +1,7 @@
-#![cfg(target_feature = "ssse3")]
-#![cfg(target_feature = "sse4.1")]
+// Enable this library even if the feature flags aren't set.  This will make sure that
+// rust-analyzer is able to index it and provide autocomplete for upstream libraries
+// #![cfg(target_feature = "ssse3")]
+// #![cfg(target_feature = "sse4.1")]
 // Because of the unsafety, this module is hidden behind a feature flag
 #![cfg(feature = "simd_row")]
 // The SIMD intrinsics we're using are only valid on x86
