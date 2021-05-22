@@ -32,25 +32,27 @@
 
 \section{Abstract}
 
-(Copied from my original report, and needs rewriting)
+This project concerns the designing and prototyping of Jigsaw, an application to help change ringing
+composers to compose while requiring as little change to their workflow as possible.  In other
+words, Jigsaw aims to be to composers is to Microsoft Word is to writers.  Additionally, I hope that
+the addition of a beginner-friendly visual tool will make composing easier for people to get into
+(MU/DA:\@ please reword this --- thanks).  Jigsaw is currently deployed as a static web app using
+GitHub pages.
 
-Change ringing is an artform which is almost exclusive to England, where people ring sets of bells
-in continually evolving sequences, known as `changes' or `rows'.
+Whilst writing Jigsaw I also created BellFrame, a fast and idiomatic Rust library which provides
+easy-to-use datatypes for ubiquitous concepts in change ringing.  BellFrame has good documentation
+with code examples, and is in itself a very useful asset.  Once its API is more stable, I will
+publish it to Rust's package repository for general use.
 
-More specifically, this project is concerned with the art of `composing' --- designing sequences of
-rows for ringers to perform.  The art of composing predates computers by several centuries (the
-ealiest surviving record of composing come from Fabian Stedman in the 1700s), so composers have
-historically created compositions using pen, paper and copious amounts of both skill and patience.
-However, change ringing compositions are at their core sequences of permutations and are therefore
-extremely ameanable to both mathematical and computer analysis.  Even the first computers have been
-used to mechanise parts of composing (namely `proving' --- verifying that a composition contains no
-repeated rows), and as the increasing speed of computers has been exploited to allow computers to
-fully generate some compositions.
+\br{}Change ringing is an art form which is almost exclusive to England, where people ring sets of
+bells in continually evolving sequences, known as `changes' or `rows'.  The art of `composing'
+concerns designing sequences of rows for ringers to perform, and predates computers by several
+centuries (the ealiest surviving record of composing come from Fabian Stedman in the 1700s).
 
-But brute force is still no match for the creativity of human composers, and one mostly unexplored area
-of composing is software that \emph{aids} human composers by giving instant feedback and
-visualisations to a composer whilst not requiring them to make drastic changes to their workflow.
-This is analogous to what software like Musescore or Sibelius do for composing music.
+Compositions are at their core sequences of permutations and are therefore extremely ameanable to
+both mathematical and computer analysis.  Some parts of composition have already been well
+automated, including brute-force generation of compositions, but there are very few user-friendly
+tools for composers.  By prototyping Jigsaw, I have explored one possible way to fill this gap.
 
 
 
@@ -690,18 +692,29 @@ performance issues.
 
 \begin{figure}
     \begin{verbatim}
-/// Get the number of fragments
-fn get_num_frags() -> usize { ... }
+#[wasm_bindgen]
+impl Comp {
+    ...
 
-/// Get the number of rows in the fragment at a given index
-fn get_frag_length(frag_index: usize) -> usize { ... }
+    /// Get the number of fragments
+    pub fn get_num_frags(&self) -> usize { ... }
 
-/// Get the bell at a given location
-fn get_row(
-    frag_index: usize,
-    row_index: usize,
-    bell_index: usize
-) -> Bell { ... }
+    /// Get the number of rows in the fragment at a given index
+    pub fn get_frag_length(
+        &self,
+        frag_index: usize,
+    ) -> usize { ... }
+
+    /// Get the bell at a given location
+    pub fn get_row(
+        &self,
+        frag_index: usize,
+        row_index: usize,
+        bell_index: usize,
+    ) -> Bell { ... }
+
+    ...
+}
     \end{verbatim}
     \caption{Initial getter API design}\label{fig:initial_api}
 \end{figure}
@@ -768,8 +781,18 @@ build script).
 
 \section{Conclusion}
 
-This project has two major products: the application itself (Jigsaw) and the reusable utility
-library on which Jigsaw is built.
+This project has two major products: the application itself (named Jigsaw) and the reusable utility
+library on which Jigsaw is built (named BellFrame).
+
+As it stands right now, I think that BellFrame is a bigger contribution to composing (despite
+technically being a bi-product) since it is very usable and has some battle-testing.  Jigsaw, on
+the other hand, is a very promising prototype but is not feature complete or stable enough to be
+used in production.  Fixing both these issues is simply a matter of development time and testing, 
+and I will continue working on Jigsaw even after this project is handed in.  Given the limited
+time-frame of this project, I chose to spend it on exploring unexplored ideas rather than striving
+for perfect stability.
+
+\subsection{Jigsaw}
 
 I think that Jigsaw is a successful prototype and I will likely continue building it into a
 feature-complete application.  I demonstrated it to several other composers who all thought it
@@ -779,10 +802,10 @@ difficult to use in production, but do not detract from its value as a prototype
 In order to decide on the success of the project, I will rank it against the design goals set out in
 Section~\ref{sec:design-goals}.
 
-\subsection{Ease of Use \& Visual}
+\subsubsection{Ease of Use \& Visual}
 
 Firstly, building Jigsaw as a single static page means it requires no installation to use.  The
-design of an infinite canvas plus a folding sidebar feels very intuitive to use.
+design of an infinite canvas plus a folding sidebar feels very natural and intuitive to use.
 
 A large amount of effort went into making sure that GUI is visually crisp and responsive.  This
 goes as far as rounding all coordinates to the nearest pixel to prevent fuzzy boundaries
@@ -796,7 +819,7 @@ in time there's no indicator of what actions are available.  If I had more time,
 contextual right-click menu to fix this problem (it could even show the key bindings to help
 beginners learn them).
 
-\subsection{Completeness}
+\subsubsection{Completeness}
 
 Jigsaw's internal representation is complete, but the current user interface is not.  In other
 words, Jigsaw is internally able to represent a strict superset of compositions which are considered
@@ -804,14 +827,14 @@ change ringing, but the prototype GUI means that the user is unable to express s
 states which are technically considered change ringing.  For perhaps 99\% of use cases, Jigsaw's
 user interface is complete enough that most users would not notice.
 
-\subsection{Incremental}
+\subsubsection{Incremental}
 
 Jigsaw is completely built around being incremental.  It also does its best to preserve `continuity'
 of operations --- that is, a small operation should cause a small change to the composition's rows.
 Some operations like splitting and joining fragments only change the structure of the composition,
 and not the output rows.
 
-\subsection{Instant}
+\subsubsection{Instant}
 
 Due to the internal architecture, the composition is always fully annotated.  Whenever the user
 causes an update, the entire state of the display is recalculated then cached for repainting.
@@ -831,11 +854,14 @@ compositions have at most 10,000 rows each of 16 bells (making 160,000 bells tot
 performance is perfectly adequate.
 
 The longest piece of ringing ever rung contains 72,000 $\times$ 6 = 432,000 bells, which would cause
-the current implementation some consternation.  However, there is plenty of low hanging fruit left
-to optimise --- there is no caching or re-use of allocations so the code causes huge numbers of
-allocations during each pipeline run.
+the current implementation some consternation.  In reality, the composition for this was split into
+many separate pieces to ease memorability so I doubt anyone would want to reason about the
+composition in full.  However, I would like Jigsaw to eventually support huge compositions, and
+there is plenty of low hanging fruit left to optimise --- for example, the pipeline does no caching
+or re-use of memory allocations so the code generates huge numbers of needless allocations during
+each pipeline run.
 
-Lastly, \verb|bell_frame| contains the \verb|SimdRow| type which uses SIMD instructions
+Lastly, BellFrame contains the \verb|SimdRow| type which uses SIMD instructions
 (specifically \verb|pshufb|) to perform row permutations in a single clock cycle, which usually
 increases performance by at least an order of magnitude.  However, SIMD support in WebAssembly is
 not mainstream yet so Jigsaw can't take advantage of this.
