@@ -104,7 +104,64 @@ concrete numbers are required (e.g.\ length), these should also be provided.
 
 \subsubsection{Static Web Application}
 
-\subsubsection{Rust and WebAssembly}
+Jigsaw can be built as a single static web page (i.e.\ it is a fixed set of files that can be served
+by a simple HTTP server).  Releasing applications as static websites has many advantages:
+
+\begin{enumerate}
+    \item There is no start-up time for a new user --- they open the page in any browser and the
+        application starts immediately.
+    \item HTML canvas rendering (while extremely inefficient compared to OpenGL or Vulkan) is easy,
+        fast enough to feel instant and looks consistently good across all browsers and operating
+        systems.
+
+        The performance worries also turn out to be a non-issue; after implementing culling of
+        off-screen rows, I have had no issues with rendering performance (at least on my new PC).
+        There is also a lot of low hanging fruit for optimising the rendering, making this an
+        entirely fixable issue.
+    \item Having no dependence on a server both obviates the need for the user to make an account
+        (which worsens the user experience) and also means that it can be deployed for free using
+        GitHub pages or a similar service.
+\end{enumerate}
+
+Persistent storage is a challenge of static web applications, since websites can't directly access
+the file system for security reasons.  Cookies are one possible option but they are sent over the
+network with every request, making them completely unsuitable for storing large amounts of data.
+Browsers do provide a persistent cache for network requests which can be arbitrarily read from and
+written to, thus providing persistent storage.
+
+\subsubsection{JavaScript and Rust/WebAssembly}
+
+For the user interface, native web languages (JavaScript, HTML and CSS) are the obvious choice.  The
+`back-end' of Jigsaw, however, has to do a lot of complex operations on data every time the user
+changes the composition being displayed.  This must be done quickly enough that the user cannot
+perceive the delay, and must be reliable.
+
+JavaScript is very unsuitable for this kind of workload.  Firstly, it has no static analysis
+whatsoever, making it unnecessarily difficult to write complex code correctly.  It also has no
+control over memory layout and is absolutely reliant on a JIT (Just In Time) compiler to get good
+performance.  Jigsaw's compute pipeline consists of several thousand lines of code, which is
+unlikely to all be compiled by the JIT compiler.
+
+
+Therefore, another language is required.  Jigsaw's back-end is written in Rust, a systems
+programming language which emphasises performance and safety (the two things Jigsaw needs).  The
+Rust code is compiled to WebAssembly so it can run natively in the browser.  Other languages could
+work for this purpose (for example TypeScript, C/C++ or Go) but I chose Rust for the following
+reasons:
+
+\begin{enumerate}
+    \item Rust gives you direct control over memory layout which provides excellent performance when
+        manipulating complex data structures.  The performance of TypeScript, for instance, is by
+        definition no better than that of JavaScript.
+    \item The Rust compiler performs a large amount of strict compile-time correctness checks on
+        your code, making it easy to implement complex algorithms in ways that you know is correct
+        and fast.  C/C++ and Go cannot compete in this regard.
+    \item Rust has first class support for WebAssembly.  Jigsaw was greatly aided by
+        \verb|wasm_bindgen|, which generates binding code between native Rust and native JavaScript
+        to let the two languages interface seamlessly.
+    \item I am already proficient in Rust, so no time will be spent learning new languages for the
+        project.
+\end{enumerate}
 
 \subsubsection{BellFrame}
 
