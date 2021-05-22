@@ -2,7 +2,11 @@
 
 % PACKAGES
 
+\usepackage{amsmath}
+\usepackage{fancyvrb}
 \usepackage{hyperref}
+\usepackage{multicol}
+\usepackage{wrapfig}
 \usepackage{graphicx}
 \graphicspath{ {./images/} }
 
@@ -45,9 +49,9 @@ publish it to Rust's package repository for general use.
 \br{}Change ringing is an art form which is almost exclusive to England, where people ring sets of
 bells in continually evolving sequences, known as `changes' or `rows'.  The art of `composing'
 concerns designing sequences of rows for ringers to perform, and predates computers by several
-centuries (the ealiest surviving record of composing come from Fabian Stedman in the 1700s).
+centuries (the earliest surviving record of composing come from Fabian Stedman in the 1700s).
 
-Compositions are at their core sequences of permutations and are therefore extremely ameanable to
+Compositions are at their core sequences of permutations and are therefore extremely amenable to
 both mathematical and computer analysis.  Some parts of composition have already been well
 automated, including brute-force generation of compositions, but there are very few user-friendly
 tools for composers.  By prototyping Jigsaw, I have explored one possible way to fill this gap.
@@ -66,7 +70,7 @@ tools for composers.  By prototyping Jigsaw, I have explored one possible way to
 
 \subsection{Change Ringing and Composing}
 
-\subsection{Project Goals}
+\subsection{Project Goals}\label{sec:design-goals}
 
 This project concerns prototyping an application to \emph{aid} composers whilst requiring the
 smallest possible change to their existing workflow.  This is analogous to what Microsoft Word
@@ -102,10 +106,25 @@ concrete numbers are required (e.g.\ length), these should also be provided.
 
 \subsection{Jigsaw}
 
+The application I designed and prototyped for this project is called Jigsaw.  The GUI has two main
+parts: an infinitely scrollable canvas where the composition fragments are, and a folding sidebar
+which overlays the canvas and shows information that can't be represented in the canvas.  Jigsaw is
+intended to be used on a desktop with a keyboard and mouse.
+
+Jigsaw supports a large number of operations to modify partial compositions.  All of these are bound
+to keys on the left side of the keyboard (because the user's right hand is expected to be on the
+mouse), and for consistency they apply their effects to the location of the cursor.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\textwidth]{false-qp}
+    \caption{Editing a Quarter Peal composition}\label{fig:cur-screenshot}
+\end{figure}
+
 \subsubsection{Static Web Application}
 
-Jigsaw can be built as a single static web page (i.e.\ it is a fixed set of files that can be served
-by a simple HTTP server).  Releasing applications as static websites has many advantages:
+Jigsaw is built to be run as a single static web page (i.e.\ it is a fixed set of files that can be
+served by a simple HTTP server).  Releasing applications as static websites has many advantages:
 
 \begin{enumerate}
     \item There is no start-up time for a new user --- they open the page in any browser and the
@@ -165,7 +184,7 @@ reasons:
 
 \subsubsection{BellFrame}
 
-\subsubsection{Code Architecture}
+\subsubsection{Code Architecture\ldots}
 
 
 
@@ -173,19 +192,512 @@ reasons:
 
 \section{Overview of Change Ringing}
 
-\subsection{\ldots}
+This project is to build a tool to help composers design complex sequences of ringing of church
+bells.  Change ringing is a very niche and varied activity so this section will serve as a quick
+introduction to the topic and overview of the aspects of change ringing which are most relevant to
+this project.  A more complete overview can be found
+on Wikipedia\footurl{https://en.wikipedia.org/wiki/Change_ringing}.
+
+\br{}Change ringing (sometimes known as full-circle church bell ringing) originated in English
+churches in around 1600, where churches began hanging sets of tuned bells on wheels in towers.
+The installations range from 3 to 16 bells, with even numbers from 6 to 12 being almost ubiquitous.
+These bells are typically quite heavy (bells over a ton are fairly common) and are spun
+back and forth through 360 degrees like a pendulum.  All the bells are rung once in a sequence which
+changes each time.  A piece of change ringing is a sequence of permutations, known as `changes'
+(hence `change ringing').  Bells only move by at most one place between two adjacent rows.  On
+paper, we write these permutations in order as rows of numbers and by convention, the bells
+are numbered sequentially with `1' referring to the highest-pitched bell in the tower.  For
+example:
+
+\begin{verbatim}
+12345678
+21436587
+21345678
+12436587
+12345678
+\end{verbatim}
+
+\subsection{Methods}
+A performance of ringing will often contain thousands of individual rows.  Physical aids to memory
+are not permitted during performances so the ringers must ring thousands of unique rows completely
+from memory.  Memorising them all directly is clearly not feasible, so compositions are built up
+from repeating patterns known as `methods'.
+
+A method has a name (often with historical or geographical connections). In the method each bell
+moves through a pre-determined path, moving back and forth within the sequence. Ringers learn this
+path to help them remember where to ring in the sequence of rows.
+
+\begin{wrapfigure}{r}{0.2\textwidth}
+\centering
+\begin{BVerbatim}
+12345678
+21436587
+24163857
+42618375
+46213857
+64128375
+61482735
+16847253
+--------
+16482735
+61847253
+68174523
+86715432
+87614523
+78165432
+71856342
+17583624
+--------
+17856342
+\end{BVerbatim}
+\caption{Two leads concatenated}\label{fig:two-leads-lb8}
+\end{wrapfigure}
+
+A single instance of a method is called a `lead' and can be thought of as a super-permutation; it
+takes a start row and produces a sequence of rows, ending with the row which the next lead should be
+started (rows like this are not considered part of the super-permutation).
+
+For example, the following are all leads of the same method\footnote{This particular method is known
+as `Little Bob Major'.} (we write the `leftover' row under a dashed line because it belongs to the
+lead \emph{after} the others):
+
+\begin{multicols}{3}
+
+\centering
+\begin{BVerbatim}
+12345678
+21436587
+24163857
+42618375
+46213857
+64128375
+61482735
+16847253
+--------
+16482735
+\end{BVerbatim}
+
+\centering
+\begin{BVerbatim}
+16482735
+61847253
+68174523
+86715432
+87614523
+78165432
+71856342
+17583624
+--------
+17856342
+\end{BVerbatim}
+
+\centering
+\begin{BVerbatim}
+12486753
+21847635
+28174365
+82713456
+87214365
+78123456
+71832546
+17385264
+--------
+17832546
+\end{BVerbatim}
+
+\end{multicols}
+
+Note that a single lead of this method preserves the location of the bell at the start of the
+row.  This is an extremely common feature of methods because it allows ringers to orient
+themselves around this `fixed' bell and therefore helps prevent mistakes.
+
+One observation we can make here is that the second column begins with the leftover row of the
+first.  Therefore, we could concatenate the two leads together to form a longer piece (as in
+Figure~\ref{fig:two-leads-lb8}). Note how the dashed lines split consecutive leads.
+
+\subsection{Compositions}
+
+A `composition' is a sequence of rows of some length which satisfies the adjacency property and
+starts and finishes with the row containing bells in descending order (\row{123456\ldots}, known as
+`rounds').  Thus, the above diagram shows a valid composition.
+
+The task of a composer is to create compositions which have some set of desirable features (which is
+likely to depend heavily on the circumstances of each performance).  In order to understand the
+rationale behind this project and gauge its success, we must first understand some of the most
+important features or constraints of compositions.
+
+\subsection{Features of Compositions}
+
+\subsubsection{Truth/Falseness}
+
+A composition is called \emph{true} if every row is unique, and is called \emph{false} otherwise.
+This is \emph{the} most important property that a composition must have, since any performance of a
+false composition is considered invalid and therefore a waste of the ringers' time.  When we write
+out compositions we usually write out rounds twice, but when considering falseness it is only
+counted once (thus, rounds in the middle of a composition is still false).
+
+\subsubsection{Length}
+
+The `length' of a composition is the number of rows which it contains.  Like falseness, external
+rounds is only considered once.  90\% of performances have one of two length ranges:
+
+\begin{enumerate}
+    \item A \textbf{Peal} consists of at least 5000 rows (about 3 hours' of ringing).
+        The number 5000 is chosen because historically the pinnacle of ringing challenge was to ring
+        every permutation of 7 bells, which results in $7! = 5040$ rows.  This was recently rounded
+        down to 5000 for all numbers of bells, but the majority of people prefer the completeness of
+        5040 rows for peals of 5, 6 or 7 bells (where every possible row is rung the same number of
+        times).
+    \item A \textbf{Quarter Peal} consists of at least 1250 rows (a quarter of a peal's length, and
+        about 45 minutes of ringing).  Due to the reduced completion time, these are much more
+        common than peals.  Half peals ($\ge 2500$ rows) and double-length peals ($\ge 10,000$ rows)
+        are both recognised lengths but performances of them are very rare.
+\end{enumerate}
+
+Also, every row above the lower bound is extra ringing time for little gain in performance merit,
+and therefore composers try to make compositions which are fairly tight to these lower bounds.
+Indeed, lengths within the ranges $1250 \le l < 1300$ or $5000 \le l < 5100$ are almost ubiquitous.
+
+\subsubsection{Music}
+
+If we are composing for $\ge 8$ bells, then our composition will not contain every possible row and
+we therefore have the opportunity to decide which rows get included and which don't.  Of these, some
+may be more favourable than others.
+
+Currently, people like rows which start or finish with at least 4 consecutive bells.  The exact bells
+are unimportant and the longer the run the better.  For example \row{34567812} starts with a
+descending run of 6 bells, and is therefore preferable to \row{57864321} which ends with an
+ascending run of 4 bells.  Both of these are preferable to \row{18346527} which has no runs
+whatsoever.
+
+\subsubsection{Complexity}
+
+Complexity does not have a nice mathematical definition and therefore this project will make no
+attempt to automate it.  However, it is still an important concept which roughly corresponds to how
+repetitive and predictable is your composition.
+
+In general, we want to make these things as simple as possible because that will open your
+composition to the most potential bands.  However, sometimes \emph{the point} of a composition is to
+be a challenge, in which case complexity is fair game.
+
+\subsubsection{Summary}
+
+In general, length and falseness are hard constraints which composers have little choice over and
+must work around.  Most of the time, the composer fixes some target level of complexity and tries
+to get as much music or interest as possible within that constraint.  Also, many composers make
+compositions that they intend to conduct themselves, allowing for a higher level of complexity
+because they already have an intimate knowledge of the composition when learning it.
 
 
+
+\pagebreak
+
+\section{Design}
+
+The overall design of Jigsaw is an infinitely scrollable canvas which contains any number of
+fragments in any location.  It is also designed to be used on a desktop with a 3-button mouse and
+keyboard, and for maximal efficiency all common operations are triggered by keys on the left side of
+the keyboard.  For consistency, all operations are applied at the location of the mouse cursor.
+
+Overlaid on this canvas is a sidebar containing information which can't be represented using the
+canvas interface.  This contains a lot of dense information, so all sections can be folded to only
+show what's relevant.
+
+// List of keyboard shortcuts/operations
+
+Fragments can be created or extended with \verb|a| (a single lead) or \verb|A| (a full course).
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{current-screenshot-w-mute}
+    \caption{Screenshot of Jigsaw, showing the folding UI and canvas display}\label{fig:cur-screenshot}
+\end{figure}
+
+\subsection{Music Highlighting}
+
+When music appears in a composition, the bells causing the music are highlighted green, giving an
+an obvious visual indication of where the music is.
+
+Additionally, non-musical rows can generate music in other parts of the composition, and in this
+case the music is `onion-skinned' --- the more parts contain music, the darker the colour.  In
+Figure~\ref{fig:multi-part-music}, for example, \row{4328} in the \nth{1}{st} lead is highlighted quite
+densely because it generates \row{5432}, \row{6543}, etc.\ in other parts.  However, \row{8761} in
+the \nth{4}{th} lead is highlighted very lightly because it only creates \row{4321} in the \nth{2}{nd}
+lead.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.6\textwidth]{multi-part-music-clean}
+    \caption{The same lead in four different parts (rotating 2--8)}\label{fig:multi-part-music}
+\end{figure}
+
+\subsection{Falseness Display}
+
+Falseness is visually communicated by marking groups of identical rows with the same coloured
+brackets (see Figure~\ref{fig:falseness}).  As far as I know, this is the most efficient way of
+visually communicating exact falseness.  The main drawbacks of this approach is that the number of
+different groups can get very large causing Jigsaw to run out of easily differentiable colours.
+Additionally, it is very reliant on colours which will likely be problematic for colour-blind
+people.  A fix for this would be to add a switch to number the groups rather than just relying on
+colour.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\textwidth]{falseness-clean}
+    \caption{Leads which are false in 3 different ways}\label{fig:falseness}
+\end{figure}
+
+\subsection{Lead Folding}
+
+To prevent the user from having to look at thousands of rows at the same time, Jigsaw allows leads
+to be folded into a single row.  Jigsaw then converts falseness groups into dots next to the row
+number (see Figure~\ref{fig:lead-folding}), and switches between lines and numbers for displaying
+bells when necessary.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.78\textwidth]{folding-full}
+    \caption{Unfolded (top) and folded (bottom) versions of the same lead.  Note the handling of
+    falseness ranges and line segments.}\label{fig:lead-folding}
+\end{figure}
+
+\subsection{Linking Fragments}
+
+Two fragments can be linked together if the leftover row of one is equal to the first row of the
+other.  To represent this visually, Jigsaw draws a coloured line between the two (see
+Figure~\ref{fig:linking}).  If multiple different sets of fragments link, then each group is
+coloured separately (see Figure~\ref{fig:linking-insane}).
+
+Hovering a line and pressing \verb|c| (for `connect') will join those fragments into one.  Note how
+this operation doesn't change the rows contained in the composition.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{linking-2}
+    \caption{Two fragments which link together, and one that links to itself.}\label{fig:linking}
+\end{figure}
+
+\begin{figure}[h!]
+    \centering
+    \includegraphics[width=\textwidth]{linking-insane}
+    \caption{A lot of fragment links on one screen.}\label{fig:linking-insane}
+\end{figure}
+
+
+
+\pagebreak
 
 \section{Implementation}
 
+The code for Jigsaw is split into 3 main parts: two Rust libraries which together form a `server'
+and `client' in the form of a web GUI.\@  The Rust code is compiled to WebAssembly, and exports an
+API which allows the JavaScript client to make changes to the internal `model' and then request a
+JSON serialisation of the information to display to the user.
+
+This architecture plays to the strengths of both languages --- Rust provides fast and reliable data
+manipulation whilst JavaScript, HTML and CSS provide a user-friendly cross-platform GUI.\@  The
+binding and serialisation code is automatically generated at compile time using
+\emph{wasm-bindgen}\footurl{https://github.com/rustwasm/wasm-bindgen} and
+\emph{serde}\footurl{https://github.com/serde-rs/serde} to prevent human error.
+
+\subsection{BellFrame}
+
+Roughly half of the Rust code in the project is a cross-platform utility library for core datatypes
+which are not specific to Jigsaw.  This provides safe and performant Rust datatypes for common
+constructs related to change ringing (\verb|Row|, \verb|Bell|, \verb|Method|, \verb|Call|, etc.).
+Its development and API design was motivated by Jigsaw but once its API is stable it will be
+published to Rust's central package repository for general use.
+
+The stable part of the API has good documentation and is well tested, and all datatypes only provide
+public functions which preserve internal invariants and therefore obviate the need for unnecessary
+checks.  It also provides `unsafe' versions of functions which remove runtime checks but in rely on
+their caller to uphold the invariants.  Therefore, no undefined behaviour is possible if the user
+only writes `safe' code.
+
+Despite have no stable API, I have already built other projects on it.  In its own right, this
+library is a valuable product of this project.
+
+\subsubsection{Aside: Rows vs Permutations}
+
+When writing BellFrame, I initially thought that the concept of rows and permutations were different
+enough to warrant separate data types.  My thinking was that a \verb|Row| is a sequence of
+\verb|Bell|s (plus some additional invariants), and a permutation can be thought of as a function of
+type \verb|[a] -> [a]| which can permute sequences of any type.  Mathematically this feels like an
+elegant separation, but using the library in earnest made me realise that the \verb|Perm| doesn't
+pull its weight given its large overlap with the \verb|Row| type.  I would almost always use
+\verb|Perm| only as an intermediate step to use one \verb|Row| to permute another.  Therefore, a few
+months into the project the operations of the \verb|Perm| structure was merged into \verb|Row|.
+
 \subsection{Model-View-Presenter}
 
-\subsection{Undo History}
+The code in the jigsaw library differentiates between the unique specification of a composition
+(the \verb|Spec| type) and the information required to display it to the user (the
+\verb|DerivedState| type).  The \verb|DerivedState| contains additional data like the music
+locations, falseness and other annotations which are completely specified by the current
+\verb|Spec| but necessary for displaying a composition.  Every change to the \verb|Spec| also causes
+the \verb|DerivedState| to be updated before the changes can be displayed to the user.
+
+Figure~\ref{fig:model-view-presenter} shows how Jigsaw's code maps to Model-View-Presenter.
+Additionally, the Model-View-Presenter means that every edit passes completely through the model,
+resulting in a data flow shown in Figure~\ref{fig:app-data-flow}.
+
+\iffalse
+\subsection{Data Flow}
+
+These invariants enforce a very specific data flow whenever the user changes the composition
+(summarised in Figure~\ref{fig:app-data-flow}).  The user's input events are all captured by
+JavaScript, which calls a corresponding function in \verb|Comp|'s API.\@ The \verb|Comp| singleton
+then clones the current \verb|Spec|, performs the required modifications and then pushes it onto the
+history stack.  Next, \verb|Comp| rebuilds its copy of \verb|DerivedState| to reflect the changes in
+the \verb|Spec| (thus upholding the invariants).  At this point, the WebAssembly function returns
+control to JavaScript which immediately calls \verb|Comp::ser_derived_state| which returns a JSON
+string with which to overwrite the \verb|derived_state| variable.
+\fi
+
+\begin{figure}
+    \centering
+    \begin{BVerbatim}
+   +------------------------+
+   |    View (JavaScript)   |
+   +------------------------+
+           |         ^
+Comp's API |         | Comp::ser_derived_state
+           V         |
+   +------------------------+
+   |        Presenter       |
+   |  (Comp, DerivedState)  |
+   +------------------------+
+           |         ^
+     Edits |         | DerivedState::from_spec
+           V         |
+   +------------------------+
+   |       Model (Spec)     |
+   +------------------------+
+    \end{BVerbatim}
+    \caption{Jigsaw's implementation of model-view-presenter}\label{fig:model-view-presenter}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \begin{BVerbatim}
+        JS          |        Rust
+--------------------+--------------------
+     User input     |
+         |          |
+         V      API Call
+       Event -------------> Comp API
+         |          |          |
+         |          |          V
+         |          |      Clone Spec
+         | undo/    |          |
+         | redo     |          V
+         |          |    Modify new Spec
+         |          |          |
+         |          |          V
+         \-------------> Update History
+             API Call          |
+                    |          V
+         /------------ Rebuild DerivedState
+         |   return |
+         |          |
+ sync_derived_state |
+         \-------------> ser_derived_state
+             API Call          |
+                    |       (serde)
+                    |          V
+   JSON String <--------- JSON String
+        |        return
+  (deserialise)     |
+        V           |
+  derived_state     |
+        |           |
+        V           |
+     repaint        |
+    \end{BVerbatim}
+    \caption{The data flow of user's changes}\label{fig:app-data-flow}
+\end{figure}
 
 \subsection{Specification vs Derived State}
 
-\subsection{BellFrame}
+The code in the jigsaw library differentiates between the unique specification of a composition
+(the \verb|Spec| type) and the information required to display it to the user (the
+\verb|DerivedState| type).  The \verb|DerivedState| contains additional data like the music
+locations, falseness and other annotations.  That is completely specified by the contents of the
+current \verb|Spec|, so every change to the \verb|Spec| must also cause the \verb|DerivedState| to
+be updated before the changes can be displayed to the user.
+
+In terms of Model-View-Presenter, the \verb|Spec| type is the Model whereas the \verb|DerivedState|
+is the data sent from the Presenter to the View.
+
+\subsection{Undo History}
+
+Jigsaw uses the `immutable data structure' method of storing undo history, where the history is a
+sequence of fully defined states (as opposed to an event system where the history is a sequence of
+modifications).  Therefore, the undo history is simply a list of \verb|Spec| types along with an
+index referring to the `current' \verb|Spec| being displayed on the screen.
+
+In order to prevent unnecessary duplication of data, the internal data of the \verb|Spec| type is
+always stored behind reference counted pointers.  Therefore, cloning a \verb|Spec| adds one to the
+reference count rather than cloning the backing data.  If we need to modify a part of the data, then
+we have to clone it using \verb|Rc::make_mut| provided by the standard library.  Rust checks this
+at compile-time and will reject code which tries to modify shared data without first cloning it.
+
+This approach works excellently, and allows Jigsaw to fully update the display without adding steps
+to the undo history.  This gives the user instant feedback when transposing fragments.
+
+\subsubsection{Aside: Passing Data Between Rust and JavaScript}
+
+Even with \emph{wasm-bindgen} providing binding code, the types that can be sent over the language
+interface is limited to flat structures with no references.  This is unfortunate, since the
+\verb|DerivedState| has 4 layers of references (\verb|DerivedState| $\to$ \verb|DerivedFrag| $\to$
+\verb|DisplayRow| $\to$ \verb|Row| $\to$ \verb|Bell|), all of which is required to render each
+frame.  Therefore, it isn't possible to simply return the \verb|DerivedState| from Rust into
+JavaScript, and another strategy is required.
+
+Initially, I didn't want JavaScript and Rust to hold their own copies of \verb|DerivedState|,
+because then there would be two potentially divergent sources of the truth (causing bugs which would
+be extremely hard to fix).  Additionally, I wanted to limit the complexity handled by the JavaScript
+code (due to its inferior performance and maintainability) so it felt natural for Rust to handle all
+the state and then expose a simple API to JavaScript to read the data.
+
+The original API was a flat set of getter functions, looking like Figure~\ref{fig:initial-api}.
+This worked fine for a while but as the complexity of \verb|DerivedState| grew, the number of
+exported functions exploded and refactoring the API became unnecessarily challenging.  Also, every
+WebAssembly function call takes a non-trivial amount of time and this flat API encourages huge
+numbers of calls each frame which started causing performance issues.  It's also worth noting that
+the \verb|DerivedState| only changes when the user changes the composition, but is needed every time
+the UI is painted.
+
+\begin{figure}
+    \begin{verbatim}
+/// Get the number of fragments
+fn get_num_frags() -> usize { ... }
+
+/// Get the number of rows in the fragment at a given index
+fn get_frag_length(frag_index: usize) -> usize { ... }
+
+/// Get the bell at a given location
+fn get_row(
+    frag_index: usize,
+    row_index: usize,
+    bell_index: usize
+) -> Bell { ... }
+    \end{verbatim}
+    \caption{Initial getter API design}\label{fig:initial-api}
+\end{figure}
+
+Eventually, I settled on the strategy that Jigsaw currently uses:  to pass the entire
+\verb|DerivedState| structure as a JSON string
+after each edit.  JavaScript then parses and caches the resulting object which it reads from when
+drawing each frame.  This turned out to work really well --- almost no WebAssembly calls are made
+during each frame, the `getter' API is reduced to a single function and long-term divergence is
+still impossible because JavaScript completely overwrites its copy of the \verb|DerivedState| each
+time the composition updates.
+
+The serialisation code is generated at compile-time using \emph{serde}
+(\url{https://github.com/serde-rs/serde}), removing the possibility for human error.  Therefore, the
+data in JavaScript and Rust will always have the same structure, making the whole code base much
+easier to read and refactor.
 
 
 
