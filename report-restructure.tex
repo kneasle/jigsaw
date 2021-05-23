@@ -36,7 +36,7 @@
 
         Trinity Term 2021
 
-        Candidate Number: 1036732
+        Candidate Number: 1034710
 
         Computer Science
     \end{center}
@@ -46,7 +46,10 @@
 
 \pagebreak
 
-\section*{Abstract}
+\begin{center}
+    \large
+    \textbf{Abstract}
+\end{center}
 
 This project concerns the designing and prototyping of Jigsaw, an application to aid church
 bell-ringing composers.  Jigsaw aims to be for bell-ringing composers what Microsoft Word is for
@@ -226,21 +229,30 @@ changes each time.  A piece of change ringing is a sequence of these sequences, 
 (hence `change ringing').  Because ringers have little control over the frequency of their bell,
 bells only move by at most one place between two adjacent rows.  On paper, we write these
 permutations in order as rows of numbers and by convention, the bells are numbered sequentially with
-`1' referring to the highest-pitched bell in the tower.  For example:
+`1' referring to the highest-pitched bell in the tower (see Figure~\ref{fig:rows}).
 
-\begin{verbatim}
-12345678
-21436587
-24163857
-42618375
-46213857
-  ...
-\end{verbatim}
+\begin{figure}
+    \centering
+    \begin{BVerbatim}
+    12345678
+    21436587
+    24163857
+    42618375
+    46213857
+    64128375
+    61482735
+    16847253
+    16482735
+      ...
+    \end{BVerbatim}
+    \caption{Writing change ringing compositions as lists of rows}\label{fig:rows}
+\end{figure}
 
 In order to break up the walls of numbers, we will often draw coloured lines through the path of
 some bells.  By far the most common colouring is to give the highest pitched bell (the `1') a thin red line,
 and the lowest pitched bell a thick blue line (this is used extensively in the diagrams throughout
-this report --- see Figure~\ref{fig:little-bob} for a simple example).  
+this report --- the leftmost column of Figure~\ref{fig:little-bob} is showing the same rows as
+Figure~\ref{fig:rows}).  
 
 \subsection{Methods}
 
@@ -260,7 +272,8 @@ rows are greyed out to emphasise this.  When multiple leads are chained together
 differentiate individual leads and increase readability.
 
 \begin{figure}[h!]
-    \includegraphics[width=\textwidth]{lb8}
+    \centering
+    \includegraphics[width=0.9\textwidth]{lb8}
     \caption{A collection of leads of the same method.  Note the use of lines to represent the
     paths of bells 1 and 8.}\label{fig:little-bob}
 \end{figure}
@@ -474,6 +487,13 @@ side of the keyboard even if doing so requires worse mnemonics.  This means that
 always instantly accessible to the user, maximising efficiency of editing and therefore improving
 the user experience.
 
+% Belongs to music highlighting
+\begin{figure}
+    \centering
+    \includegraphics[width=0.75\textwidth]{multi-part-music-clean}
+    \caption{The same lead in four different parts (rotating 2--8)}\label{fig:multi-part-music}
+\end{figure}
+
 \subsection{Music Highlighting}
 
 When music appears in a composition, the bells causing the music are highlighted green, giving an
@@ -486,10 +506,11 @@ densely because it generates \row{5432}, \row{6543}, etc.\ in other parts.  Howe
 the \nth{4}{th} lead is highlighted very lightly because it only creates \row{4321} in one part
 (the one in the \nth{2}{nd} column).
 
+% Belongs to falseness display
 \begin{figure}
     \centering
-    \includegraphics[width=0.75\textwidth]{multi-part-music-clean}
-    \caption{The same lead in four different parts (rotating 2--8)}\label{fig:multi-part-music}
+    \includegraphics[width=0.75\textwidth]{falseness-clean}
+    \caption{Leads which are false in three different groups}\label{fig:falseness}
 \end{figure}
 
 \subsection{Falseness Display}
@@ -502,12 +523,6 @@ Additionally, it is very reliant on colours which will likely be problematic for
 people.  A fix for this would be to add a switch to number the groups rather than just relying on
 colour.
 
-\begin{figure}
-    \centering
-    \includegraphics[width=0.75\textwidth]{falseness-clean}
-    \caption{Leads which are false in 3 different ways}\label{fig:falseness}
-\end{figure}
-
 \subsection{Lead Folding}
 
 To prevent the user from having to look at thousands of rows at the same time, Jigsaw allows leads
@@ -515,22 +530,12 @@ to be folded into a single on-screen row.  Jigsaw then converts falseness groups
 (see Figure~\ref{fig:lead-folding}), and switches between lines and numbers for displaying
 bells when necessary.
 
-\begin{figure}
+\begin{figure}[h]
     \centering
-    \includegraphics[width=0.78\textwidth]{folding-full}
+    \includegraphics[width=0.9\textwidth]{folding-full}
     \caption{Unfolded (top) and folded (bottom) versions of the same lead.  Note the handling of
     falseness ranges and line segments.}\label{fig:lead-folding}
 \end{figure}
-
-\subsection{Linking Fragments}
-
-Two fragments can be linked together if the leftover row of one is equal to the first row of the
-other.  To represent this visually, Jigsaw draws a coloured line between the two (see
-Figure~\ref{fig:linking}).  If multiple different sets of fragments link, then each group is
-coloured separately (see Figure~\ref{fig:linking-insane}).
-
-Hovering a line and pressing \verb|c| (for \emph{connect}) will join those fragments into one.  Note how
-this operation does not change the rows contained in the composition.
 
 \begin{figure}
     \centering
@@ -544,6 +549,16 @@ this operation does not change the rows contained in the composition.
     \caption{A lot of fragment links on one screen.  The GUI has changed since this screenshot
     was taken but the linking display has not.}\label{fig:linking-insane}
 \end{figure}
+
+\subsection{Linking Fragments}
+
+Two fragments can be linked together if the leftover row of one is equal to the first row of the
+other.  To represent this visually, Jigsaw draws a coloured line between the two (see
+Figure~\ref{fig:linking}).  If multiple different sets of fragments link, then each group is
+coloured separately (see Figure~\ref{fig:linking-insane}).
+
+Hovering a line and pressing \verb|c| (for \emph{connect}) will join those fragments into one.  Note how
+this operation does not change the rows contained in the composition.
 
 
 
@@ -832,6 +847,14 @@ causes an update, the entire state of the display is recalculated then cached fo
 Therefore, it is simply not possible for any annotations to lag behind because the Jigsaw's full
 state is simultaneously recalculated after every change.
 
+\begin{figure}
+    \centering
+    \includegraphics[width=\textwidth]{stress-test}
+    \caption{Stress testing Jigsaw (the GUI has since changed, but the pipeline has
+    not).  The fragments continue off the bottom of the screen, so roughly a third of the rows are
+    on screen.}\label{fig:stress-test}
+\end{figure}
+
 This does, however, mean that Jigsaw is extremely dependent on the efficiency of its update
 pipeline.  Luckily, Rust and WebAssembly are working extremely well in this regard, since the
 pipeline is fast enough to reliably feel instant even for large compositions.  I have not done any
@@ -864,14 +887,6 @@ not require a heap allocation.  In return for this huge performance improvement,
 heap-allocated \verb|Row| when required, significantly increasing the complexity and potentially
 creating obscure bugs.  Finally, SIMD is not supported in mainstream WebAssembly yet so Jigsaw will
 have to wait before using \verb|SimdRow| is a viable option.
-
-\begin{figure}
-    \centering
-    \includegraphics[width=\textwidth]{stress-test}
-    \caption{Stress testing Jigsaw (the GUI has since changed, but the pipeline has
-    not).  The fragments continue off the bottom of the screen, so roughly a third of the rows are
-    on screen.}\label{fig:stress-test}
-\end{figure}
 
 \subsection{Final Statistics}
 
