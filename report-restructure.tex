@@ -38,14 +38,14 @@
 \section*{Abstract}
 
 This project concerns the designing and prototyping of Jigsaw, an application to aid church
-bell-ringing composers.  Jigsaw aims to be for bell-ringing composers as Microsoft Word is for
+bell-ringing composers.  Jigsaw aims to be for bell-ringing composers what Microsoft Word is for
 writers.
 
 Change ringing is where a team of people ring a set of 6--12 church bells in continually evolving and
-pre-determined sequences. The art of composing concerns designing the sequences for ringers to
-perform and dates from the 1700s.  Composing was traditionally done by hand, there are some computer
-tools to automate parts of the process. Jigsaw breaks new ground and, as far as the author is aware,
-is the first graphical, user-friendly and intuitive tool to aid the composer.
+pre-determined sequences. The art of composing concerns designing these sequences for ringers to
+perform and dates from the 1700s.  Composing was traditionally done by hand, and there are some
+computer tools to automate parts of the process. Jigsaw breaks new ground and, as far as the author
+is aware, is the first graphical, user-friendly and intuitive tool to aid the composer.
 
 Jigsaw has an innovative graphical interface to make composing easier, more intuitive and more
 accessible for beginners. The tool was designed to a general goal and specific requirements, and was
@@ -92,10 +92,9 @@ intuitive and accessible to the user.  It should also be made so that anyone can
 easily, without any technological knowledge or a lengthy installation process.
 
 \paragraph{Completeness} There is a concrete definition of what is considered `Change
-Ringing'\footnote{This definition is provided by the Framework for Method Ringing, found here:
-\url{https://cccbr.github.io/method_ringing_framework/classification.html}}, and the states
-representable in the application must be a superset of those allowed by this definition.
-
+Ringing', and the states representable in the application must be a superset of those allowed by
+this definition.  This definition is provided by the Framework for Method
+Ringing\footurl{https://cccbr.github.io/method_ringing_framework/classification.html}.
 \paragraph{Incremental} The application should allow the user to incrementally build up their
 composition, in whatever order they want, starting wherever they want to.  Specifically, it must
 be able to represent `partial' compositions --- i.e.\ a set of composition `fragments' which will
@@ -248,7 +247,8 @@ considered part of the next lead, and is usually shown greyed out to emphasise t
 
 \begin{figure}[h!]
     \includegraphics[width=\textwidth]{lb8}
-    \caption{A collection of leads of the same method.}\label{fig:little-bob}
+    \caption{A collection of leads of the same method.  Note the use of lines to represent the
+    paths of bells 1 and 8.}\label{fig:little-bob}
 \end{figure}
 
 For example, the left three columns shown in Figure~\ref{fig:little-bob} are all leads of the same
@@ -309,8 +309,8 @@ The `length' of a composition is the number of rows which it contains.  Like fal
 rounds is only considered once.
 
 96.5\% of performances and 90.5\% of compositions\footnote{There have been 136,206 performances of
-peals and 312,004 of quarter peals (out of 464,564 total).  There are published 31,827 peal
-compositions and 8,597 quarter peal compositions out of 44,676 total.  Statistics were taken from
+peals and 312,004 of quarter peals (out of 464,564 total).  There are 31,827 published peal
+compositions and 8,597 quarter peal compositions (out of 44,676 total).  Statistics were taken from
 BellBoard (\url{bb.ringingworld.co.uk}) and Composition Library (\url{complib.org}) on \nth{23}{rd}
 of May 2021.} have one of two length ranges:
 
@@ -365,7 +365,7 @@ a full composition.  This is clearly an advantage since, if a composition has $n
 conductor only needs to learn \nth{$\frac{1}{n}$}{th} of the composition and repeat it multiple
 times.
 
-Each `part' will not end in rounds and therefore is not a composition itself.  A common row to
+Each `part' will not end in rounds and therefore is not a composition itself.  A common way to
 create multi-parts is to rotate bells 2, 3 and 4 to give 3 parts.  In writing this would look like
 Figure~\ref{fig:multi-part}.
 
@@ -436,15 +436,15 @@ relevant.  See Figures~\ref{fig:cur-screenshot}~and~\ref{fig:cur-screenshot-2} f
 
 \begin{figure}
     \centering
-    \includegraphics[width=\textwidth]{false-qp}
-    \caption{Editing a Quarter Peal composition}\label{fig:cur-screenshot}
+    \includegraphics[width=0.8\textwidth]{current-screenshot-w-mute}
+    \caption{Screenshot of Jigsaw, showing the folding UI and canvas
+    display}\label{fig:cur-screenshot-2}
 \end{figure}
 
 \begin{figure}
     \centering
-    \includegraphics[width=0.8\textwidth]{current-screenshot-w-mute}
-    \caption{Screenshot of Jigsaw, showing the folding UI and canvas
-    display}\label{fig:cur-screenshot-2}
+    \includegraphics[width=\textwidth]{false-qp}
+    \caption{Editing a Quarter Peal composition}\label{fig:cur-screenshot}
 \end{figure}
 
 Jigsaw is also designed to be used on a desktop with a 3-button mouse and keyboard, and optimises
@@ -459,10 +459,6 @@ Since most people use a mouse with their right hand, all operations are bound to
 side of the keyboard even if doing so requires worse mnemonics.  This means that every operation is
 always instantly accessible to the user, maximising efficiency of editing and therefore improving
 the user experience.
-
-// List of keyboard shortcuts/operations
-
-Fragments can be created or extended with \verb|a| (a single lead) or \verb|A| (a full course).
 
 \subsection{Music Highlighting}
 
@@ -549,9 +545,9 @@ JSON serialisation of the information to display to the user.
 
 This architecture plays to the strengths of both languages --- Rust provides fast and reliable data
 manipulation whilst JavaScript, HTML and CSS provide a user-friendly cross-platform GUI.\@  The
-binding and serialisation code is automatically generated at compile time using \emph{wasm-bindgen}
-(\url{https://github.com/rustwasm/wasm-bindgen}) and \emph{serde}
-(\url{https://github.com/serde-rs/serde}) to prevent human error.  
+binding and serialisation code is automatically generated at compile time using
+\emph{wasm-bindgen}\footurl{https://github.com/rustwasm/wasm-bindgen} and
+\emph{serde}\footurl{https://github.com/serde-rs/serde} to prevent human error.
 
 \subsection{BellFrame}
 
@@ -673,7 +669,7 @@ is the data sent from the Presenter to the View.
 
         \draw [arrow] (input) -- (event);
         \draw [arrow] (event) -- node [anchor=south] {API call} (comp-api);
-        \draw [arrow] (event) |- node [anchor=west, pos=0.25] {undo/redo} (update-history);
+        \draw [arrow] (event) |- node [anchor=west, pos=0.1] {undo/redo} (update-history);
         \draw [arrow] (comp-api) -- (clone-spec);
         \draw [arrow] (clone-spec) -- (modify-spec);
         \draw [arrow] (modify-spec) -- (update-history);
@@ -753,10 +749,10 @@ well --- almost no WebAssembly calls are made during each frame, the `getter' AP
 single function and long-term divergence is still impossible because JavaScript completely
 overwrites its copy of the \verb|DerivedState| each time the composition updates.
 
-The serialisation code is generated at compile-time using \emph{serde}
-(\url{https://github.com/serde-rs/serde}), removing the possibility for human error.  Therefore, the
-data in JavaScript and Rust will always have the same structure, making the whole code base much
-easier to read and refactor.
+The serialisation code is generated at compile-time using
+\emph{serde}\footurl{https://github.com/serde-rs/serde}, removing the possibility for human error.
+Therefore, the data in JavaScript and Rust will always have the same structure, making the whole
+code base much easier to read and refactor.
 
 
 
@@ -920,5 +916,8 @@ for the other ringers to obey.  It is usually the job of the composer to make su
 sequence is predictable and easy to memorise, whilst preserving other valued properties.
 
 \paragraph{Lead:} A single instance of the repeating pattern of a method.
+
+\paragraph{Rounds:} A special row with all the bells in ascending order of number (written
+\verb|123456...|).  All compositions must start and finish in rounds.
 
 \end{document}
