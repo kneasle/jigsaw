@@ -7,19 +7,23 @@
 \usepackage{hyperref}
 \usepackage{multicol}
 \usepackage{wrapfig}
+\usepackage{tikz}
 \usepackage{graphicx}
 \graphicspath{ {./images/} }
+
+\usetikzlibrary{shapes.geometric, arrows}
 
 % CUSTOM COMMANDS
 
 \newcommand{\row}[1]{\texttt{#1}}
 \newcommand{\br}[0]{\vspace{10pt} \noindent}
+\newcommand{\footurl}[1]{\footnote{\url{#1}}}
 \newcommand{\nth}[2]{#1\textsuperscript{#2}}
 
 % TITLE
 
-\title{Insert Report Title Here}
-\author{Benjamin White-Horne \\ \emph{Oxford University}}
+\title{Designing and prototyping a visual, incremental composing tool for change ringing}
+\author{Benjamin White-Horne \\ \emph{University of Oxford,} \\ \emph{Department of Computer Science}}
 
 
 
@@ -117,12 +121,6 @@ Jigsaw supports a large number of operations to modify partial compositions.  Al
 to keys on the left side of the keyboard (because the user's right hand is expected to be on the
 mouse), and for consistency they apply their effects to the location of the cursor.
 
-\begin{figure}
-    \centering
-    \includegraphics[width=\textwidth]{false-qp}
-    \caption{Editing a Quarter Peal composition}\label{fig:cur-screenshot}
-\end{figure}
-
 \subsubsection{Static Web Application}
 
 Jigsaw is built to be run as a single static web page (i.e.\ it is a fixed set of files that can be
@@ -140,8 +138,8 @@ served by a simple HTTP server).  Releasing applications as static websites has 
         modern hardware.  Additionally, there are many opportunities to optimise the rendering if
         required, meaning that this will still be an easily fixable issue in the future.
     \item Having no dependence on a server both obviates the need for the user to make an account
-        (which worsens the user experience) and also means that it can be deployed for free using
-        GitHub pages or a similar service.
+        (which worsens the user experience) and also means that it can be deployed using GitHub
+        pages or a similar service.
 \end{enumerate}
 
 Persistent storage is a challenge of static web applications, since websites cannot directly access
@@ -157,11 +155,11 @@ choice.  The `back-end' of Jigsaw, however, has to do a lot of complex operation
 the user changes the composition being displayed.  This must be done quickly enough that the user
 cannot perceive the delay, and must be reliable.
 
-JavaScript is very unsuitable for this kind of workload.  Firstly, it has no static analysis
-whatsoever, making it unnecessarily difficult to write complex code correctly.  It also gives no
-control over memory layout and is absolutely reliant on a JIT (Just In Time) compiler for
-performance.  Jigsaw's compute pipeline consists of several thousand lines of code, which is
-unlikely to all be compiled by the JIT compiler.
+JavaScript is very unsuitable for this kind of workload.  Firstly, it has no static analysis, making
+it unnecessarily difficult to write complex code correctly.  It also gives no control over memory
+layout and is absolutely reliant on a JIT (Just In Time) compiler for performance.  Jigsaw's compute
+pipeline consists of several thousand lines of code, which is unlikely to all be compiled by the JIT
+compiler.
 
 
 Therefore, another language is required.  Jigsaw's back-end is written in Rust, a systems
@@ -205,7 +203,7 @@ an explicit goal of this project, BellFrame is as much a product as Jigsaw itsel
 Change ringing is a niche and not well-understood activity so this section will serve as a short
 introduction to the topic and overview of the aspects of change ringing which are relevant to this
 project.  A more complete overview can be found on
-Wikipedia (\url{https://en.wikipedia.org/wiki/Change_ringing}).  I have also provided a glossary of
+Wikipedia \footurl{https://en.wikipedia.org/wiki/Change_ringing}.  I have also provided a glossary of
 commonly used terms in Section~\ref{sec:glossary}.
 
 Change ringing (sometimes known as full-circle church bell ringing) originated in English
@@ -310,11 +308,11 @@ would be false.
 The `length' of a composition is the number of rows which it contains.  Like falseness, external
 rounds is only considered once.
 
-96.5\% of performances and 90.5\% of compositions\footnote{Exact numbers for those interested: there
-have been 136,206 performances of peals and 312,004 of quarter peals (out of 464,564 total).  There
-are published 31,827 peal compositions and 8,597 quarter peal compositions out of 44,676 total.
-Statistics were taken from BellBoard (\url{bb.ringingworld.co.uk}) and Composition Library
-(\url{complib.org}) on \nth{23}{rd} of May 2021.} have one of two length ranges:
+96.5\% of performances and 90.5\% of compositions\footnote{There have been 136,206 performances of
+peals and 312,004 of quarter peals (out of 464,564 total).  There are published 31,827 peal
+compositions and 8,597 quarter peal compositions out of 44,676 total.  Statistics were taken from
+BellBoard (\url{bb.ringingworld.co.uk}) and Composition Library (\url{complib.org}) on \nth{23}{rd}
+of May 2021.} have one of two length ranges:
 
 \begin{enumerate}
     \item A \textbf{Peal} consists of at least 5000 rows (about 3 hours' ringing).
@@ -419,10 +417,11 @@ aspect of rendering fragments --- because regardless of future decisions, Jigsaw
 to render fragments nicely in order to satisfy the goals.
 
 On the most part, this ordering was quite obvious, but there were a few cases where the I approached
-problems in what turned out to be the wrong order.  This detriment the resulting design --- it just
-meant that some features took longer than necessary to implement.  In particular, lead folding was
-implemented late in development and required radical changes to the Jigsaw's internal pipeline.  A
-large amount of time would have been saved by implementing it earlier in the design process.  
+problems in what turned out to be the wrong order.  This did not detriment the resulting design ---
+it just meant that some features took longer than necessary to implement.  In particular, lead
+folding was implemented late in development and required radical changes to the Jigsaw's internal
+pipeline.  A large amount of time would have been saved by implementing it earlier in the design
+process.  
 
 From a design perspective, this approach worked well --- Jigsaw's design is quite consistent and
 intuitive and I am pleased with the result.
@@ -433,7 +432,20 @@ The user interface of Jigsaw consists of an infinitely scrollable canvas which c
 number of composition fragments in any locations.  Overlaid to the right of this canvas is a sidebar
 containing mostly numerical information which is ill suited to the canvas-style interface.  The
 sidebar contains a lot of dense information, so all sections can be folded to only show what's
-relevant.
+relevant.  See Figures~\ref{fig:cur-screenshot}~and~\ref{fig:cur-screenshot-2} for a screenshots.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\textwidth]{false-qp}
+    \caption{Editing a Quarter Peal composition}\label{fig:cur-screenshot}
+\end{figure}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{current-screenshot-w-mute}
+    \caption{Screenshot of Jigsaw, showing the folding UI and canvas
+    display}\label{fig:cur-screenshot-2}
+\end{figure}
 
 Jigsaw is also designed to be used on a desktop with a 3-button mouse and keyboard, and optimises
 for this use case.  All operations are bound to single keys with helpful mnemonics (e.g. \verb|a|
@@ -451,12 +463,6 @@ the user experience.
 // List of keyboard shortcuts/operations
 
 Fragments can be created or extended with \verb|a| (a single lead) or \verb|A| (a full course).
-
-\begin{figure}
-    \centering
-    \includegraphics[width=0.8\textwidth]{current-screenshot-w-mute}
-    \caption{Screenshot of Jigsaw, showing the folding UI and canvas display}\label{fig:cur-screenshot}
-\end{figure}
 
 \subsection{Music Highlighting}
 
@@ -601,65 +607,84 @@ In terms of Model-View-Presenter, the \verb|Spec| type is the Model whereas the 
 is the data sent from the Presenter to the View.
 
 \begin{figure}
+    \tikzstyle{blob} = [rectangle, rounded corners, minimum width=3cm, minimum height=1cm,text
+    centered, draw=black]
+    \tikzstyle{arrow} = [thick,->,>=stealth]
+
     \centering
-    \begin{BVerbatim}
-   +------------------------+
-   |    View (JavaScript)   |
-   +------------------------+
-           |         ^
-Comp's API |         | Comp::ser_derived_state
-           V         |
-   +------------------------+
-   |        Presenter       |
-   |  (Comp, DerivedState)  |
-   +------------------------+
-           |         ^
-     Edits |         | DerivedState::from_spec
-           V         |
-   +------------------------+
-   |       Model (Spec)     |
-   +------------------------+
-    \end{BVerbatim}
+    \begin{tikzpicture}[node distance=2cm]
+        \node (view) [blob] {View (JavaScript)};
+        \node (presenter) [blob, below of=view] {Presenter (\verb|Comp|)};
+        \node (model) [blob, below of=presenter] {Model (\verb|Spec|)};
+
+        \draw [arrow] ([xshift=-0.8cm]view.south) -- node [anchor=east] {Comp's API}
+            ([xshift=-0.8cm]presenter.north);
+        \draw [arrow] ([xshift=0.8cm]presenter.north) -- node [anchor=west]
+            {Comp::ser\_derived\_state} ([xshift=0.8cm]view.south);
+
+        \draw [arrow] ([xshift=-0.8cm]presenter.south) -- node [anchor=east] {Spec's API}
+            ([xshift=-0.8cm]model.north);
+        \draw [arrow] ([xshift=0.8cm]model.north) -- node [anchor=west]
+            {DerivedState::from\_spec} ([xshift=0.8cm]presenter.south);
+    \end{tikzpicture}
     \caption{Jigsaw's implementation of model-view-presenter}\label{fig:model-view-presenter}
 \end{figure}
 
 \begin{figure}
     \centering
-    \begin{BVerbatim}
-        JS          |        Rust
---------------------+--------------------
-     User input     |
-         |          |
-         V      API Call
-       Event -------------> Comp API
-         |          |          |
-         |          |          V
-         |          |      Clone Spec
-         | undo/    |          |
-         | redo     |          V
-         |          |    Modify new Spec
-         |          |          |
-         |          |          V
-         \-------------> Update History
-             API Call          |
-                    |          V
-         /------------ Rebuild DerivedState
-         |   return |
-         |          |
- sync_derived_state |
-         \-------------> ser_derived_state
-             API Call          |
-                    |       (serde)
-                    |          V
-   JSON String <--------- JSON String
-        |        return
-  (deserialise)     |
-        V           |
-  derived_state     |
-        |           |
-        V           |
-     repaint        |
-    \end{BVerbatim}
+    \tikzstyle{invis} = [minimum width=3cm, minimum height=1cm]
+    \tikzstyle{title} = [minimum width=3cm, minimum height=1cm, text centered]
+    \tikzstyle{blob} = [rectangle, rounded corners, minimum width=3cm, minimum height=0.9cm,text
+        centered, draw=black]
+    \tikzstyle{arrow} = [thick,->,>=stealth]
+
+
+    \begin{tikzpicture}[node distance=1.7cm]
+        \node (js) [title] {\textbf{JavaScript}};
+        \node (rust) [title, xshift=5cm, right of=js] {\textbf{Rust}};
+
+        \node (input) [blob, below of=js] {User input};
+        \node (invis-1) [invis, below of=rust] {};
+
+        \node (event) [blob, below of=input] {Event};
+        \node (comp-api) [blob, below of=invis-1] {\verb|Comp::*| API};
+
+        \node (invis-2) [invis, below of=event] {};
+        \node (clone-spec) [blob, below of=comp-api] {Clone \verb|Spec|};
+
+        \node (invis-3) [invis, below of=invis-2] {};
+        \node (modify-spec) [blob, below of=clone-spec] {Modify new \verb|Spec|};
+
+        \node (invis-4) [invis, below of=invis-3] {};
+        \node (update-history) [blob, below of=modify-spec] {Update history};
+
+        \node (invis-5) [invis, below of=invis-4] {};
+        \node (rebuild-der-state) [blob, below of=update-history] {Rebuild \verb|DerivedState|};
+
+        \node (sync-der-state) [blob, below of=invis-5] {\verb|sync_derived_state()|};
+        \node (ser-der-state) [blob, below of=rebuild-der-state] {\verb|Comp::ser_derived_state|};
+
+        \node (js-json-str) [blob, below of=sync-der-state] {JSON string};
+        \node (rs-json-str) [blob, below of=ser-der-state] {JSON string};
+
+        \node (js-der-state) [blob, below of=js-json-str] {\verb|derived_state| variable};
+
+        \node (repaint) [blob, below of=js-der-state] {Repaint};
+
+        \draw [arrow] (input) -- (event);
+        \draw [arrow] (event) -- node [anchor=south] {API call} (comp-api);
+        \draw [arrow] (event) |- node [anchor=west, pos=0.25] {undo/redo} (update-history);
+        \draw [arrow] (comp-api) -- (clone-spec);
+        \draw [arrow] (clone-spec) -- (modify-spec);
+        \draw [arrow] (modify-spec) -- (update-history);
+        \draw [arrow] (update-history) -- (rebuild-der-state);
+        \draw [arrow] (rebuild-der-state) -| node [anchor=south, pos=0.25] {return} (sync-der-state);
+        \draw [arrow] (sync-der-state) -- node [anchor=south] {API call} (ser-der-state);
+        \draw [arrow] (ser-der-state) -- node [anchor=west] {\emph{serde}} (rs-json-str);
+        \draw [arrow] (rs-json-str) -- node [anchor=south] {return} (js-json-str);
+        \draw [arrow] (js-json-str) -- node [anchor=west] {deserialise} (js-der-state);
+        \draw [arrow] (js-der-state) -- (repaint);
+    \end{tikzpicture}
     \caption{The data flow of user's changes}\label{fig:app-data-flow}
 \end{figure}
 
@@ -738,19 +763,6 @@ easier to read and refactor.
 \pagebreak
 
 \section{Assessment and Analysis}
-
-\iffalse
-This project has two major products: the application itself (named Jigsaw) and the reusable utility
-library on which Jigsaw is built (named BellFrame).
-
-As it stands right now, I think that BellFrame is a bigger contribution to composing (despite
-technically being a bi-product) since it is very usable and has some battle-testing.  Jigsaw, on
-the other hand, is a very promising prototype but is not feature complete or stable enough to be
-used in production.  Fixing both these issues is simply a matter of development time and testing, 
-and I will continue working on Jigsaw even after this project is handed in.  Given the limited
-time-frame of this project, I chose to spend it on exploring unexplored ideas rather than striving
-for perfect stability.
-\fi
 
 \subsection{Jigsaw}
 
@@ -841,6 +853,12 @@ have to wait before \verb|SimdRow| is an option.
     not).}\label{fig:stress-test}
 \end{figure}
 
+\subsection{Final Statistics}
+
+As of writing this report, Jigsaw's GitHub repository has 275 commits and contains 5,736 source
+lines of code (including 4,233 of Rust, 1,033 of JavaScript, 240 of HTML, 114 of CSS and 85 of
+Python for the build script).  Including comments and blanks, this increases to 7,556 lines.
+
 
 
 \pagebreak
@@ -898,8 +916,8 @@ composition, since any performance of a `false' composition is considered invali
 with small and well-defined modifications (known as `calls').  This is the key to how human ringers
 can ring over 5000 rows worth of composition without any memory aid --- in reality, they memorise
 the method(s) and one `conductor' memorises the pattern of calls and calls them in the right places
-for the other ringers to take effect.  It is usually the job of the composer to make sure that the
-call sequence is predictable and easy to memorise.
+for the other ringers to obey.  It is usually the job of the composer to make sure that the call
+sequence is predictable and easy to memorise, whilst preserving other valued properties.
 
 \paragraph{Lead:} A single instance of the repeating pattern of a method.
 
