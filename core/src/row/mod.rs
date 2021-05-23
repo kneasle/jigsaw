@@ -204,6 +204,9 @@ pub trait RowTrait:
     /// Extend this `Row` in-place with cover bells so that it has a given [`Stage`]
     fn extend_to_stage(&mut self, stage: Stage);
 
+    /// Get the [`Bell`] at a given place in this `Row`
+    fn bell_at(&self, place: usize) -> Bell;
+
     /// Parse a string into a `Row`, skipping any [`char`]s that aren't valid bell names.  This
     /// returns `Err(`[`InvalidRowError`]`)` if the `Row` would be invalid.
     ///

@@ -79,6 +79,12 @@ impl RowTrait for SimdRow {
         }
     }
 
+    #[inline(always)]
+    fn bell_at(&self, place: usize) -> Bell {
+        let bell = (u128::from(self.bells) >> (place * 8)) & 0xffu128;
+        Bell::from_index(bell as usize)
+    }
+
     #[inline]
     #[target_feature(enable = "ssse3")]
     unsafe fn mul_unchecked(&self, other: &Self) -> Self {

@@ -316,6 +316,11 @@ impl RowTrait for Row {
         self.bells.len().into()
     }
 
+    #[inline(always)]
+    fn bell_at(&self, place: usize) -> Bell {
+        self.bells[place]
+    }
+
     unsafe fn mul_unchecked(&self, rhs: &Self) -> Self {
         // We bypass the validity check because if two Rows are valid, then so is their product.
         // However, this function is also unsafe because permuting two rows of different Stages
