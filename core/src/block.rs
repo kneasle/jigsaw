@@ -6,7 +6,7 @@ use std::{
     ops::Index,
 };
 
-use crate::{IncompatibleStages, InvalidRowError, Row, RowTrait, Stage};
+use crate::{IncompatibleStages, InvalidRowError, Row, Stage};
 
 /// All the possible ways that parsing a [`Block`] could fail
 #[derive(Debug, Clone)]

@@ -1,4 +1,4 @@
-use crate::{block::AnnotRowIter, AnnotBlock, AnnotRow, PnBlock, Row, RowTrait, Stage};
+use crate::{block::AnnotRowIter, AnnotBlock, AnnotRow, PnBlock, Row, Stage};
 
 // Imports used solely for doc comments
 #[allow(unused_imports)]

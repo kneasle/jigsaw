@@ -2,7 +2,7 @@ use std::ops::Mul;
 
 // Imports used solely for doc tests
 #[allow(unused_imports)]
-use crate::{Row, RowTrait};
+use crate::Row;
 
 /// Data type representing the parity of a [`Row`].  To generate these, you probably want to use
 /// [`RowTrait::parity`].  Note that [`RowTrait::parity`] always performs a heap allocation and is
@@ -41,6 +41,24 @@ impl Parity {
     pub fn from_number(v: usize) -> Parity {
         Self::from_is_odd(v % 2 != 0)
     }
+
+    /// Returns the `Parity` of a given number.
+    #[inline(always)]
+    pub fn zero_or_one(self) -> u8 {
+        match self {
+            Parity::Even => 0,
+            Parity::Odd => 1,
+        }
+    }
+
+    /// Returns the `Parity` of a given number.
+    #[inline(always)]
+    pub fn plus_or_minus(self) -> char {
+        match self {
+            Parity::Even => '+',
+            Parity::Odd => '-',
+        }
+    }
 }
 
 impl Mul for Parity {
@@ -59,6 +77,8 @@ impl Mul for Parity {
 
 #[cfg(test)]
 mod tests {
+    use crate::Stage;
+
     // In general, it's a bad idea to import enum variants directly, but in this case it makes our
     // tests much terser
     use super::Parity::{Even, Odd};
@@ -78,5 +98,14 @@ mod tests {
         assert_eq!(Parity::from_number(1000), Even);
         assert_eq!(Parity::from_number(1), Odd);
         assert_eq!(Parity::from_number(47), Odd);
+    }
+
+    #[test]
+    fn row_parity() {
+        assert_eq!(Row::rounds(Stage::from(0)).parity(), Even);
+        assert_eq!(Row::rounds(Stage::MAJOR).parity(), Even);
+        assert_eq!(Row::parse("13245").unwrap().parity(), Odd);
+        assert_eq!(Row::parse("231546").unwrap().parity(), Odd);
+        assert_eq!(Row::parse("231564").unwrap().parity(), Even);
     }
 }

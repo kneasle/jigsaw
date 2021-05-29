@@ -1,6 +1,6 @@
 use crate::spec::{CallSpec, MethodRef, MethodSpec, PartHeads, Spec};
 use itertools::Itertools;
-use proj_core::{run_len, Row, RowTrait, Stage};
+use proj_core::{run_len, Row, Stage};
 use serde::Serialize;
 use std::rc::Rc;
 use std::{

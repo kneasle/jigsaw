@@ -1,6 +1,6 @@
 //! Module for parsing and handling place notation
 
-use crate::{AnnotBlock, AnnotRow, Bell, IncompatibleStages, Row, RowTrait, Stage};
+use crate::{AnnotBlock, AnnotRow, Bell, IncompatibleStages, Row, Stage};
 use itertools::Itertools;
 use std::{
     fmt::{Display, Formatter},

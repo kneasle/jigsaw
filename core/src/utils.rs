@@ -14,7 +14,7 @@ pub fn run_len(iter: impl IntoIterator<Item = Bell>) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::{run_len as rl, Row, RowTrait};
+    use crate::{run_len as rl, Row};
 
     #[test]
     fn run_len() {

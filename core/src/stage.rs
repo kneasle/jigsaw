@@ -29,6 +29,7 @@ use crate::Row;
 /// assert_eq!(&format!("{}", Stage::from(9)), "Caters");
 /// ```
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[repr(transparent)]
 pub struct Stage(usize);
 
 impl Stage {
@@ -41,9 +42,15 @@ impl Stage {
     /// assert_eq!(Stage::DOUBLES.as_usize(), 5);
     /// assert_eq!(Stage::MAXIMUS.as_usize(), 12);
     /// ```
-    #[inline]
+    #[inline(always)]
     pub fn as_usize(self) -> usize {
         self.0
+    }
+
+    /// Returns true if this `Stage` has an even number of bells
+    #[inline(always)]
+    pub fn is_even(self) -> bool {
+        self.as_usize() % 2 == 0
     }
 }
 

@@ -16,13 +16,6 @@ pub use call::Call;
 pub use method::Method;
 pub use parity::Parity;
 pub use place_not::{PlaceNot, PnBlock};
-pub use row::{vec_row::Row, InvalidRowError, RowTrait};
+pub use row::{InvalidRowError, Row};
 pub use stage::{IncompatibleStages, Stage};
 pub use utils::run_len;
-// Re-export the SIMD row if the feature is enabled
-#[cfg(feature = "simd_row")]
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-// Don't cfg on feature flags so that rust-analyzer is able to provide autocomplete
-// #[cfg(target_feature = "ssse3")]
-// #[cfg(target_feature = "sse4.1")]
-pub use row::simd::SimdRow;
