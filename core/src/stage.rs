@@ -1,5 +1,12 @@
 //! A representation of a stage, with human-friendly `const`s and display names.
 
+use std::fmt::Formatter;
+
+use serde_crate::{
+    de::{Error, Visitor},
+    Deserialize, Deserializer, Serialize, Serializer,
+};
+
 // Imports used solely by doc comments
 #[allow(unused_imports)]
 use crate::Row;
@@ -67,6 +74,12 @@ impl Stage {
 /// assert_eq!(Stage::SEXTUPLES, Stage::from(15));
 /// ```
 impl Stage {
+    /// A `Stage` with no bells
+    pub const ZERO: Stage = Stage(0);
+
+    /// A `Stage` with `1` 'working' bell
+    pub const ONE: Stage = Stage(1);
+
     /// A `Stage` with `2` working bells
     pub const TWO: Stage = Stage(2);
 
@@ -101,13 +114,13 @@ impl Stage {
     pub const MAXIMUS: Stage = Stage(12);
 
     /// A `Stage` with `13` working bells
-    pub const SEPTUPLES: Stage = Stage(13);
+    pub const SEXTUPLES: Stage = Stage(13);
 
     /// A `Stage` with `14` working bells
     pub const FOURTEEN: Stage = Stage(14);
 
     /// A `Stage` with `15` working bells
-    pub const SEXTUPLES: Stage = Stage(15);
+    pub const SEPTUPLES: Stage = Stage(15);
 
     /// A `Stage` with `16` working bells
     pub const SIXTEEN: Stage = Stage(16);
@@ -139,6 +152,145 @@ impl std::fmt::Display for Stage {
 impl From<usize> for Stage {
     fn from(n: usize) -> Self {
         Stage(n)
+    }
+}
+
+/* Allow [`Stage`]s to be serialised and deserialised with `serde` */
+
+// Serialise as a u64
+#[cfg(feature = "serde")]
+impl Serialize for Stage {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_u64(self.0 as u64)
+    }
+}
+
+// Stage by default will deserialise from either a name (i.e. a string) or a non-negative number.
+// If types are not known (e.g. when using Bincode), it will deserialise as a u64 to make sure that
+// deserialisation is always an inverse of serialisation.
+#[cfg(feature = "serde")]
+struct StageVisitor;
+
+#[cfg(feature = "serde")]
+impl<'de> Visitor<'de> for StageVisitor {
+    type Value = Stage;
+
+    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+        formatter.write_str("a non-negative integer, or a stage name")
+    }
+
+    fn visit_i8<E>(self, v: i8) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        try_parse_stage(v as i64)
+    }
+
+    fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        Ok(Stage::from(v as usize))
+    }
+
+    fn visit_i16<E>(self, v: i16) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        try_parse_stage(v as i64)
+    }
+
+    fn visit_u16<E>(self, v: u16) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        Ok(Stage::from(v as usize))
+    }
+
+    fn visit_i32<E>(self, v: i32) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        try_parse_stage(v as i64)
+    }
+
+    fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        Ok(Stage::from(v as usize))
+    }
+
+    fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        try_parse_stage(v as i64)
+    }
+
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        Ok(Stage::from(v as usize))
+    }
+
+    /// Attempt to parse a [`Stage`] from a string.  This matches standard [`Stage`] names on up to
+    /// 16 bells, and is not case sensitive.
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
+        let lower_str = v.to_lowercase();
+        Ok(match lower_str.as_str() {
+            "zero" => Stage::ZERO,
+
+            "one" => Stage::ONE,
+            "two" => Stage::TWO,
+            "singles" => Stage::SINGLES,
+            "minimus" => Stage::MINIMUS,
+
+            "doubles" => Stage::DOUBLES,
+            "minor" => Stage::MINOR,
+            "triples" => Stage::TRIPLES,
+            "major" => Stage::MAJOR,
+
+            "caters" => Stage::CATERS,
+            "royal" => Stage::ROYAL,
+            "cinques" => Stage::CINQUES,
+            "maximus" => Stage::MAXIMUS,
+
+            "sextuples" => Stage::SEXTUPLES,
+            "fourteen" => Stage::FOURTEEN,
+            "septuples" => Stage::SEPTUPLES,
+            "sixteen" => Stage::SIXTEEN,
+
+            _ => return Err(E::custom(format!("'{}' is not a stage name", v))),
+        })
+    }
+}
+
+/// Helper function to attempt to parse a [`Stage`] from a [`i64`]
+#[cfg(feature = "serde")]
+#[inline(always)]
+fn try_parse_stage<E: Error>(val: i64) -> Result<Stage, E> {
+    if val >= 0 {
+        Ok(Stage::from(val as usize))
+    } else {
+        Err(E::custom(format!("negative Stage: {}", val)))
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> Deserialize<'de> for Stage {
+    fn deserialize<D>(deserializer: D) -> Result<Stage, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_u64(StageVisitor)
     }
 }
 
