@@ -1,4 +1,4 @@
-use proj_core::{place_not::PnBlockParseError, Bell, PnBlock, Row, Stage};
+use bellframe::{place_not::PnBlockParseError, Bell, PnBlock, Row, Stage};
 use serde::{ser::SerializeSeq, Serializer};
 
 /// Required so that folding params default to open

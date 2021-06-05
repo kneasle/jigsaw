@@ -1,17 +1,18 @@
-use crate::{
-    comp::MethodEdit,
-    derived_state::{CallLabel, DerivedCall, DerivedFold, ExpandedRow, MethodLabel},
-};
-use proj_core::{
-    place_not::PnBlockParseError, AnnotBlock, AnnotRow, Bell, Call, IncompatibleStages, Method,
-    PnBlock, Row, Stage,
-};
-use serde::Serialize;
 use std::{
     cell::{Cell, RefCell},
     fmt::{Display, Formatter},
     rc::Rc,
 };
+
+use crate::{
+    comp::MethodEdit,
+    derived_state::{CallLabel, DerivedCall, DerivedFold, ExpandedRow, MethodLabel},
+};
+use bellframe::{
+    place_not::PnBlockParseError, AnnotBlock, AnnotRow, Bell, Call, IncompatibleStages, Method,
+    PnBlock, Row, Stage,
+};
+use serde::Serialize;
 
 pub mod save_load;
 
@@ -31,7 +32,7 @@ pub use self::part_heads::PartHeads;
 pub mod part_heads {
     use std::collections::HashSet;
 
-    use proj_core::{IncompatibleStages, InvalidRowError, Row, Stage};
+    use bellframe::{IncompatibleStages, InvalidRowError, Row, Stage};
     use serde::Serialize;
 
     /// The possible ways that parsing a part head specification can fail

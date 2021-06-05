@@ -3,14 +3,14 @@ use crate::{
     spec::{self, Frag, PartHeads, Spec},
     view::View,
 };
-use proj_core::{place_not::PnBlockParseError, PnBlock, Row};
+use bellframe::{place_not::PnBlockParseError, PnBlock, Row};
 use serde::Serialize;
 use std::convert::TryFrom;
 use wasm_bindgen::prelude::*;
 
 // Imports used solely for doc comments
 #[allow(unused_imports)]
-use proj_core::Stage;
+use bellframe::Stage;
 
 /// A enum of what states the [`Comp`] editor can be in.  Implementing the UI as a state machine
 /// enforces the constraint that the user can only be performing one action at once.  This prevents

@@ -1,12 +1,14 @@
-use crate::spec::{CallSpec, MethodRef, MethodSpec, PartHeads, Spec};
-use itertools::Itertools;
-use proj_core::{run_len, Row, Stage};
-use serde::Serialize;
 use std::rc::Rc;
 use std::{
     collections::{HashMap, HashSet},
     ops::Range,
 };
+
+use bellframe::{run_len, Row, Stage};
+use itertools::Itertools;
+use serde::Serialize;
+
+use crate::spec::{CallSpec, MethodRef, MethodSpec, PartHeads, Spec};
 
 // Imports used only for the doc comments
 #[allow(unused_imports)]
