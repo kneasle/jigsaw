@@ -1,10 +1,21 @@
-[workspace]
-members = [
-    "jigsaw",
-    "bench",
-]
+[package]
+name = "jigsaw"
+version = "0.1.0"
+authors = ["Ben White-Horne <kneasle@gmail.com>"]
+edition = "2018"
 
-# Use optimisations even on debug builds - compilation is fast and the unoptimised code is
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# Use optimisations even on debug builds - compilation is fast and the unoptimised wasm code is
 # SLLLLOOOOOOOW
 [profile.dev]
 opt-level = 3
+
+[dependencies]
+wasm-bindgen = "0.2"
+bellframe = "0.1"
+serde = { version = "1.0", features = ["derive", "rc"] }
+serde_json = "1.0"
+itertools = "0.10"
+console_error_panic_hook = "0.1"

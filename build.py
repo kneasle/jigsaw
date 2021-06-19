@@ -7,7 +7,7 @@ import shutil
 import json
 
 RUST_CRATE_NAME = "jigsaw"
-RUST_CRATE_PATH = "jigsaw"
+RUST_CRATE_PATH = ""
 
 
 def exit_with_message(msg):
