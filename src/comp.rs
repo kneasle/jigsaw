@@ -554,15 +554,18 @@ impl Comp {
         } else {
             return;
         };
-        // Figure out which source row the on-screen row actually corresponds to
-        let foldable_row = self
+        // Figure out which source row the on-screen row actually corresponds to ...
+        if let Some(foldable_row) = self
             .derived_state
-            .last_lead_foldable_row(frag_ind, on_screen_row_ind);
-        self.spec().toggle_lead_fold(
-            frag_ind,
-            self.derived_state.source_row_ind(frag_ind, foldable_row),
-        );
-        self.rebuild_state();
+            .last_lead_foldable_row(frag_ind, on_screen_row_ind)
+        {
+            // ... and fold that row if it exists
+            self.spec().toggle_lead_fold(
+                frag_ind,
+                self.derived_state.source_row_ind(frag_ind, foldable_row),
+            );
+            self.rebuild_state();
+        }
     }
 
     /// Remove a method from the list, if it doesn't appear in the composition

@@ -666,13 +666,19 @@ impl DerivedState {
 
     /// Returns the index of the last foldable row before or equal to `row_ind`.  This will be the
     /// row who's fold region includes `row_ind`.
-    pub fn last_lead_foldable_row(&self, frag_ind: usize, row_ind: usize) -> usize {
-        self.frags[frag_ind].display_rows[..=row_ind]
+    pub fn last_lead_foldable_row(&self, frag_ind: usize, row_ind: usize) -> Option<usize> {
+        let rows = &self.frags[frag_ind].display_rows;
+        // Early return if `row_ind` is off the end of the frag
+        if row_ind >= rows.len() {
+            return None;
+        }
+        // Otherwise iterate backwards until we find either the start or a foldable row
+        rows[..=row_ind]
             .iter()
             .enumerate()
             .rev()
             .find(|(_i, r)| r.fold.is_some())
-            .map_or(0, |(i, _)| i)
+            .map(|(i, _)| i)
     }
 
     /// Maps an on-screen row location to the row index in the fragment's unfolded form
