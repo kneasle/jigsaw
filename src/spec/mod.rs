@@ -12,7 +12,7 @@ use bellframe::{
     place_not::PnBlockParseError, AnnotBlock, AnnotRow, Bell, Call, IncompatibleStages, Method,
     PnBlock, Row, Stage,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub mod save_load;
 
@@ -84,6 +84,7 @@ pub mod part_heads {
             )
         }
 
+        #[allow(dead_code)]
         fn gen_least_group(generators: Vec<Row>) -> (bool, HashSet<Row>, Vec<Row>) {
             let set = Row::least_group_containing(generators.iter())
                 // This unwrap is safe because all the input rows came from
@@ -219,7 +220,7 @@ impl MethodSpec {
 
 /// The location of a [`Row`] within a method.  This is used to generate method splice text and
 /// calculate ATW stats.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct MethodRef {
     method_index: usize,
     sub_lead_index: usize,
@@ -299,7 +300,7 @@ impl CallSpec {
 
 /// The specification of where within a [`Call`] a given row comes.  This is used to generate the
 /// call labels on the fly.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CallRef {
     call_index: usize,
     row_index: usize,

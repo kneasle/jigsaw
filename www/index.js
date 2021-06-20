@@ -671,7 +671,9 @@ function on_key_down(e) {
         }
         // print a save file
         if (e.key === "g") {
-            console.log(JSON.parse(comp.get_save_file()));
+            const json = comp.get_save_file();
+            console.log(json.length);
+            console.log(JSON.parse(json));
         }
         // ctrl-z or simply z to undo (of course)
         if (e.key === "z") {

@@ -1,10 +1,14 @@
-use std::{collections::HashMap, hash::Hash, rc::Rc};
+use std::{collections::HashMap, hash::Hash, ops::Range, rc::Rc};
 
 use bellframe::Row;
 use serde::Serialize;
 
-use super::{Frag, MethodSpec, Spec};
+use super::{Annot, CallRef, Frag, MethodRef, MethodSpec, Spec};
 
+/// The most number of undo steps which are saved as history
+const MAX_SAVED_UNDO_STEPS: usize = 50;
+
+/// A newtype representing locations of items in memory
 type Addr = usize;
 
 /// A generic symbol interner which stores its values in a [`Vec`] and returns indices into this
@@ -140,23 +144,58 @@ impl SerMethod {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize)]
+struct SerAnnot {
+    #[serde(default = "crate::ser_utils::get_false")]
+    #[serde(skip_serializing_if = "crate::ser_utils::is_false")]
+    is_lead_end: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    method: Option<MethodRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    call: Option<CallRef>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    is_fold_open: Option<bool>,
+}
+
+impl From<&Annot> for SerAnnot {
+    fn from(a: &Annot) -> Self {
+        Self {
+            is_lead_end: a.is_lead_end,
+            method: a.method,
+            call: a.call,
+            is_fold_open: a.fold.as_ref().map(|f| f.is_open.get()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 struct SerFrag {
-    rows: Vec<usize>,
+    row_ranges: Vec<Range<usize>>,
+    annot_ranges: Vec<Range<usize>>,
     is_muted: bool,
     x: f32,
     y: f32,
 }
 
 impl SerFrag {
-    fn from_frag<'f>(frag: &'f Frag, row_interner: &mut Dedup<Row>) -> Self {
+    fn from_frag<'f>(
+        frag: &'f Frag,
+        row_interner: &mut Dedup<Row>,
+        annot_interner: &mut Dedup<SerAnnot>,
+    ) -> Self {
+        // Intern all the rows
+        let row_indices = row_interner.intern_iter(
+            frag.block
+                .rows()
+                .map(|r| unsafe { frag.start_row.mul_unchecked(r) }),
+        );
+        // Intern the annotations
+        let annot_indices =
+            annot_interner.intern_iter(frag.block.annots().map(|a| SerAnnot::from(a)));
+
         SerFrag {
-            // TODO: Range compress this - there'll be a **ton** of sequences in this data
-            rows: row_interner.intern_iter(
-                frag.block
-                    .rows()
-                    .map(|r| unsafe { frag.start_row.mul_unchecked(r) }),
-            ),
+            row_ranges: range_compress(row_indices),
+            annot_ranges: range_compress(annot_indices),
             is_muted: frag.is_muted,
             x: frag.x,
             y: frag.y,
@@ -179,7 +218,8 @@ struct SerHistory<'a> {
     specs: Vec<SerSpec>,
     #[serde(serialize_with = "crate::ser_utils::ser_rows")]
     rows: Vec<Row>,
-    strs: Vec<&'a str>,
+    annots: Vec<SerAnnot>,
+    strings: Vec<&'a str>,
     frags: Vec<SerFrag>,
     methods: Vec<SerMethod>,
 }
@@ -188,15 +228,21 @@ struct SerHistory<'a> {
 pub fn ser_history(specs: &[Spec]) -> String {
     let mut string_interner = Dedup::<&str>::default();
     let mut row_interner = Dedup::<Row>::default();
+    let mut annot_interner = Dedup::<SerAnnot>::default();
     let mut frag_interner = AddrDedup::<SerFrag>::default();
     let mut method_interner = AddrDedup::<SerMethod>::default();
 
     let specs = specs
         .iter()
+        // Serialize only the last undo steps
+        .rev()
+        .take(MAX_SAVED_UNDO_STEPS)
+        .rev()
+        // Serialize each Spec
         .map(|s| SerSpec {
             stage: s.stage.as_usize(),
             frags: frag_interner.intern_iter_with(s.frags.iter().map(Rc::as_ref), &mut |f| {
-                SerFrag::from_frag(f, &mut row_interner)
+                SerFrag::from_frag(f, &mut row_interner, &mut annot_interner)
             }),
             part_head_str: string_interner.intern(s.part_heads.spec_string()),
             methods: method_interner.intern_iter_with(s.methods.iter().map(Rc::as_ref), &mut |m| {
@@ -208,9 +254,34 @@ pub fn ser_history(specs: &[Spec]) -> String {
     serde_json::to_string(&SerHistory {
         specs,
         rows: row_interner.into(),
-        strs: string_interner.into(),
+        annots: annot_interner.into(),
+        strings: string_interner.into(),
         frags: frag_interner.into(),
         methods: method_interner.into(),
     })
     .unwrap()
+}
+
+fn range_compress(mut indices: Vec<usize>) -> Vec<Range<usize>> {
+    // Push a `0` to the end so that the end is no longer a special case
+    indices.push(0);
+    // Turn this sequence of ints into a sequence of ranges (i.e. `[1, 2, 3, 4, 10, 11, 12]`
+    // would compress into `[1..=4, 10..=12]`
+    let mut ranges = Vec::new();
+    let mut current_range_start: Option<(usize, usize)> = None;
+    for (i, r) in indices.into_iter().enumerate() {
+        if let Some((start_index, start_row)) = current_range_start {
+            let rows_since_last_start = i - start_index;
+            // If we reach a point where the row indices stop increasing 1 by 1, push the last
+            // range and start again
+            if r != start_row + rows_since_last_start {
+                ranges.push(start_row..start_row + rows_since_last_start);
+                current_range_start = Some((i, r));
+            }
+        } else {
+            // If `current_range_start` is None, then we must be at the start.  Therefore, set
+            current_range_start = Some((i, r));
+        }
+    }
+    ranges
 }
