@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+"""Build script for Jigsaw."""
+
 import argparse
 import subprocess
 import os

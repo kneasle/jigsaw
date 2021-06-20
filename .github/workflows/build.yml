@@ -30,18 +30,30 @@ jobs:
     # Cache rust's build files to speed up the CI runs
     - uses: Swatinem/rust-cache@v1
 
-    - name: Build
+    - name: Checkout site
       run: |
-          mkdir /tmp/jigsaw-build
-          ./build.py --release --out-dir /tmp/jigsaw-build
+        # Clone my site's git repo into /tmp/site
+        mkdir -p /tmp/site
+        git clone https://github.com/kneasle/kneasle.github.io.git /tmp/site
+        git config --global credential.helper store
+        echo "kneasle:${{ secrets.SITE_TOKEN }}@github.com" >> ~/.git-credentials
+        # Checkout the jigsaw branch
+        cd /tmp/site
+        git checkout jigsaw
+        git status
+        # Make sure this is up-to-date with the remote branch
+        git pull
+        # Move back to the Jigsaw repo
+        cd -
 
-    - name: Commit build
+    - name: Build project
       run: |
-        # Checkout the build branch
-        git checkout build
-        # Copy the built files into the firehose branch
-        mkdir -p firehose
-        cp -r /tmp/jigsaw-build/* firehose
+        mkdir -p /tmp/site/firehose
+        ./build.py --release --out-dir /tmp/site/firehose
+
+    - name: Commit changes
+      run: |
+        cd /tmp/site
         # Commit these new files
         git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
@@ -55,13 +67,7 @@ jobs:
     - name: Push changes
       uses: ad-m/github-push-action@master
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        branch: 'build'
-
-    - name: Run my website's build
-      run: |
-          curl \
-              -X POST \
-              -H "Accept: application/vnd.github.v3+json" \
-              https://api.github.com/repos/kneasle/kneasle.github.io/actions/workflows/zola/dispatches \
-              -d '{"ref":"master"}'
+        github_token: ${{ secrets.SITE_TOKEN }}
+        branch: 'jigsaw'
+        directory: '/tmp/site'
+        repository: kneasle/kneasle.github.io
