@@ -509,6 +509,11 @@ impl Jigsaw {
         self.make_action(|spec| spec.delete_frag(frag_ind));
     }
 
+    /// Duplicates a [`Frag`]ment by index, returning the index of the cloned [`Frag`].
+    pub fn duplicate_frag(&mut self, frag_ind: usize, new_x: f32, new_y: f32) -> usize {
+        self.make_action(|spec| spec.duplicate_frag(frag_ind, new_x, new_y))
+    }
+
     /// See [`Spec::join_frags`] for docs.
     pub fn join_frags(&mut self, frag_1_ind: usize, frag_2_ind: usize) {
         self.make_action(|spec| spec.join_frags(frag_1_ind, frag_2_ind));

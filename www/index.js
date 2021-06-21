@@ -103,6 +103,8 @@ const FALSE_COUNT_COL_FALSE = "red";
 const FALSE_COUNT_COL_TRUE = "green";
 const FALSENESS_BLOB_RADIUS = 0.3; // multiple of min(ROW_HEIGHT, COL_WIDTH)
 
+const FRAG_DUP_X_OFFSET = 2; // multiple of the fragment's width
+
 /* ===== DEBUG SETTINGS ===== */
 
 const DBG_PROFILE_SERIALISE_STATE = false; // profile `sync_derived_state` in `start`?
@@ -589,7 +591,8 @@ function on_key_down(e) {
                 // Immediately enter transposing mode to let the user specify what course they wanted
                 start_transposition(new_frag_ind, 0);
             }
-            // TODO: Figure out why this is necessary...
+            // Consume the event, because otherwise the newly created transpose box will receive it
+            // and type `a`
             e.preventDefault();
         }
         // 'cut' a fragment into two at the mouse location
@@ -638,6 +641,22 @@ function on_key_down(e) {
         if (e.key === "d" && frag) {
             jigsaw.delete_frag(frag.index);
             on_comp_change();
+        }
+        // duplicate the fragment under the cursor
+        if (e.key === "D" && frag) {
+            const target_frag = derived_state.frags[frag.index];
+            const target_bbox = frag_bbox(target_frag);
+            const new_frag_ind = jigsaw.duplicate_frag(
+                frag.index,
+                target_frag.x + target_bbox.w * FRAG_DUP_X_OFFSET,
+                target_frag.y
+            );
+            on_comp_change();
+            // Immediately enter transposing mode to let the user specify what course they wanted
+            start_transposition(new_frag_ind, 0);
+            // Consume the event, because otherwise the newly created transpose box will receive it
+            // and type `D`
+            e.preventDefault();
         }
         // join two fragments if we're hovering the link between them
         if (e.key === "c" && selected_link !== undefined) {

@@ -1191,13 +1191,31 @@ impl Spec {
     pub fn add_frag(&mut self, x: f32, y: f32, method_ind: usize, add_course: bool) -> usize {
         self.frags
             .push(Rc::new(self.new_frag(x, y, add_course, method_ind)));
-        // We always push the Frag to the end of the list, so its index is `self.frags.len()`
+        // We always push the Frag to the end of the list, so its index is the length `self.frags`
+        // **before** we pushed to it (hence the `- 1`)
         self.frags.len() - 1
     }
 
     /// Deletes a [`Frag`]ment by index
     pub fn delete_frag(&mut self, frag_ind: usize) {
         self.frags.remove(frag_ind);
+    }
+
+    /// Duplicates a [`Frag`]ment, and returns the index of the new [`Frag`]
+    pub fn duplicate_frag(&mut self, frag_ind: usize, new_x: f32, new_y: f32) -> usize {
+        // Clone the specified `Frag` so that it can be mutated
+        let mut new_frag = self.frags[frag_ind].as_ref().clone();
+        // Force unique ownership of the AnnotBlock, because otherwise all the lead folding will be
+        // shared
+        Rc::make_mut(&mut new_frag.block);
+        // Offset the new Frag's position so it doesn't overlap completely with the old one
+        new_frag.x = new_x;
+        new_frag.y = new_y;
+
+        self.frags.push(Rc::new(new_frag));
+        // We always push the Frag to the end of the list, so its index is the length `self.frags`
+        // **before** we pushed to it (hence the `- 1`)
+        self.frags.len() - 1
     }
 
     /// Join the [`Frag`] at `frag_2_ind` onto the end of the [`Frag`] at `frag_1_ind`, transposing
