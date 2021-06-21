@@ -584,6 +584,7 @@ pub struct DerivedState {
     methods: Vec<DerivedMethod>,
     calls: Vec<DerivedCall>,
     stage: usize,
+    min_stage: usize,
 }
 
 impl DerivedState {
@@ -606,6 +607,9 @@ impl DerivedState {
         // Derive stats about the methods and calls
         let der_methods = derive_methods(methods, &generated_rows);
         let der_calls = derive_calls(calls, &generated_rows);
+
+        // Generate misc stats
+        let min_stage = spec.effective_stage();
 
         // Compile all of the derived state into one struct
         assert_eq!(frag_link_groups.len(), generated_rows.len());
@@ -634,6 +638,7 @@ impl DerivedState {
             methods: der_methods,
             calls: der_calls,
             stage: spec.stage().as_usize(),
+            min_stage: min_stage.as_usize(),
         }
     }
 
