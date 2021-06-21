@@ -1,6 +1,6 @@
 use std::{collections::HashMap, hash::Hash, ops::Range, rc::Rc};
 
-use bellframe::Row;
+use bellframe::RowBuf;
 use serde::Serialize;
 
 use super::{Annot, CallRef, Frag, MethodRef, MethodSpec, Spec};
@@ -180,7 +180,7 @@ struct SerFrag {
 impl SerFrag {
     fn from_frag<'f>(
         frag: &'f Frag,
-        row_interner: &mut Dedup<Row>,
+        row_interner: &mut Dedup<RowBuf>,
         annot_interner: &mut Dedup<SerAnnot>,
     ) -> Self {
         // Intern all the rows
@@ -217,7 +217,7 @@ struct SerSpec {
 struct SerHistory<'a> {
     specs: Vec<SerSpec>,
     #[serde(serialize_with = "crate::ser_utils::ser_rows")]
-    rows: Vec<Row>,
+    rows: Vec<RowBuf>,
     annots: Vec<SerAnnot>,
     strings: Vec<&'a str>,
     frags: Vec<SerFrag>,
@@ -227,7 +227,7 @@ struct SerHistory<'a> {
 /// Serialize a sequence of [`Spec`]s, duplicating as little data as possible
 pub fn ser_history(specs: &[Spec]) -> String {
     let mut string_interner = Dedup::<&str>::default();
-    let mut row_interner = Dedup::<Row>::default();
+    let mut row_interner = Dedup::<RowBuf>::default();
     let mut annot_interner = Dedup::<SerAnnot>::default();
     let mut frag_interner = AddrDedup::<SerFrag>::default();
     let mut method_interner = AddrDedup::<SerMethod>::default();

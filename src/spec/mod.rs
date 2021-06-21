@@ -10,7 +10,7 @@ use crate::{
 };
 use bellframe::{
     place_not::PnBlockParseError, AnnotBlock, AnnotRow, Bell, Call, IncompatibleStages, Method,
-    PnBlock, Row, Stage,
+    PnBlock, Row, RowBuf, Stage,
 };
 use serde::{Deserialize, Serialize};
 
@@ -30,9 +30,9 @@ pub use self::part_heads::PartHeads;
 /// is to use the fallible constructors provided (which guarutee that the [`PartHeads`]s created
 /// uphold all the required invariants).
 pub mod part_heads {
-    use std::collections::HashSet;
+    use std::{collections::HashSet, ops::Deref};
 
-    use bellframe::{IncompatibleStages, InvalidRowError, Row, Stage};
+    use bellframe::{IncompatibleStages, InvalidRowError, Row, RowBuf, Stage};
     use serde::Serialize;
 
     /// The possible ways that parsing a part head specification can fail
@@ -47,10 +47,10 @@ pub mod part_heads {
     pub struct PartHeads {
         spec: String,
         #[serde(serialize_with = "crate::ser_utils::ser_rows")]
-        rows: Vec<Row>,
+        rows: Vec<RowBuf>,
         /// A `HashSet` containing the same [`Row`]s as `rows`, but kept for faster lookups
         #[serde(skip)]
-        set: HashSet<Row>,
+        set: HashSet<RowBuf>,
         is_group: bool,
     }
 
@@ -63,7 +63,7 @@ pub mod part_heads {
         pub fn parse(s: &str, stage: Stage) -> Result<Self, ParseError> {
             let generators = s
                 .split(',')
-                .map(|sub_str| Row::parse_with_stage(sub_str, stage))
+                .map(|sub_str| RowBuf::parse_with_stage(sub_str, stage))
                 .collect::<Result<Vec<_>, InvalidRowError>>()?;
             let (is_group, set, rows) = Self::gen_cartesian_product(generators);
             Ok(PartHeads {
@@ -74,19 +74,21 @@ pub mod part_heads {
             })
         }
 
-        fn gen_cartesian_product(generators: Vec<Row>) -> (bool, HashSet<Row>, Vec<Row>) {
+        fn gen_cartesian_product(generators: Vec<RowBuf>) -> (bool, HashSet<RowBuf>, Vec<RowBuf>) {
             let row_sets: Vec<_> = generators.iter().map(|r| r.closure_from_rounds()).collect();
-            let part_heads = Row::multi_cartesian_product(row_sets.into_iter()).unwrap();
+            let part_heads =
+                Row::multi_cartesian_product(row_sets.iter().map(|b| b.iter().map(|r| r.as_row())))
+                    .unwrap();
             (
-                Row::is_group(&part_heads).unwrap(),
+                Row::is_group(part_heads.iter().map(RowBuf::as_row)).unwrap(),
                 part_heads.iter().cloned().collect(),
                 part_heads,
             )
         }
 
         #[allow(dead_code)]
-        fn gen_least_group(generators: Vec<Row>) -> (bool, HashSet<Row>, Vec<Row>) {
-            let set = Row::least_group_containing(generators.iter())
+        fn gen_least_group(generators: Vec<RowBuf>) -> (bool, HashSet<RowBuf>, Vec<RowBuf>) {
+            let set = Row::least_group_containing(generators.iter().map(Deref::deref))
                 // This unwrap is safe because all the input rows came from
                 // `Row::parse_with_stage`
                 .unwrap();
@@ -109,7 +111,7 @@ pub mod part_heads {
 
         /// Returns a slice over the part heads in this set of `PartHeads`
         #[inline]
-        pub fn rows(&self) -> &[Row] {
+        pub fn rows(&self) -> &[RowBuf] {
             &self.rows
         }
 
@@ -133,7 +135,7 @@ pub mod part_heads {
                 Ok(self.set.contains(&transposition))
             } else {
                 // PERF: Store this result in a `RefCell<HashMap<Row, bool>>`
-                let mut transposed_row_buf = Row::empty();
+                let mut transposed_row_buf = RowBuf::empty();
                 for r in &self.rows {
                     // The unsafety here is OK because all the rows in `self` must have the same
                     // stage, and we checked that `transposition` shares that Stage.
@@ -249,7 +251,7 @@ pub struct CallSpec {
 
 impl CallSpec {
     /// Generates the [`CallLabel`] which represents this call placed at a given [`Row`]
-    fn to_label(&self, index: usize, start_rows: &[Row]) -> CallLabel {
+    fn to_label(&self, index: usize, start_rows: &[RowBuf]) -> CallLabel {
         let tenor = Bell::tenor(start_rows[0].stage()).unwrap();
         CallLabel::new(
             index,
@@ -353,7 +355,7 @@ impl Annot {
         call: Option<CallRef>,
         sub_lead_index: usize,
         lead_loc: Option<&str>,
-        row: Row,
+        row: RowBuf,
     ) -> AnnotRow<Self> {
         AnnotRow::new(
             row,
@@ -478,7 +480,7 @@ impl std::error::Error for SetCallError {}
 /// A single unexpanded fragment of a composition
 #[derive(Clone, Debug)]
 pub struct Frag {
-    start_row: Row,
+    start_row: RowBuf,
     block: Rc<AnnotBlock<Annot>>,
     is_muted: bool,
     x: f32,
@@ -679,7 +681,7 @@ impl Frag {
                         + row_index.min(c.call.cover_len()))
                         % method_spec.method.lead_len();
                     AnnotRow::new(
-                        r.clone(),
+                        r.to_owned(),
                         Annot {
                             is_lead_end: row_index == 0,
                             fold: Fold::from_sub_lead_index(sub_lead_index),
@@ -781,7 +783,7 @@ impl Frag {
         }
 
         // Satisfy the type checker
-        Ok(self.clone_with_new_block(self.start_row.clone(), new_block))
+        Ok(self.clone_with_new_block(self.start_row.to_owned(), new_block))
     }
 
     /// Create a new `Frag` of `other` onto the end of `self`, transposing `other` if necessary.
@@ -799,14 +801,19 @@ impl Frag {
     ) -> Result<(), IncompatibleStages> {
         // PERF: Possibly cache the results of this, since we are allocating a lot of temporary
         // values here)
-        self.transpose(&(target_row * &!(&self.start_row * self.block.get_row(row_ind).unwrap())))
+        self.transpose(
+            // TODO: Implement more different versions of * so that this isn't disgusting
+            (target_row
+                * &!(self.start_row.as_row() * self.block.get_row(row_ind).unwrap()).as_row())
+                .as_row(),
+        )
     }
 
     /// Transposes `self` - i.e. (pre)mulitplies all the [`Row`]s by some other [`Row`].  This will
     /// clone the underlying [`AnnotBlock`] the first time this is called, but every other time
     /// will not reallocate the [`AnnotBlock`].
     pub fn transpose(&mut self, transposition: &Row) -> Result<(), IncompatibleStages> {
-        self.start_row = transposition.mul(&self.start_row)?;
+        self.start_row = transposition.mul_result(&self.start_row)?;
         Ok(())
     }
 
@@ -819,7 +826,7 @@ impl Frag {
     pub fn expand_to_round_block(&self) -> Frag {
         // PERF: This function causes way too many unnecessary allocations
         let own_start_row = self.first_row().row();
-        let mut current_start_row = own_start_row.clone();
+        let mut current_start_row = own_start_row.to_owned();
         let mut rows: Vec<AnnotRow<Annot>> = vec![self.block.first_annot_row().clone()];
         // Repeatedly add `self` and permute until we return to the start row
         loop {
@@ -835,13 +842,13 @@ impl Frag {
             }));
             // Make sure that the next row starts with the last row generated so far (i.e. the
             // leftover row of the Block we've built so far)
-            current_start_row = rows.last().unwrap().row().clone();
+            current_start_row = rows.last().unwrap().row().to_owned();
             // If we've reached the first row again, then return.  This must terminate because the
             // permutation group over any finite stage is always finite, so no element can have
             // infinite order.
-            if own_start_row == &current_start_row {
+            if own_start_row == current_start_row.as_row() {
                 return self.clone_with_new_block(
-                    own_start_row.clone(),
+                    own_start_row.to_owned(),
                     AnnotBlock::from_annot_rows(rows).unwrap(),
                 );
             }
@@ -850,7 +857,7 @@ impl Frag {
 
     /// Create a new `Frag` which is identical to `self`, except that it contains different
     /// [`Row`]s
-    fn clone_with_new_block(&self, start_row: Row, block: AnnotBlock<Annot>) -> Frag {
+    fn clone_with_new_block(&self, start_row: RowBuf, block: AnnotBlock<Annot>) -> Frag {
         Frag {
             start_row,
             block: Rc::new(block),
@@ -864,7 +871,7 @@ impl Frag {
     /// [`Spec::expand`]
     fn expand(
         &self,
-        part_heads: &[Row],
+        part_heads: &[RowBuf],
         methods: &[Rc<MethodSpec>],
         calls: &[Rc<CallSpec>],
     ) -> Vec<ExpandedRow> {
@@ -876,13 +883,13 @@ impl Frag {
             let annot = annot_row.annot();
 
             /* Expand all the rows */
-            let all_rows: Vec<Row> = part_heads
+            let all_rows: Vec<RowBuf> = part_heads
                 .iter()
                 // PERF: This causes more allocations than we need, because `ExpandedRow::new` does
                 // not consume the row given to it.  Even using a persistent buffer for the value
                 // of `self.start_row * row` would improve things.  Even better would be to use a
                 // 'RowAccum' to accumulate the values without causing reallocations.
-                .map(|ph| &(ph * &self.start_row) * row)
+                .map(|ph| (ph * &self.start_row).as_row() * row)
                 .collect();
 
             /* METHOD SPLICE LOGIC:
@@ -962,7 +969,7 @@ impl Frag {
     /* Constructors */
 
     /// Create a new `Frag` from its parts (creating [`Rc`]s where necessary)
-    fn new(start_row: Row, block: AnnotBlock<Annot>, x: f32, y: f32, is_muted: bool) -> Frag {
+    fn new(start_row: RowBuf, block: AnnotBlock<Annot>, x: f32, y: f32, is_muted: bool) -> Frag {
         Frag {
             start_row,
             block: Rc::new(block),
@@ -976,12 +983,12 @@ impl Frag {
     fn from_rows(mut rows: Vec<AnnotRow<Annot>>, x: f32, y: f32, is_muted: bool) -> Frag {
         // TODO: Move this code into `core`
         // Keep the first row and its inverse
-        let first_row = rows[0].row().clone();
-        let inv_first_row = !&first_row;
+        let first_row = rows[0].row().to_owned();
+        let inv_first_row = first_row.inv();
         // Transpose all the rows so that the block starts with rounds
-        let mut row_buf = Row::empty();
+        let mut row_buf = RowBuf::empty();
         rows.iter_mut().for_each(|annot_row| {
-            row_buf.clone_from(annot_row.row());
+            row_buf.overwrite_from(annot_row.row());
             unsafe { annot_row.set_row_unchecked(inv_first_row.mul_unchecked(&row_buf)) };
         });
         Self::new(
@@ -998,7 +1005,7 @@ impl Frag {
         const STAGE: Stage = Stage::MAJOR;
         let mut rows: Vec<AnnotRow<Annot>> = include_str!("cyclic-s8")
             .lines()
-            .map(|x| AnnotRow::with_default(Row::parse(x).unwrap()))
+            .map(|x| AnnotRow::with_default(RowBuf::parse(x).unwrap()))
             .collect();
         let methods: Vec<Rc<MethodSpec>> = [
             ("Deva", "V", "-58-14.58-58.36-14-58-36-18,18"),
@@ -1139,7 +1146,7 @@ impl Spec {
                     .enumerate()
                     .map(|(i, annot_row)| {
                         AnnotRow::new(
-                            annot_row.row().clone(),
+                            annot_row.row().to_owned(),
                             Annot {
                                 is_lead_end: annot_row.annot().is_some(),
                                 fold: Fold::from_sub_lead_index(i),
@@ -1156,7 +1163,7 @@ impl Spec {
             .unwrap();
             block.leftover_annot_mut().method = None;
             // Create new frag
-            Frag::new(Row::rounds(self.stage), block, x, y, false)
+            Frag::new(RowBuf::rounds(self.stage), block, x, y, false)
         };
         if add_course {
             new_frag.expand_to_round_block()
@@ -1245,7 +1252,6 @@ impl Spec {
         let new_frag =
             self.frags[frag_ind].set_call(row_ind, call_ind, &self.calls, &self.methods)?;
         // If the call replacement was successful, then clone self and update the new version
-        // TODO: Make this use Rc::make_mut() instead
         let mut new_self = self.clone();
         new_self.frags[frag_ind] = Rc::new(new_frag);
         Ok(new_self)

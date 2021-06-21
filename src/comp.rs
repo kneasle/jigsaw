@@ -3,7 +3,7 @@ use crate::{
     spec::{self, Frag, PartHeads, Spec},
     view::View,
 };
-use bellframe::{place_not::PnBlockParseError, PnBlock, Row};
+use bellframe::{place_not::PnBlockParseError, PnBlock, RowBuf};
 use serde::Serialize;
 use std::convert::TryFrom;
 use wasm_bindgen::prelude::*;
@@ -32,7 +32,7 @@ pub enum State {
         /// that is used as a transposition to 'undo' the effect of the part head (so that the user
         /// can edit the [`Row`] they see on-screen, despite the fact that the underlying [`Row`]
         /// being edited is different to what they see.
-        inv_part_head: Row,
+        inv_part_head: RowBuf,
         /// A [`Spec`] that has already implemented the transposition.  This will be displayed to
         /// the user (without changing history) until the user presses 'Enter' at which point it
         /// will be 'committed' as the next stage in the edit history.
@@ -328,7 +328,7 @@ impl Comp {
     ///   representing the error is returned.
     /// This `panic!`s if called from any state other than [`State::Transposing`].
     pub fn try_parse_transpose_row(&mut self, row_str: String) -> String {
-        let parsed_row = Row::parse_with_stage(&row_str, self.spec().stage());
+        let parsed_row = RowBuf::parse_with_stage(&row_str, self.spec().stage());
         match &mut self.state {
             State::Transposing {
                 spec,
@@ -338,7 +338,7 @@ impl Comp {
             } => match parsed_row {
                 Err(e) => format!("{}", e),
                 Ok(unpermuted_target_row) => {
-                    let target_row = &*inv_part_head * &unpermuted_target_row;
+                    let target_row = inv_part_head.as_row() * &unpermuted_target_row;
                     spec.get_frag_mut(*frag_ind)
                         .unwrap()
                         .transpose_row_to(*row_ind, &target_row)
@@ -357,7 +357,7 @@ impl Comp {
     /// This `panic!`s if called from any state other than [`State::Transposing`].
     pub fn finish_transposing(&mut self, row_str: String) -> bool {
         // Early return false if the
-        if Row::parse_with_stage(&row_str, self.spec().stage()).is_err() {
+        if RowBuf::parse_with_stage(&row_str, self.spec().stage()).is_err() {
             return false;
         }
         // Switch the state to `State::Idle`, whilst also matching over the (moved) old state

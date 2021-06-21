@@ -4,7 +4,7 @@ use std::{
     ops::Range,
 };
 
-use bellframe::{run_len, Row, Stage};
+use bellframe::{run_len, Row, RowBuf, Stage};
 use itertools::Itertools;
 use serde::Serialize;
 
@@ -122,7 +122,7 @@ pub struct ExpandedRow {
     is_leftover: bool,
     method_ref: Option<MethodRef>,
     /// One [`Row`] for each part of the composition
-    rows: Vec<Row>,
+    rows: Vec<RowBuf>,
     /// For each bell, shows which parts contain music
     ///
     /// E.g. for `21345678` under part heads `12345678, 18234567, ...` would form rows
@@ -153,7 +153,7 @@ pub struct ExpandedRow {
 }
 
 impl ExpandedRow {
-    fn calculate_music(all_rows: &[Row], stage: Stage) -> Vec<Vec<usize>> {
+    fn calculate_music(all_rows: &[RowBuf], stage: Stage) -> Vec<Vec<usize>> {
         // Initialise the music scores with 0 for every place
         let mut music = vec![Vec::new(); stage.as_usize()];
         // For each part that contains music, add one to the bells which are covered by the music
@@ -182,7 +182,7 @@ impl ExpandedRow {
     // public or having an intermediate type
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        all_rows: Vec<Row>,
+        all_rows: Vec<RowBuf>,
         call_label: Option<CallLabel>,
         method_str: Option<MethodLabel>,
         method_ref: Option<MethodRef>,
@@ -245,7 +245,7 @@ struct DisplayRow {
     is_proved: bool,
     /// One [`Row`] per part
     #[serde(serialize_with = "crate::ser_utils::ser_rows")]
-    rows: Vec<Row>,
+    rows: Vec<RowBuf>,
     /// See [`ExpandedRow::music_highlights`] for docs
     #[serde(skip_serializing_if = "crate::ser_utils::is_all_empty")]
     music_highlights: Vec<Vec<usize>>,
@@ -341,12 +341,12 @@ struct LineRange {
     /// is [`None`] if there is no [`Row`] before this range.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "crate::ser_utils::ser_opt_rows")]
-    top_rows: Option<Vec<Row>>,
+    top_rows: Option<Vec<RowBuf>>,
     /// The row which appears just off the bottom of this range.  Contains one [`Row`] per part,
     /// and is [`None`] if there is no [`Row`] after this range.
     #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(serialize_with = "crate::ser_utils::ser_opt_rows")]
-    bottom_rows: Option<Vec<Row>>,
+    bottom_rows: Option<Vec<RowBuf>>,
     #[serde(flatten)]
     range: Range<usize>,
 }
@@ -660,7 +660,7 @@ impl DerivedState {
     /// Gets the part head at a given index, or returning `None` if the index is bigger than the
     /// number of parts.
     #[inline]
-    pub fn get_part_head(&self, part_ind: usize) -> Option<&Row> {
+    pub fn get_part_head(&self, part_ind: usize) -> Option<&RowBuf> {
         self.part_heads.rows().get(part_ind)
     }
 
