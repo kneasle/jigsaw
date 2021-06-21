@@ -12,7 +12,7 @@ use wasm_bindgen::prelude::*;
 #[allow(unused_imports)]
 use bellframe::Stage;
 
-/// A enum of what states the [`Comp`] editor can be in.  Implementing the UI as a state machine
+/// A enum of what states the [`Jigsaw`] editor can be in.  Implementing the UI as a state machine
 /// enforces the constraint that the user can only be performing one action at once.  This prevents
 /// the user causing undefined behaviour by doing things like splitting/deleting a [`Frag`] whilst
 /// dragging it, or changing the part heads whilst doing a transposition.
@@ -101,7 +101,7 @@ impl MethodEdit {
 ///
 /// The general data-flow is:
 /// - User generates some input (keypress, mouse click, etc.)
-/// - JS reads this input and calls one of the `#[wasm_bindgen]` methods on `Comp`
+/// - JS reads this input and calls one of the `#[wasm_bindgen]` methods on the `Jigsaw` singleton
 /// - These call some `self.make_*action*` function which runs a given closure on the existing
 ///   [`Spec`]
 ///   - This also handles the undo history (i.e. doesn't overwrite old copies, and deallocates
@@ -109,7 +109,7 @@ impl MethodEdit {
 ///   - Because the [`Spec`] has changed, we rebuild the [`DerivedState`] from this new [`Spec`].
 ///     This is necessary because JS can't access the [`Spec`] directly.
 /// - The following all happens during the call to the JS `on_comp_change()` method:
-///   - After every edit, JS will call [`Comp::ser_derived_state`] which returns a JSON
+///   - After every edit, JS will call [`Jigsaw::ser_derived_state`] which returns a JSON
 ///     serialisation of the current [`DerivedState`], which is parsed into a full-blown JS object
 ///     and the global `derived_state` variable is overwritten with this new value.
 ///   - The HUD UI (sidebar, etc.) are all updated to this new value
@@ -117,7 +117,7 @@ impl MethodEdit {
 ///   screen.
 #[wasm_bindgen]
 #[derive(Debug, Clone)]
-pub struct Comp {
+pub struct Jigsaw {
     undo_history: Vec<Spec>,
     history_index: usize,
     view: View,
@@ -125,9 +125,9 @@ pub struct Comp {
     state: State,
 }
 
-impl Comp {
-    fn from_spec(spec: Spec) -> Comp {
-        Comp {
+impl Jigsaw {
+    fn from_spec(spec: Spec) -> Jigsaw {
+        Jigsaw {
             derived_state: DerivedState::from_spec(&spec),
             view: View::default(),
             undo_history: vec![spec],
@@ -136,7 +136,7 @@ impl Comp {
         }
     }
 
-    /// Gets the [`Spec`] that is currently viewed by this `Comp`.
+    /// Gets the [`Spec`] that is currently being viewed by the user
     fn spec(&self) -> &Spec {
         self.state
             .spec()
@@ -204,9 +204,9 @@ impl Comp {
 /// Functions exported to JavaScript.  These functions are the _only_ way that Rust and JavaScript
 /// can interact directly.
 #[wasm_bindgen]
-impl Comp {
+impl Jigsaw {
     /// Create an example composition
-    pub fn example() -> Comp {
+    pub fn example() -> Jigsaw {
         console_error_panic_hook::set_once();
         Self::from_spec(Spec::example())
     }
@@ -319,7 +319,7 @@ impl Comp {
             .to_string()
     }
 
-    /// Attempt to parse a [`String`] into a [`Row`] of the correct [`Stage`] for this `Comp`, to
+    /// Attempt to parse a [`String`] into a [`Row`] of the [`Stage`] of the current [`Spec`], to
     /// be used in [`State::Transposing`].  There are two possible outcomes:
     /// - **The string corresponds to a valid [`Row`]**: This parsed [`Row`] is used to modify
     ///   the temporary [`Spec`] contained with in the [`State::Transposing`] enum.  The
@@ -643,18 +643,18 @@ impl Comp {
 
 #[cfg(test)]
 mod tests {
-    use super::Comp;
+    use super::Jigsaw;
 
     #[test]
     fn example_doesnt_crash() {
-        let c = Comp::example();
+        let c = Jigsaw::example();
         c.ser_derived_state();
         c.ser_view();
     }
 
     #[test]
     fn replace_call() {
-        let mut c = Comp::example();
+        let mut c = Jigsaw::example();
         c.set_call(0, 31, -1);
     }
 }

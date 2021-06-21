@@ -5,8 +5,8 @@ use std::{
 };
 
 use crate::{
-    comp::MethodEdit,
     derived_state::{CallLabel, DerivedCall, DerivedFold, ExpandedRow, MethodLabel},
+    jigsaw::MethodEdit,
 };
 use bellframe::{
     place_not::PnBlockParseError, AnnotBlock, AnnotRow, Bell, Call, IncompatibleStages, Method,

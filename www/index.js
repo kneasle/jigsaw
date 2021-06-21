@@ -117,7 +117,7 @@ let selected_link = undefined;
 // Variables which will used to sync with the Rust code (in 99% of the code, these should be treated
 // as immutable - they should only be mutated from `sync_derived_state`, `sync_derived_state` and
 // `start` or when allowed to get out-of-sync whilst the user either pans or drags fragments).
-let comp, derived_state, view;
+let jigsaw, derived_state, view;
 // Mouse variables that the browser should keep track of but doesn't
 let mouse_coords = { x: 0, y: 0 };
 
@@ -486,7 +486,7 @@ function on_window_resize() {
 }
 
 function on_mouse_move(e) {
-    if (comp.is_state_idle()) {
+    if (jigsaw.is_state_idle()) {
         // Repaint the screen if the selected link has changed because we moved the mouse
         let closest_link = closest_frag_link_to_cursor();
         if (closest_link !== selected_link) {
@@ -495,8 +495,8 @@ function on_mouse_move(e) {
         }
     }
     // If we clicked on a fragment, then move it
-    if (comp.is_state_dragging()) {
-        const frag_being_dragged = comp.frag_being_dragged();
+    if (jigsaw.is_state_dragging()) {
+        const frag_being_dragged = jigsaw.frag_being_dragged();
         // Note that in this case, we allow `derived_state` to get out of sync with Rust's ground
         // truth.  We do this for performance reasons; if we didn't, then the whole composition
         // would be reproved every time the mouse is moved causing horrendous lag.
@@ -523,11 +523,11 @@ function on_mouse_move(e) {
 
 function on_mouse_down(e) {
     // Only handle mouse down events if the user is not already performing an action
-    if (comp.is_state_idle()) {
+    if (jigsaw.is_state_idle()) {
         const frag = hovered_frag();
         // Left-clicking a fragment should switch the UI into the dragging state
         if (get_button(e) === BTN_LEFT && frag) {
-            comp.start_dragging(frag.index);
+            jigsaw.start_dragging(frag.index);
             log_state_transition("Idle", `Dragging(${frag.index})`);
         }
     }
@@ -536,29 +536,29 @@ function on_mouse_down(e) {
 function on_mouse_up(e) {
     // If we have just released a fragment, then update Rust's 'ground truth' and force a resync
     // of JS's local copy of the state.  Also let go of whatever we were dragging.
-    if (comp.is_state_dragging() && get_button(e) === BTN_LEFT) {
-        const released_frag = derived_state.frags[comp.frag_being_dragged()];
-        comp.finish_dragging(released_frag.x, released_frag.y);
+    if (jigsaw.is_state_dragging() && get_button(e) === BTN_LEFT) {
+        const released_frag = derived_state.frags[jigsaw.frag_being_dragged()];
+        jigsaw.finish_dragging(released_frag.x, released_frag.y);
         on_comp_change();
         log_state_transition("Dragging", "Idle");
     }
     if (get_button(e) === BTN_MIDDLE) {
-        comp.set_view_coords(view.view_x, view.view_y);
+        jigsaw.set_view_coords(view.view_x, view.view_y);
         sync_view();
     }
 }
 
 function on_key_down(e) {
-    if (comp.is_state_transposing()) {
+    if (jigsaw.is_state_transposing()) {
         // Esc should exit transpose mode
         if (e.keyCode == 27) {
-            comp.exit_transposing();
+            jigsaw.exit_transposing();
             stop_transposing();
         }
     }
     // Keyboard shortcuts can only be used if the UI is 'idle' - i.e. the user is not dragging or
     // transposing frags etc.
-    if (comp.is_state_idle()) {
+    if (jigsaw.is_state_idle()) {
         // Detect which fragment is under the cursor
         const frag = hovered_frag();
         const cursor_pos = world_space_cursor_pos();
@@ -574,12 +574,12 @@ function on_key_down(e) {
             ) {
                 // Case 1: we're hovering over the leftover row of a fragment.  In this case, we
                 // add the new chunk onto the end of the existing one
-                comp.extend_frag(frag.index, selected_method, adding_full_course);
+                jigsaw.extend_frag(frag.index, selected_method, adding_full_course);
                 on_comp_change();
             } else {
                 // Case 2: we're not hovering over the end of a fragment, so we add the course and
                 // switch to transposing mode so that the user can decide what row to start with
-                const new_frag_ind = comp.add_frag(
+                const new_frag_ind = jigsaw.add_frag(
                     cursor_pos.x,
                     cursor_pos.y,
                     selected_method,
@@ -603,7 +603,7 @@ function on_key_down(e) {
                 FRAG_BBOX_EXTRA_HEIGHT * 2 +
                 10;
             // Split the fragment, and store the error string
-            const err = comp.split_frag(frag.index, split_index, new_y);
+            const err = jigsaw.split_frag(frag.index, split_index, new_y);
             // If the split failed, then log the error.  Otherwise, resync the composition with
             // `on_comp_change`.
             if (err) {
@@ -614,12 +614,12 @@ function on_key_down(e) {
         }
         // mute/unmute a fragment
         if (e.key === "s" && frag) {
-            comp.toggle_frag_mute(frag.index);
+            jigsaw.toggle_frag_mute(frag.index);
             on_comp_change();
         }
         // solo/unsolo a fragment
         if (e.key === "S" && frag) {
-            comp.toggle_frag_solo(frag.index);
+            jigsaw.toggle_frag_solo(frag.index);
             on_comp_change();
         }
         // transpose a fragment by its start row
@@ -636,18 +636,18 @@ function on_key_down(e) {
         }
         // delete the fragment under the cursor
         if (e.key === "d" && frag) {
-            comp.delete_frag(frag.index);
+            jigsaw.delete_frag(frag.index);
             on_comp_change();
         }
         // join two fragments if we're hovering the link between them
         if (e.key === "c" && selected_link !== undefined) {
             const link_to_join = derived_state.frag_links[selected_link];
-            comp.join_frags(link_to_join.from, link_to_join.to);
+            jigsaw.join_frags(link_to_join.from, link_to_join.to);
             on_comp_change();
         }
         // set call under the cursor
         if (e.key === "e" && frag) {
-            const err = comp.set_call(
+            const err = jigsaw.set_call(
                 frag.index,
                 frag.source_range.start,
                 parseInt(elem_selected_call.value)
@@ -661,28 +661,28 @@ function on_key_down(e) {
         // Fold the fragment under the cursor
         if (e.key === "f" && frag) {
             // `toggle_lead_fold` takes **on-screen** row indices not source indices
-            comp.toggle_lead_fold(frag.index, Math.floor(frag.row));
+            jigsaw.toggle_lead_fold(frag.index, Math.floor(frag.row));
             on_comp_change();
         }
         // reset the composition
         if (e.key === "R") {
-            comp.reset();
+            jigsaw.reset();
             on_comp_change();
         }
         // print a save file
         if (e.key === "g") {
-            const json = comp.get_save_file();
+            const json = jigsaw.get_save_file();
             console.log(json.length);
             console.log(JSON.parse(json));
         }
         // ctrl-z or simply z to undo (of course)
         if (e.key === "z") {
-            comp.undo();
+            jigsaw.undo();
             on_comp_change();
         }
         // shift-ctrl-Z or Z or ctrl-y to redo
         if (e.key === "Z" || (e.key === "y" && e.ctrlKey)) {
-            comp.redo();
+            jigsaw.redo();
             on_comp_change();
         }
     }
@@ -693,7 +693,7 @@ function on_key_down(e) {
         if (f) {
             // Set the camera's position to the centre of the frag's bbox
             const bbox = frag_bbox(f);
-            comp.set_view_coords(bbox.c_x, bbox.c_y);
+            jigsaw.set_view_coords(bbox.c_x, bbox.c_y);
             sync_view();
             request_frame();
         }
@@ -781,25 +781,25 @@ function update_sidebar_methods() {
         new_entry.removeAttribute("id");
         // Attach callbacks
         new_entry.querySelector("#method-info-fold-btn").addEventListener("click", function () {
-            comp.toggle_method_fold(index);
+            jigsaw.toggle_method_fold(index);
             on_comp_change();
         });
         const shorthand_input = new_entry.querySelector("#shorthand-input");
         shorthand_input.addEventListener("keyup", function () {
-            comp.set_method_shorthand(index, shorthand_input.value);
+            jigsaw.set_method_shorthand(index, shorthand_input.value);
             on_comp_change();
         });
         const name_input = new_entry.querySelector("#name-input");
         name_input.addEventListener("keyup", function () {
-            comp.set_method_name(index, name_input.value);
+            jigsaw.set_method_name(index, name_input.value);
             on_comp_change();
         });
         new_entry.querySelector("#edit-button").addEventListener("click", function () {
-            comp.start_editing_method(index);
+            jigsaw.start_editing_method(index);
             start_method_edit();
         });
         new_entry.querySelector("#delete-button").addEventListener("click", function () {
-            const err = comp.remove_method(index);
+            const err = jigsaw.remove_method(index);
             if (err) {
                 console.warn("Error removing method: " + err);
             } else {
@@ -820,7 +820,7 @@ function update_sidebar_methods() {
         const m = derived_state.methods[i];
         const entry = method_entries[i];
         const is_used = m.num_rows !== 0;
-        const is_open = comp.is_method_panel_open(i);
+        const is_open = jigsaw.is_method_panel_open(i);
         // Populate title bar
         entry.querySelector("#name").innerText = m.name;
         entry.querySelector("#shorthand").innerText = `#${i}: ${m.shorthand}`;
@@ -867,7 +867,7 @@ function update_sidebar_calls() {
 
 function start_transposition(frag_index, row_index) {
     // Switch to the transposing state
-    const current_first_row = comp.start_transposing(frag_index, row_index);
+    const current_first_row = jigsaw.start_transposing(frag_index, row_index);
     log_state_transition("Idle", `Transposing(${frag_index}:${row_index})`);
     // Initialise the transpose box
     elem_transpose_box.style.display = "block";
@@ -880,7 +880,7 @@ function start_transposition(frag_index, row_index) {
 }
 
 function on_transpose_box_change() {
-    const row_err = comp.try_parse_transpose_row(elem_transpose_input.value);
+    const row_err = jigsaw.try_parse_transpose_row(elem_transpose_input.value);
     const success = row_err === "";
     elem_transpose_message.style.color = success ? FOREGROUND_COL : ERROR_COL;
     elem_transpose_message.innerText = success ? "Press 'enter' to finish." : row_err;
@@ -894,7 +894,7 @@ function on_transpose_box_key_down(e) {
     if (e.keyCode != 13) {
         return;
     }
-    if (comp.is_state_transposing() && comp.finish_transposing(elem_transpose_input.value)) {
+    if (jigsaw.is_state_transposing() && jigsaw.finish_transposing(elem_transpose_input.value)) {
         log_state_transition("Transposing", "Idle");
         stop_transposing();
     }
@@ -914,11 +914,11 @@ function start_method_edit() {
 }
 
 function update_method_edit_box() {
-    if (!comp.is_state_editing_method()) {
+    if (!jigsaw.is_state_editing_method()) {
         console.error("Editing method box without being in method editing state");
         return;
     }
-    const state = JSON.parse(comp.method_edit_state());
+    const state = JSON.parse(jigsaw.method_edit_state());
     elem_method_edit_name.value = state.name;
     elem_method_edit_shorthand.value = state.shorthand;
     // TODO: Handle the stage box
@@ -928,25 +928,25 @@ function update_method_edit_box() {
 }
 
 function on_method_name_or_shorthand_change() {
-    comp.set_method_names(elem_method_edit_name.value, elem_method_edit_shorthand.value);
+    jigsaw.set_method_names(elem_method_edit_name.value, elem_method_edit_shorthand.value);
     update_method_edit_box();
 }
 
 function on_method_pn_change() {
-    comp.set_method_pn(elem_method_edit_pn_input.value);
+    jigsaw.set_method_pn(elem_method_edit_pn_input.value);
     update_method_edit_box();
 }
 
 // Exit method editing mode without commiting the changes to the composition
 function exit_method_edit() {
-    comp.exit_method_edit();
+    jigsaw.exit_method_edit();
     stop_editing_method();
 }
 
 // Commits the new method changes to the composition.  Called whenever the user presses 'save' in
 // the method box
 function on_method_edit_save() {
-    if (comp.finish_editing_method()) {
+    if (jigsaw.finish_editing_method()) {
         stop_editing_method();
     }
 }
@@ -961,13 +961,13 @@ function stop_editing_method() {
 function on_part_change(evt) {
     // Update which part to display (indirectly so that we avoid divergence between Rust's
     // datastructures and their JS counterparts).
-    comp.set_current_part(parseInt(evt.target.value));
+    jigsaw.set_current_part(parseInt(evt.target.value));
     sync_view();
     request_frame();
 }
 
 function on_part_head_spec_change() {
-    const parse_error = comp.parse_part_head_spec(elem_part_head_input.value);
+    const parse_error = jigsaw.parse_part_head_spec(elem_part_head_input.value);
     if (parse_error === "") {
         // Update the composition if the part heads parsed successfully (before updating this
         // display).  This will update `elem_part_head_message` with a success message.
@@ -981,7 +981,7 @@ function on_part_head_spec_change() {
 }
 
 function on_add_method() {
-    comp.start_editing_new_method();
+    jigsaw.start_editing_new_method();
     start_method_edit();
 }
 
@@ -989,11 +989,11 @@ function on_add_method() {
 
 function start() {
     /* Initialise 'comp' singleton (derived values are set using `on_comp_change`) */
-    comp = Comp.example();
+    jigsaw = Jigsaw.example();
     // Read saved values from cookies
     let saved_view = getCookie(COOKIE_NAME_VIEW);
     if (saved_view) {
-        comp.set_view_from_json(saved_view);
+        jigsaw.set_view_from_json(saved_view);
     }
     // Sync all the values and request a repaint once the start function returns
     on_comp_change();
@@ -1015,7 +1015,7 @@ function start() {
         // buttons will fold the same section
         const section = `${s}`;
         elem_sections[section].fold_button.addEventListener("click", function () {
-            if (!comp.toggle_section_fold(section)) {
+            if (!jigsaw.toggle_section_fold(section)) {
                 console.warn(`Section '${section}' doesn't exist.`);
                 return;
             }
@@ -1255,13 +1255,13 @@ function on_comp_change() {
 }
 
 function sync_derived_state() {
-    derived_state = JSON.parse(comp.ser_derived_state());
+    derived_state = JSON.parse(jigsaw.ser_derived_state());
 }
 
 // Make sure that both the local copy of `view` and the cookie are syncronised with Rust's view
 // struct (which is regarded as the ground truth).
 function sync_view() {
-    const v = comp.ser_view();
+    const v = jigsaw.ser_view();
     setCookie(COOKIE_NAME_VIEW, v);
     view = JSON.parse(v);
 }

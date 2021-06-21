@@ -50,6 +50,7 @@ pub struct View {
     pub current_part: usize,
     pub view_x: f32,
     pub view_y: f32,
+    /// Which panels of the sidebar are folded
     #[serde(default)]
     pub section_folds: SectionFolds,
 }
