@@ -608,28 +608,28 @@ impl DerivedState {
         let der_methods = derive_methods(methods, &generated_rows);
         let der_calls = derive_calls(calls, &generated_rows);
 
-        // Generate misc stats
-        let min_stage = spec.effective_stage();
+        // Combine fragment info into final fragments
+        let derived_frags = generated_rows
+            .into_iter()
+            .zip(frag_link_groups.into_iter())
+            .enumerate()
+            .map(|(i, (expanded_rows, link_groups))| {
+                DerivedFrag::new(
+                    spec.frag_pos(i).unwrap(),
+                    expanded_rows,
+                    link_groups,
+                    ranges_by_frag.remove(&i).unwrap_or_default(),
+                    !spec.is_frag_muted(i).unwrap(),
+                )
+            })
+            .collect();
 
         // Compile all of the derived state into one struct
         assert_eq!(frag_link_groups.len(), generated_rows.len());
         DerivedState {
             frag_links,
             part_heads,
-            frags: generated_rows
-                .into_iter()
-                .zip(frag_link_groups.into_iter())
-                .enumerate()
-                .map(|(i, (expanded_rows, link_groups))| {
-                    DerivedFrag::new(
-                        spec.frag_pos(i).unwrap(),
-                        expanded_rows,
-                        link_groups,
-                        ranges_by_frag.remove(&i).unwrap_or_default(),
-                        !spec.is_frag_muted(i).unwrap(),
-                    )
-                })
-                .collect(),
+            frags: derived_frags,
             stats: DerivedStats {
                 part_len,
                 num_false_groups,
@@ -638,7 +638,7 @@ impl DerivedState {
             methods: der_methods,
             calls: der_calls,
             stage: spec.stage().as_usize(),
-            min_stage: min_stage.as_usize(),
+            min_stage: spec.effective_stage().as_usize(),
         }
     }
 
