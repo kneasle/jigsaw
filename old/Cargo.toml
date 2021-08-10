@@ -7,12 +7,13 @@ edition = "2018"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
-# Use optimisations even on debug builds - compilation is pretty fast but the unoptimised wasm code
-# is SLLLLOOOOOOOW
+# Use optimisations even on debug builds - compilation is fast and the unoptimised wasm code is
+# SLLLLOOOOOOOW
 [profile.dev]
 opt-level = 3
 
 [dependencies]
+bellframe = "0.2"
 console_error_panic_hook = "0.1"
 itertools = "0.10"
 serde = { version = "1.0", features = ["derive", "rc"] }
@@ -20,7 +21,7 @@ serde_json = "1.0"
 vector2d = "2.2"
 wasm-bindgen = "0.2"
 
-[dependencies.bellframe]
+[dependencies.bellframe_new]
 path = "../bellframe/"
 default_features = false # We don't need access to the method library (we'll do that ourselves)
 features = ["serde"] # We do want to be able to serialise types from `Bellframe`

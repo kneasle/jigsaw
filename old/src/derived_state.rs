@@ -611,7 +611,7 @@ impl DerivedState {
         // Combine fragment info into final fragments
         let derived_frags = generated_rows
             .into_iter()
-            .zip(frag_link_groups.into_iter())
+            .zip_eq(frag_link_groups.into_iter())
             .enumerate()
             .map(|(i, (expanded_rows, link_groups))| {
                 DerivedFrag::new(
@@ -625,7 +625,6 @@ impl DerivedState {
             .collect();
 
         // Compile all of the derived state into one struct
-        assert_eq!(frag_link_groups.len(), generated_rows.len());
         DerivedState {
             frag_links,
             part_heads,
