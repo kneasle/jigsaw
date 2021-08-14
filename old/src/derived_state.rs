@@ -176,11 +176,11 @@ impl ExpandedRow {
         music
     }
 
-    /// Create a new `ExpandedRow` from its constituent parts
     // It's fine that this has lots of args, because it's only ever used to convert the rows in a
     // `Frag` to `ExpandedRow`s.  I think this is preferable to making the fields of `ExpandedRow`
     // public or having an intermediate type
     #[allow(clippy::too_many_arguments)]
+    /// Create a new `ExpandedRow` from its constituent parts
     pub fn new(
         all_rows: Vec<RowBuf>,
         call_label: Option<CallLabel>,
