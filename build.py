@@ -127,7 +127,7 @@ subprocess.run(
         "wasm-bindgen",
         wasm_path,
         "--target",
-        "web",
+        "no-modules",
         "--no-typescript",
         "--out-dir",
         out_dir,

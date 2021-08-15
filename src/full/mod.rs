@@ -2,7 +2,7 @@
 
 use bellframe::SameStageVec;
 
-use crate::V2;
+use crate::{spec::CompSpec, V2};
 
 mod expand;
 
@@ -19,15 +19,22 @@ pub struct FullComp {
     fragments: Vec<Fragment>,
 }
 
+impl FullComp {
+    pub fn from_spec(spec: &CompSpec) -> Self {
+        expand::expand(spec) // Delegate to the `expand` module
+    }
+}
+
 #[derive(Debug, Clone)]
 struct Fragment {
+    /// The position of the top-left corner of the first [`Row`] in this `Fragment`
     position: V2,
     /// The index of the link group which the top of this `Fragment` is connected to
     link_group_top: Option<usize>,
     /// The index of the link group which the bottom of this `Fragment` is connected to
     link_group_bottom: Option<usize>,
     /// The `ExpandedRow`s from this `Fragment`.  Each of these contains one [`Row`] per part.
-    rows: Vec<ExpandedRow>,
+    expanded_rows: Vec<ExpandedRow>,
 }
 
 /// A single place where a [`Row`] can be displayed on the screen.  This corresponds to multiple

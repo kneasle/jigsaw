@@ -1,7 +1,29 @@
 use vector2d::Vector2D;
 
 mod full;
+mod gui;
+mod history;
+mod part_heads;
+mod ser_utils;
 mod spec;
 
 /// Type alias for a 2D vector, stored as two `f32`s.
-pub type V2 = Vector2D<f32>;
+type V2 = Vector2D<f32>;
+
+/* Web start-up code */
+
+// Export `gui::Jigsaw::example()` out of the library.  We're really unlikely to ever use this, but
+// exporting it will prevent the compiler from flagging everything as 'dead_code' when we aren't
+// building with `wasm32`.
+pub use gui::Jigsaw;
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
+/// Start Jigsaw's GUI in a given canvas window
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn start(canvas_id: &str) -> Result<(), eframe::wasm_bindgen::JsValue> {
+    let app = gui::Jigsaw::example();
+    eframe::start_web(canvas_id, Box::new(app))
+}
