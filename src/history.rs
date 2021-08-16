@@ -19,7 +19,7 @@ pub struct History {
 
 impl History {
     /// Creates a new [`History`] containing only one [`CompSpec`]
-    pub fn new(spec: CompSpec) -> Self {
+    pub(crate) fn new(spec: CompSpec) -> Self {
         let full_comp = FullComp::from_spec(&spec);
         let mut history = VecDeque::new();
         history.push_back(spec);
@@ -52,11 +52,11 @@ impl History {
         }
     }
 
-    pub fn comp_spec(&self) -> &CompSpec {
+    pub(crate) fn comp_spec(&self) -> &CompSpec {
         &self.history[self.current_undo_index]
     }
 
-    pub fn full_comp(&self) -> &FullComp {
+    pub(crate) fn full_comp(&self) -> &FullComp {
         &self.full_comp
     }
 }

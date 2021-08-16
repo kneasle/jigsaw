@@ -2,7 +2,7 @@
 
 use std::{collections::HashSet, ops::Deref};
 
-use bellframe::{IncompatibleStages, InvalidRowError, Row, RowBuf, SameStageVec, Stage};
+use bellframe::{IncompatibleStages, InvalidRowError, Row, RowBuf, Stage};
 use serde::Serialize;
 
 /// The possible ways that parsing a part head specification can fail
@@ -114,7 +114,7 @@ impl PartHeads {
     /// original.
     pub fn are_equivalent(&self, from: &Row, to: &Row) -> Result<bool, IncompatibleStages> {
         // Calculate the transposition `from -> to`, and check that all the stages match
-        let transposition = from.tranposition_to(to)?;
+        let transposition = Row::solve_xa_equals_b(from, to)?;
         IncompatibleStages::test_err(self.stage(), transposition.stage())?;
         if self.is_group {
             // If the part heads form a group, then any pair of rows whos transposition is

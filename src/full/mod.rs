@@ -1,8 +1,14 @@
 //! The fully annotated state of a composition used for querying and rendering.
 
+use std::rc::Rc;
+
 use bellframe::SameStageVec;
 
-use crate::{spec::CompSpec, V2};
+use crate::{
+    part_heads::PartHeads,
+    spec::{self, CompSpec},
+    V2,
+};
 
 mod expand;
 
@@ -15,8 +21,12 @@ mod expand;
 /// Every time the [`CompSpec`] being viewed changes (either through the user's changes or through
 /// undo/redo), the [`FullComp`] is recomputed for the new [`CompSpec`].
 #[derive(Debug, Clone)]
-pub struct FullComp {
-    fragments: Vec<Fragment>,
+pub(crate) struct FullComp {
+    pub part_heads: Rc<PartHeads>,
+    pub fragments: Vec<Fragment>,
+    pub methods: Vec<Method>,
+    /// Misc statistics about the composition (e.g. part length)
+    pub stats: Stats,
 }
 
 impl FullComp {
@@ -26,7 +36,7 @@ impl FullComp {
 }
 
 #[derive(Debug, Clone)]
-struct Fragment {
+pub(crate) struct Fragment {
     /// The position of the top-left corner of the first [`Row`] in this `Fragment`
     position: V2,
     /// The index of the link group which the top of this `Fragment` is connected to
@@ -35,6 +45,15 @@ struct Fragment {
     link_group_bottom: Option<usize>,
     /// The `ExpandedRow`s from this `Fragment`.  Each of these contains one [`Row`] per part.
     expanded_rows: Vec<ExpandedRow>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct Method {
+    pub source: Rc<spec::Method>,
+    /// Total number of [`Row`]s assigned to this [`Method`]
+    pub num_rows: usize,
+    /// Number of proved [`Row`]s assigned to this [`Method`]
+    pub num_proved_rows: usize,
 }
 
 /// A single place where a [`Row`] can be displayed on the screen.  This corresponds to multiple
@@ -48,4 +67,18 @@ struct ExpandedRow {
     is_proved: bool,
     /// Do any of these [`Row`]s appear elsewhere in the composition?
     is_false: bool,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct Stats {
+    /// The number of [`Row`]s in each part of the composition
+    pub part_len: usize,
+}
+
+impl Default for Stats {
+    fn default() -> Self {
+        Self {
+            part_len: Default::default(),
+        }
+    }
 }

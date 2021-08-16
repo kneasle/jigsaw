@@ -1,10 +1,10 @@
 use std::{
-    cell::{Cell, RefCell},
+    cell::{Cell, Ref, RefCell},
     ops::Deref,
     rc::Rc,
 };
 
-use bellframe::{AnnotBlock, AnnotRow, Stage};
+use bellframe::{AnnotBlock, AnnotRow, Row, Stage};
 
 use crate::{part_heads::PartHeads, V2};
 
@@ -13,9 +13,9 @@ use crate::{part_heads::PartHeads, V2};
 /// modify.  Contrast this with [`FullComp`], which is computed from `CompSpec` and is designed to
 /// be efficient to query and display to the user.
 #[derive(Debug, Clone)]
-pub struct CompSpec {
+pub(crate) struct CompSpec {
     stage: Stage,
-    part_heads: PartHeads,
+    part_heads: Rc<PartHeads>,
     methods: Vec<Rc<Method>>,
     calls: Vec<Rc<Call>>,
     fragments: Vec<Rc<Fragment>>,
@@ -24,36 +24,107 @@ pub struct CompSpec {
 impl CompSpec {
     /// Creates a [`CompSpec`] with a given [`Stage`] but no [`PartHeads`], [`Method`]s, [`Call`]s
     /// or [`Fragment`]s.
+    #[allow(dead_code)]
     pub fn empty(stage: Stage) -> Self {
         CompSpec {
             stage,
-            part_heads: PartHeads::one_part(stage),
+            part_heads: Rc::new(PartHeads::one_part(stage)),
             methods: vec![],
             calls: vec![],
             fragments: vec![],
         }
     }
 
-    pub(crate) fn stage(&self) -> Stage {
+    /// Generates an example composition.
+    pub fn example() -> Self {
+        const STAGE: Stage = Stage::MAJOR;
+
+        /// Create a new [`Method`] by parsing a string of place notation
+        fn gen_method(shorthand: &str, name: &str, pn_str: &str) -> Rc<Method> {
+            let method = Method::new(
+                bellframe::Method::from_place_not_string(String::new(), STAGE, pn_str).unwrap(),
+                name.to_owned(),
+                shorthand.to_string(),
+            );
+            Rc::new(method)
+        }
+
+        // The methods used in the composition
+        let methods = vec![
+            /* 0. */ gen_method("D", "Deva", "-58-14.58-58.36-14-58-36-18,18"),
+            /* 1. */ gen_method("B", "Bristol", "-58-14.58-58.36.14-14.58-14-18,18"),
+            /* 2. */ gen_method("E", "Lessness", "-38-14-56-16-12-58-14-58,12"),
+            /* 3. */ gen_method("Y", "Yorkshire", "-38-14-58-16-12-38-14-78,12"),
+            /* 4. */ gen_method("K", "York", "-38-14-12-38.14-14.38.14-14.38,12"),
+            /* 5. */ gen_method("S", "Superlative", "-36-14-58-36-14-58-36-78,12"),
+            /* 6. */ gen_method("W", "Cornwall", "-56-14-56-38-14-58-14-58,18"),
+        ];
+
+        let fragment = {
+            let mut block = AnnotBlock::<RowData>::empty(STAGE);
+            // Touch is Deva, Yorkshire, York, Superlative, Lessness
+            for &meth_idx in &[0usize, 3, 4, 5, 2] {
+                let method_rc = methods[meth_idx].clone();
+                block
+                    .extend(
+                        method_rc
+                            .clone()
+                            .inner
+                            .first_lead()
+                            .gen_annots_from_indices(|sub_lead_index| RowData {
+                                method: method_rc.clone(),
+                                sub_lead_index,
+                                call: None,
+                                fold: None,
+                            }),
+                    )
+                    .unwrap();
+            }
+
+            Rc::new(Fragment {
+                position: V2::new(100.0, 200.0),
+                block,
+                is_proved: true,
+            })
+        };
+
+        CompSpec {
+            stage: STAGE,
+            part_heads: Rc::new(PartHeads::one_part(STAGE)),
+            methods,
+            calls: vec![], // No calls for now
+            fragments: vec![fragment],
+        }
+    }
+
+    pub fn stage(&self) -> Stage {
         self.stage
     }
 
-    pub(crate) fn part_heads(&self) -> &PartHeads {
+    pub fn part_heads(&self) -> &PartHeads {
         &self.part_heads
     }
 
+    pub fn part_heads_rc(&self) -> Rc<PartHeads> {
+        self.part_heads.clone()
+    }
+
     /// An iterator over the [`Method`]s in this [`CompSpec`].
-    pub(crate) fn methods(&self) -> impl Iterator<Item = &Method> {
+    pub fn methods(&self) -> impl Iterator<Item = &Method> {
         self.methods.iter().map(Deref::deref)
     }
 
+    pub fn method_rcs(&self) -> &[Rc<Method>] {
+        &self.methods
+    }
+
     /// An iterator over the [`Call`]s in this [`CompSpec`].
-    pub(crate) fn calls(&self) -> impl Iterator<Item = &Call> {
+    pub fn calls(&self) -> impl Iterator<Item = &Call> {
         self.calls.iter().map(Deref::deref)
     }
 
     /// An iterator over the [`Call`]s in this [`CompSpec`].
-    pub(crate) fn fragments(&self) -> impl Iterator<Item = &Fragment> {
+    pub fn fragments(&self) -> impl Iterator<Item = &Fragment> {
         self.fragments.iter().map(Deref::deref)
     }
 }
@@ -64,24 +135,35 @@ pub(crate) struct Fragment {
     /// The on-screen location of the top-left corner of the top row this `Frag`
     position: V2,
     /// The `Block` of annotated [`Row`]s making up this `Fragment`
-    rows: AnnotBlock<RowData>,
+    block: AnnotBlock<RowData>,
     /// Set to `false` if this `Fragment` is visible but 'muted' - i.e. visually greyed out and not
     /// included in the proving, ATW calculations, statistics, etc.
     is_proved: bool,
 }
 
 impl Fragment {
-    pub(crate) fn position(&self) -> V2 {
+    pub fn position(&self) -> V2 {
         self.position
     }
 
-    pub(crate) fn is_proved(&self) -> bool {
+    pub fn is_proved(&self) -> bool {
         self.is_proved
     }
 
     /// Get a reference to the fragment's rows.
-    pub(crate) fn annot_rows(&self) -> impl Iterator<Item = AnnotRow<RowData>> {
-        self.rows.annot_rows()
+    pub fn annot_rows(&self) -> impl Iterator<Item = AnnotRow<RowData>> {
+        self.block.annot_rows()
+    }
+
+    /// Gets the leftover row of this [`Fragment`]
+    pub fn leftover_row(&self) -> &Row {
+        self.block.leftover_row()
+    }
+
+    /// Gets the number of non-leftover [`Row`]s in this [`Fragment`] in one part of the
+    /// composition.
+    pub fn len(&self) -> usize {
+        self.block.len()
     }
 }
 
@@ -106,13 +188,21 @@ pub(crate) struct RowData {
     ///          31425678
     ///          13246587    call = Some(<bob>)
     ///          --------
-    ///  (LE) -H 12345678  <- leftover row; can't be given a `Call`
+    ///  (LE) -H 12345678  <- leftover row; can't be assigned a `Call` but **can** be rendered
+    ///                       with text
     /// ```
     /// Note, however, that `FullComp` allows the leftover row to be given annotations, so we can
     /// display the `-H` to the user in the place they expect.
     call: Option<Rc<Call>>,
     /// If `self.fold.is_some()`, then this [`Row`] corresponds to a fold-point in the composition.
     fold: Option<Rc<Fold>>,
+}
+
+impl RowData {
+    /// The [`Method`] that owns this [`Row`]
+    pub(crate) fn method(&self) -> &Method {
+        &self.method
+    }
 }
 
 /// The data required to define a [`Method`] that's used somewhere in the composition.  This is a
@@ -135,6 +225,16 @@ impl Method {
             name: RefCell::new(name),
             shorthand: RefCell::new(shorthand),
         }
+    }
+
+    /// Get a reference to the method's name.
+    pub fn shorthand(&self) -> Ref<String> {
+        self.shorthand.borrow()
+    }
+
+    /// Get a reference to the method's name.
+    pub fn name(&self) -> Ref<String> {
+        self.name.borrow()
     }
 }
 
