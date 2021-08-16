@@ -3,6 +3,7 @@ use vector2d::Vector2D;
 mod full;
 mod gui;
 mod history;
+mod music;
 mod part_heads;
 mod ser_utils;
 mod spec;

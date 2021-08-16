@@ -1,31 +1,50 @@
 //! Code for maintaining Jigsaw's GUI
 
+use bellframe::{music::Regex, Stage};
 use eframe::{
-    egui::{self, Vec2},
+    egui::{self, Ui, Vec2},
     epi,
 };
 
-use crate::{history::History, spec::CompSpec};
+use crate::{history::History, music::Music, spec::CompSpec};
 
 /// The top-level singleton for Jigsaw.  This isn't [`Clone`] because it is a singleton - at any
 /// time, there should be at most one copy of it in existence.
 #[derive(Debug)]
 pub struct JigsawApp {
-    /// The sequence of [`CompSpec`]s making up the undo/redo history
+    /// A sequence of [`CompSpec`]s making up the undo/redo history
     history: History,
+    /// The top-level classes of patterns which are considered musical
+    music_classes: Vec<Music>,
 }
 
 impl JigsawApp {
     /// The state that Jigsaw will be in the first time the user starts up.
     pub fn example() -> Self {
         // For the time being, just create an empty composition of Major
-        Self::with_spec(CompSpec::example())
+        Self::new(
+            CompSpec::example(),
+            vec![
+                Music::Group(
+                    "56s/65s".to_owned(),
+                    vec![
+                        Music::Regex(Some("65s".to_owned()), Regex::parse("*6578")),
+                        Music::Regex(Some("56s".to_owned()), Regex::parse("*5678")),
+                    ],
+                ),
+                Music::runs_front_and_back(Stage::MAJOR, 4),
+                Music::runs_front_and_back(Stage::MAJOR, 5),
+                Music::runs_front_and_back(Stage::MAJOR, 6),
+                Music::runs_front_and_back(Stage::MAJOR, 7),
+            ],
+        )
     }
 
     /// Creates a [`Jigsaw`] struct displaying a single [`CompSpec`], with no other undo history.
-    pub(crate) fn with_spec(spec: CompSpec) -> Self {
+    pub(crate) fn new(spec: CompSpec, music_classes: Vec<Music>) -> Self {
         Self {
             history: History::new(spec),
+            music_classes,
         }
     }
 }
@@ -74,15 +93,41 @@ impl epi::App for JigsawApp {
                 }
             });
 
+            // Calls panel
             ui.collapsing("Calls", |ui| {
                 ui.label("14 LE -");
                 ui.label("1234 LE s");
+            });
+
+            // Music panel
+            ui.collapsing("Music", |ui| {
+                ui.label("Music, whoop whoop!");
+
+                for c in &self.music_classes {
+                    gen_music_ui(c, ui);
+                }
             });
         });
     }
 
     fn max_size_points(&self) -> egui::Vec2 {
         Vec2::new(5000.0, 3000.0)
+    }
+}
+
+/// Recursively creates the GUI for a music class
+fn gen_music_ui(music: &Music, ui: &mut Ui) {
+    match music {
+        Music::Regex(_name, r) => {
+            ui.label(format!("{}", r));
+        }
+        Music::Group(name, sub_groups) => {
+            ui.collapsing(name, |ui| {
+                for m in sub_groups {
+                    gen_music_ui(m, ui);
+                }
+            });
+        }
     }
 }
 
