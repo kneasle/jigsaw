@@ -6,7 +6,11 @@ use std::{
 
 use bellframe::{AnnotBlock, AnnotRow, Row, Stage};
 
-use crate::{part_heads::PartHeads, V2};
+use crate::V2;
+
+use self::part_heads::PartHeads;
+
+pub mod part_heads;
 
 /// The minimal but complete specification for a (partial) composition.  `CompSpec` is used for
 /// undo history, and is designed to be a very compact representation which is cheap to clone and
@@ -65,20 +69,17 @@ impl CompSpec {
             // Touch is Deva, Yorkshire, York, Superlative, Lessness
             for &meth_idx in &[0usize, 3, 4, 5, 2] {
                 let method_rc = methods[meth_idx].clone();
-                block
-                    .extend(
-                        method_rc
-                            .clone()
-                            .inner
-                            .first_lead()
-                            .gen_annots_from_indices(|sub_lead_index| RowData {
-                                method: method_rc.clone(),
-                                sub_lead_index,
-                                call: None,
-                                fold: None,
-                            }),
-                    )
-                    .unwrap();
+                let annotated_lead = method_rc
+                    .clone()
+                    .inner
+                    .first_lead()
+                    .gen_annots_from_indices(|sub_lead_index| RowData {
+                        method: method_rc.clone(),
+                        sub_lead_index,
+                        call: None,
+                        fold: None,
+                    });
+                block.extend(annotated_lead).unwrap();
             }
 
             Rc::new(Fragment {
@@ -90,7 +91,9 @@ impl CompSpec {
 
         CompSpec {
             stage: STAGE,
-            part_heads: Rc::new(PartHeads::one_part(STAGE)),
+            part_heads: Rc::new(
+                PartHeads::parse("18234567", STAGE).unwrap(), /* PartHeads::one_part(STAGE) */
+            ),
             methods,
             calls: vec![], // No calls for now
             fragments: vec![fragment],

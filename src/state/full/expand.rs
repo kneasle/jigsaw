@@ -5,16 +5,15 @@ use std::{collections::HashMap, rc::Rc};
 use bellframe::{AnnotRow, Row, SameStageVec};
 use itertools::Itertools;
 
-use super::{ExpandedRow, Fragment, FullComp, Method, Stats};
-use crate::{
-    part_heads::PartHeads,
-    spec::{self, CompSpec},
+use super::{
+    spec::{self, part_heads::PartHeads, CompSpec},
+    ExpandedRow, Fragment, FullState, Method, Stats,
 };
 
 /// Convert a [`CompSpec`] to a [`FullComp`] which represents the same composition.  [`FullComp`]
 /// explicitly specifies all the information that is implied by a [`CompSpec`], so this function
 /// essentially computes that extra information.
-pub(crate) fn expand(spec: &CompSpec) -> FullComp {
+pub(crate) fn expand(spec: &CompSpec) -> FullState {
     // Stats will be accumulated during the expansion process
     let mut stats = Stats::default();
 
@@ -41,7 +40,7 @@ pub(crate) fn expand(spec: &CompSpec) -> FullComp {
     // TODO: Compute information (like falseness, atw, etc.) which requires data from multiple
     // fragments/methods/calls, etc.
 
-    FullComp {
+    FullState {
         part_heads: spec.part_heads_rc(),
         fragments,
         // TODO: In Rust `1.54` we can use `into_values()`

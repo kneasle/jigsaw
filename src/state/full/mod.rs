@@ -4,11 +4,9 @@ use std::rc::Rc;
 
 use bellframe::SameStageVec;
 
-use crate::{
-    part_heads::PartHeads,
-    spec::{self, CompSpec},
-    V2,
-};
+use crate::V2;
+
+use super::spec::{self, part_heads::PartHeads, CompSpec};
 
 mod expand;
 
@@ -21,7 +19,7 @@ mod expand;
 /// Every time the [`CompSpec`] being viewed changes (either through the user's changes or through
 /// undo/redo), the [`FullComp`] is recomputed for the new [`CompSpec`].
 #[derive(Debug, Clone)]
-pub(crate) struct FullComp {
+pub(crate) struct FullState {
     pub part_heads: Rc<PartHeads>,
     pub fragments: Vec<Fragment>,
     pub methods: Vec<Method>,
@@ -29,9 +27,14 @@ pub(crate) struct FullComp {
     pub stats: Stats,
 }
 
-impl FullComp {
+impl FullState {
     pub fn from_spec(spec: &CompSpec) -> Self {
         expand::expand(spec) // Delegate to the `expand` module
+    }
+
+    pub fn update(&mut self, spec: &CompSpec) {
+        // Just overwrite `self`, without reusing any allocations
+        *self = Self::from_spec(spec);
     }
 }
 
