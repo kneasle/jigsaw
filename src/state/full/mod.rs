@@ -1,6 +1,6 @@
 //! The fully annotated state of a composition used for querying and rendering.
 
-use std::{cell::Ref, rc::Rc};
+use std::{ops::Deref, rc::Rc};
 
 use bellframe::SameStageVec;
 
@@ -57,13 +57,13 @@ pub(crate) struct Method {
     pub num_proved_rows: usize,
 }
 
-impl Method {
-    pub fn shorthand(&self) -> Ref<String> {
-        self.source.shorthand()
-    }
+// Deref-coerce to `spec::Method`.  This will make `full::Method` appear to 'inherit' all the
+// properties of the contained `spec::Method`
+impl Deref for Method {
+    type Target = spec::Method;
 
-    pub fn name(&self) -> Ref<String> {
-        self.source.name()
+    fn deref(&self) -> &Self::Target {
+        &self.source
     }
 }
 

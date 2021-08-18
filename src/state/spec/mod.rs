@@ -196,7 +196,7 @@ impl RowData {
 /// The data required to define a [`Method`] that's used somewhere in the composition.  This is a
 /// wrapper around [`bellframe::Method`] adding extra data like method shorthand names.
 #[derive(Debug, Clone)]
-pub(super) struct Method {
+pub(crate) struct Method {
     inner: bellframe::Method,
     /// The name (not title) of this `Method`.  For example, the method who's title is `"Bristol
     /// Surprise Major"` would have name `"Bristol"`.
@@ -215,12 +215,10 @@ impl Method {
         }
     }
 
-    /// Get a reference to the method's name.
     pub fn shorthand(&self) -> Ref<String> {
         self.shorthand.borrow()
     }
 
-    /// Get a reference to the method's name.
     pub fn name(&self) -> Ref<String> {
         self.name.borrow()
     }

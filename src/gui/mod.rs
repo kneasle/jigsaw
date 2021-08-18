@@ -5,7 +5,7 @@ use eframe::{
     epi,
 };
 
-use crate::state::{spec::part_heads, Music, State};
+use crate::state::{spec::part_heads, FullState, Music, State};
 
 /// The top-level singleton for Jigsaw.  This isn't [`Clone`] because it is a singleton - at any
 /// time, there should be at most one copy of it in existence.
@@ -25,6 +25,10 @@ impl JigsawApp {
             part_head_str: state.full().part_heads.spec_string(),
             state,
         }
+    }
+
+    fn full_state(&self) -> &FullState {
+        self.state.full()
     }
 }
 
@@ -75,7 +79,7 @@ impl JigsawApp {
                 // we don't do this, then the code will notice that the contents of the part head
                 // box is different to the current part heads, and promptly creates a new undo step
                 // to change them.
-                self.part_head_str = self.state.full().part_heads.spec_string();
+                self.part_head_str = self.full_state().part_heads.spec_string();
             }
             // Z, y or Y with any set of modifiers is redo
             if (key == Z && modifiers.shift) || key == Y {
@@ -84,75 +88,80 @@ impl JigsawApp {
                 // we don't do this, then the code will notice that the contents of the part head
                 // box is different to the current part heads, and promptly creates a new undo step
                 // to change them.
-                self.part_head_str = self.state.full().part_heads.spec_string();
+                self.part_head_str = self.full_state().part_heads.spec_string();
             }
         }
     }
 
     fn draw_side_panel(&mut self, ui: &mut Ui) {
+        const PANEL_SPACE: f32 = 5.0; // points
+
         ui.heading("Jigsaw");
 
-        {
-            // General info
-            let full_state = self.state.full();
+        // General info
+        let full_state = self.full_state();
+        let part_len = full_state.stats.part_len;
+        let num_parts = full_state.part_heads.len();
+        ui.label(format!(
+            "{} rows * {} parts = {} rows",
+            part_len,
+            num_parts,
+            part_len * num_parts
+        ));
 
-            let part_len = full_state.stats.part_len;
-            let num_parts = full_state.part_heads.len();
-            ui.label(format!(
-                "{} rows * {} parts = {} rows",
-                part_len,
-                num_parts,
-                part_len * num_parts
-            ));
-        }
+        ui.add_space(PANEL_SPACE);
 
-        // Parts panel
-        let part_panel_title = format!("Parts ({})", self.state.full().part_heads.len());
-        egui::CollapsingHeader::new(part_panel_title)
-            .id_source("Parts")
-            .show(ui, |ui| self.draw_parts_panel(ui));
-
-        // Methods panel
-        let full_state = self.state.full();
-
-        let method_panel_title = format!("Methods ({})", full_state.methods.len());
-        ui.collapsing(method_panel_title, |ui| {
-            // Add an entry per method
-            for (i, method) in full_state.methods.iter().enumerate() {
-                ui.label(format!(
-                    "(#{}, {}): {} - {}/{} rows",
-                    i,
-                    method.shorthand(),
-                    method.name(),
-                    method.num_proved_rows,
-                    method.num_rows,
-                ));
+        // Create a scrollable panel for the rest of the dropdowns
+        egui::ScrollArea::auto_sized().show(ui, |panels_ui| {
+            // Parts panel
+            let part_panel_title = format!("Parts ({})", self.full_state().part_heads.len());
+            let r = egui::CollapsingHeader::new(part_panel_title)
+                .id_source("Parts")
+                .show(panels_ui, |ui| self.draw_parts_panel(ui));
+            // Add space only when the panel is open
+            if r.body_response.is_some() {
+                panels_ui.add_space(PANEL_SPACE);
             }
-        });
 
-        // Calls panel
-        ui.collapsing("Calls", |ui| {
-            ui.label("14 LE -");
-            ui.label("1234 LE s");
-        });
-
-        // Music panel
-        ui.collapsing("Music", |ui| {
-            for c in self.state.music_groups() {
-                draw_music_ui(c, ui);
+            // Methods panel
+            let method_panel_title = format!("Methods ({})", self.full_state().methods.len());
+            let r = egui::CollapsingHeader::new(method_panel_title)
+                .id_source("Methods")
+                .show(panels_ui, |ui| self.draw_method_panel(ui));
+            // Add space only when the panel is open
+            if r.body_response.is_some() {
+                panels_ui.add_space(PANEL_SPACE);
             }
+
+            // Calls panel
+            let r = panels_ui.collapsing("Calls", |ui| {
+                ui.label("14 LE -");
+                ui.label("1234 LE s");
+            });
+            // Add space only when the panel is open
+            if r.body_response.is_some() {
+                panels_ui.add_space(PANEL_SPACE);
+            }
+
+            // Music panel
+            panels_ui.collapsing("Music", |ui| {
+                for c in self.state.music_groups() {
+                    draw_music_ui(c, ui);
+                }
+            });
         });
     }
 
     fn draw_parts_panel(&mut self, ui: &mut Ui) {
         // Part head input
         ui.text_edit_singleline(&mut self.part_head_str);
-        match self
-            .state
-            .full()
+
+        // Parse the user's input
+        let parse_result = self
+            .full_state()
             .part_heads
-            .try_reparse(&self.part_head_str)
-        {
+            .try_reparse(&self.part_head_str);
+        match parse_result {
             // If the part heads changed, then replace them as another undo step
             Ok(part_heads::ReparseOk::DifferentRows(new_phs)) => {
                 self.state.apply_edit(|spec| spec.set_part_heads(new_phs))
@@ -166,10 +175,57 @@ impl JigsawApp {
             }
         }
 
+        // Add a warning if the parts don't form a group
+        if !self.full_state().part_heads.is_group() {
+            ui.label("Parts don't form a group!");
+        }
+
         // Part list
         ui.separator();
-        for r in self.state.full().part_heads.rows() {
+        for r in self.full_state().part_heads.rows() {
             ui.label(r.to_string());
+        }
+    }
+
+    fn draw_method_panel(&mut self, ui: &mut Ui) {
+        for (i, method) in self.full_state().methods.iter().enumerate() {
+            ui.horizontal(|left_ui| {
+                // The main label sticks to the left
+                left_ui.label(format!(
+                    "(#{}, {}): {}",
+                    i,
+                    method.shorthand(),
+                    method.name()
+                ));
+                // The row count/buttons sticks to the right
+                left_ui.with_layout(egui::Layout::right_to_left(), |right_ui| {
+                    if method.num_rows == 0 {
+                        // Because we're in a right-to-left block, the buttons are added from right
+                        // to left (which feels like the reverse order)
+                        if right_ui.button("del").clicked() {
+                            println!(
+                                "Can't delete methods.  Even {}, good though it is!",
+                                method.name()
+                            );
+                        }
+                        if right_ui.button("edit").clicked() {
+                            println!(
+                                "Can't edit methods.  Even {}, good though it is!",
+                                method.name()
+                            );
+                        }
+                    } else {
+                        // If the method is used, then display either 'x rows' or 'x/y rows',
+                        // depending on whether or not all the method's rows are muted
+                        let label_text = if method.num_proved_rows == method.num_rows {
+                            format!("{} rows", method.num_rows,)
+                        } else {
+                            format!("{}/{} rows", method.num_proved_rows, method.num_rows,)
+                        };
+                        right_ui.label(label_text);
+                    }
+                });
+            });
         }
     }
 }
@@ -201,6 +257,6 @@ mod tests {
     #[test]
     fn example() {
         let j = JigsawApp::example();
-        dbg!(j.state.full());
+        dbg!(j.full_state());
     }
 }

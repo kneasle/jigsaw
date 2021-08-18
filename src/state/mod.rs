@@ -4,11 +4,11 @@ mod music;
 pub mod spec;
 
 use bellframe::{music::Regex, Stage};
-use full::FullState;
 use history::History;
 
 use spec::CompSpec;
 
+pub(crate) use full::FullState;
 pub use music::Music;
 
 /// The internal composition 'model' of Jigsaw

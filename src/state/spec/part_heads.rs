@@ -175,6 +175,12 @@ impl PartHeads {
             Ok(true)
         }
     }
+
+    /// `true` if the `PartHeads` form a group.  This value is cached, so this function compiles
+    /// down to a field access (i.e. it's really fast).
+    pub fn is_group(&self) -> bool {
+        self.is_group
+    }
 }
 
 // Two PartHeads are equal if their specifications are the same; the `part_heads` vec is
