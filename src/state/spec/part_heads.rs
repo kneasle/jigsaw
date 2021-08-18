@@ -83,7 +83,6 @@ impl PartHeads {
             self.spec.replace(new_spec_string.to_owned());
             Ok(ReparseOk::SameRows)
         } else {
-            println!("{:?} vs {:?}", parsed_part_heads, self.rows);
             // If the new rows are different, then leave `self` unmodified and create a fresh
             // [`PartHeads`]
             let new_part_heads = Self::new(parsed_part_heads, new_spec_string);

@@ -1,6 +1,6 @@
 //! Code for maintaining and navigating an undo history.
 
-use std::collections::VecDeque;
+use std::{collections::VecDeque, iter};
 
 use super::spec::CompSpec;
 
@@ -18,10 +18,8 @@ pub struct History {
 impl History {
     /// Creates a new [`History`] containing only one [`CompSpec`]
     pub(crate) fn new(spec: CompSpec) -> Self {
-        let mut history = VecDeque::new();
-        history.push_back(spec);
         Self {
-            history,
+            history: iter::once(spec).collect(),
             current_undo_index: 0,
         }
     }
@@ -46,6 +44,31 @@ impl History {
             self.current_undo_index += 1;
             true
         }
+    }
+
+    /// Apply a closure to modify current [`CompSpec`], thus creating a new step in the undo
+    /// history
+    pub fn apply_edit<R>(&mut self, edit: impl FnOnce(&mut CompSpec) -> R) -> R {
+        // Apply the edit to a clone of the current spec
+        let mut new_spec = self.comp_spec().to_owned();
+        let result = edit(&mut new_spec);
+        // Add this new spec to the undo history
+        self.append_history(new_spec);
+        result // bubble the result
+    }
+
+    /// Add a new [`CompSpec`] to the undo history, after the [`CompSpec`] currently being viewed.
+    fn append_history(&mut self, new_spec: CompSpec) {
+        // Before making the edit, remove any undo history that happens **after** the current edit
+        // (i.e. edits which could be redone).  This will be **replaced** by the new change
+        self.history.drain(self.current_undo_index + 1..);
+        // Add the new entry, and update the pointer to point to it
+        self.history.push_back(new_spec);
+        self.current_undo_index += 1;
+        // Sanity check that `self.current_undo_index` should point to the last snapshot in the
+        // history.  This should be guaranteed because we `drain` everything else
+        assert_eq!(self.current_undo_index, self.history.len() - 1);
+        // TODO: Possibly drop old history if the chain gets too long
     }
 
     pub(crate) fn comp_spec(&self) -> &CompSpec {

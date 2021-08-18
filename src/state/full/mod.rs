@@ -1,14 +1,12 @@
 //! The fully annotated state of a composition used for querying and rendering.
 
-use std::rc::Rc;
+use std::{cell::Ref, rc::Rc};
 
 use bellframe::SameStageVec;
 
 use crate::V2;
 
 use super::spec::{self, part_heads::PartHeads, CompSpec};
-
-mod expand;
 
 /// The fully specified state of a composition.  This is designed to be efficient to query and easy
 /// to render from, unlike [`CompSpec`] which is designed to be compact and easy to modify or store
@@ -29,7 +27,7 @@ pub(crate) struct FullState {
 
 impl FullState {
     pub fn from_spec(spec: &CompSpec) -> Self {
-        expand::expand(spec) // Delegate to the `expand` module
+        spec::expand(spec) // Delegate to the `expand` module
     }
 
     pub fn update(&mut self, spec: &CompSpec) {
@@ -41,35 +39,45 @@ impl FullState {
 #[derive(Debug, Clone)]
 pub(crate) struct Fragment {
     /// The position of the top-left corner of the first [`Row`] in this `Fragment`
-    position: V2,
+    pub(super) position: V2,
     /// The index of the link group which the top of this `Fragment` is connected to
-    link_group_top: Option<usize>,
+    pub(super) link_group_top: Option<usize>,
     /// The index of the link group which the bottom of this `Fragment` is connected to
-    link_group_bottom: Option<usize>,
+    pub(super) link_group_bottom: Option<usize>,
     /// The `ExpandedRow`s from this `Fragment`.  Each of these contains one [`Row`] per part.
-    expanded_rows: Vec<ExpandedRow>,
+    pub(super) expanded_rows: Vec<ExpandedRow>,
 }
 
 #[derive(Debug, Clone)]
 pub(crate) struct Method {
-    pub source: Rc<spec::Method>,
+    pub(super) source: Rc<spec::Method>,
     /// Total number of [`Row`]s assigned to this [`Method`]
     pub num_rows: usize,
     /// Number of proved [`Row`]s assigned to this [`Method`]
     pub num_proved_rows: usize,
 }
 
+impl Method {
+    pub fn shorthand(&self) -> Ref<String> {
+        self.source.shorthand()
+    }
+
+    pub fn name(&self) -> Ref<String> {
+        self.source.name()
+    }
+}
+
 /// A single place where a [`Row`] can be displayed on the screen.  This corresponds to multiple
 /// [`Row`]s (one per part) but these are connected inasmuch as they can only be added or removed
 /// together.
 #[derive(Debug, Clone)]
-struct ExpandedRow {
+pub(crate) struct ExpandedRow {
     /// This `ExpandedRow` expands to one [`Row`] per part.
-    rows: SameStageVec,
+    pub(super) rows: SameStageVec,
     /// If `true` then this [`Row`] is considered 'part' of the composition.
-    is_proved: bool,
+    pub(super) is_proved: bool,
     /// Do any of these [`Row`]s appear elsewhere in the composition?
-    is_false: bool,
+    pub(super) is_false: bool,
 }
 
 #[derive(Debug, Clone)]

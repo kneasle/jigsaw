@@ -1,6 +1,5 @@
 use std::{
     cell::{Cell, Ref, RefCell},
-    ops::Deref,
     rc::Rc,
 };
 
@@ -10,14 +9,17 @@ use crate::V2;
 
 use self::part_heads::PartHeads;
 
+mod expand;
 pub mod part_heads;
+
+pub(super) use expand::expand;
 
 /// The minimal but complete specification for a (partial) composition.  `CompSpec` is used for
 /// undo history, and is designed to be a very compact representation which is cheap to clone and
 /// modify.  Contrast this with [`FullComp`], which is computed from `CompSpec` and is designed to
 /// be efficient to query and display to the user.
 #[derive(Debug, Clone)]
-pub(crate) struct CompSpec {
+pub struct CompSpec {
     stage: Stage,
     part_heads: Rc<PartHeads>,
     methods: Vec<Rc<Method>>,
@@ -100,41 +102,24 @@ impl CompSpec {
         }
     }
 
-    pub fn stage(&self) -> Stage {
-        self.stage
-    }
+    /////////////
+    // SETTERS //
+    /////////////
 
-    pub fn part_heads(&self) -> &PartHeads {
-        &self.part_heads
-    }
-
-    pub fn part_heads_rc(&self) -> Rc<PartHeads> {
-        self.part_heads.clone()
-    }
-
-    /// An iterator over the [`Method`]s in this [`CompSpec`].
-    pub fn methods(&self) -> impl Iterator<Item = &Method> {
-        self.methods.iter().map(Deref::deref)
-    }
-
-    pub fn method_rcs(&self) -> &[Rc<Method>] {
-        &self.methods
-    }
-
-    /// An iterator over the [`Call`]s in this [`CompSpec`].
-    pub fn calls(&self) -> impl Iterator<Item = &Call> {
-        self.calls.iter().map(Deref::deref)
-    }
-
-    /// An iterator over the [`Call`]s in this [`CompSpec`].
-    pub fn fragments(&self) -> impl Iterator<Item = &Fragment> {
-        self.fragments.iter().map(Deref::deref)
+    /// Overwrites the [`PartHeads`] of `self`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the [`Stage`]s of `self` and the new [`PartHeads`] don't match
+    pub fn set_part_heads(&mut self, part_heads: PartHeads) {
+        assert_eq!(self.stage, part_heads.stage());
+        self.part_heads = Rc::new(part_heads);
     }
 }
 
 /// A single `Fragment` of composition.
 #[derive(Debug, Clone)]
-pub(crate) struct Fragment {
+pub(super) struct Fragment {
     /// The on-screen location of the top-left corner of the top row this `Frag`
     position: V2,
     /// The `Block` of annotated [`Row`]s making up this `Fragment`
@@ -203,7 +188,7 @@ pub(crate) struct RowData {
 
 impl RowData {
     /// The [`Method`] that owns this [`Row`]
-    pub(crate) fn method(&self) -> &Method {
+    pub(super) fn method(&self) -> &Method {
         &self.method
     }
 }
@@ -211,7 +196,7 @@ impl RowData {
 /// The data required to define a [`Method`] that's used somewhere in the composition.  This is a
 /// wrapper around [`bellframe::Method`] adding extra data like method shorthand names.
 #[derive(Debug, Clone)]
-pub(crate) struct Method {
+pub(super) struct Method {
     inner: bellframe::Method,
     /// The name (not title) of this `Method`.  For example, the method who's title is `"Bristol
     /// Surprise Major"` would have name `"Bristol"`.
