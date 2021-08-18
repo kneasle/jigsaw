@@ -6,7 +6,10 @@ use bellframe::SameStageVec;
 
 use crate::V2;
 
-use super::spec::{self, part_heads::PartHeads, CompSpec};
+use super::{
+    music,
+    spec::{self, part_heads::PartHeads, CompSpec},
+};
 
 /// The fully specified state of a composition.  This is designed to be efficient to query and easy
 /// to render from, unlike [`CompSpec`] which is designed to be compact and easy to modify or store
@@ -21,23 +24,32 @@ pub(crate) struct FullState {
     pub part_heads: Rc<PartHeads>,
     pub fragments: Vec<Fragment>,
     pub methods: Vec<Method>,
+    pub music: Music,
     /// Misc statistics about the composition (e.g. part length)
     pub stats: Stats,
 }
 
 impl FullState {
-    pub fn from_spec(spec: &CompSpec) -> Self {
-        spec::expand(spec) // Delegate to the `expand` module
+    /// Creates a new [`FullState`] representing the same composition as a given [`CompSpec`].
+    pub fn new(spec: &CompSpec, music: &[music::Music]) -> Self {
+        spec::expand(spec, music) // Delegate to the `expand` module
     }
 
-    pub fn update(&mut self, spec: &CompSpec) {
+    /// Updates `self` to represent the same composition as a given [`CompSpec`]
+    pub fn update(&mut self, spec: &CompSpec, music: &[music::Music]) {
         // Just overwrite `self`, without reusing any allocations
-        *self = Self::from_spec(spec);
+        *self = Self::new(spec, music);
     }
 }
 
+///////////////
+// FRAGMENTS //
+///////////////
+
 #[derive(Debug, Clone)]
 pub(crate) struct Fragment {
+    // These fields need to be `pub(super)` so that they can be populated during expansion by
+    // `super::spec::expand::expand(...)`
     /// The position of the top-left corner of the first [`Row`] in this `Fragment`
     pub(super) position: V2,
     /// The index of the link group which the top of this `Fragment` is connected to
@@ -47,6 +59,10 @@ pub(crate) struct Fragment {
     /// The `ExpandedRow`s from this `Fragment`.  Each of these contains one [`Row`] per part.
     pub(super) expanded_rows: Vec<ExpandedRow>,
 }
+
+/////////////
+// METHODS //
+/////////////
 
 #[derive(Debug, Clone)]
 pub(crate) struct Method {
@@ -67,6 +83,10 @@ impl Deref for Method {
     }
 }
 
+/////////////////////
+// (EXPANDED) ROWS //
+/////////////////////
+
 /// A single place where a [`Row`] can be displayed on the screen.  This corresponds to multiple
 /// [`Row`]s (one per part) but these are connected inasmuch as they can only be added or removed
 /// together.
@@ -79,6 +99,72 @@ pub(crate) struct ExpandedRow {
     /// Do any of these [`Row`]s appear elsewhere in the composition?
     pub(super) is_false: bool,
 }
+
+///////////
+// MUSIC //
+///////////
+
+/// Top-level representation of music
+#[derive(Debug, Clone)]
+pub struct Music {
+    pub(super) groups: Vec<MusicGroup>,
+    pub(super) total_count: usize,
+    pub(super) max_count: usize,
+}
+
+impl Music {
+    pub fn groups(&self) -> &[MusicGroup] {
+        self.groups.as_slice()
+    }
+
+    pub fn total_count(&self) -> usize {
+        self.total_count
+    }
+
+    /// Get a reference to the music's max count.
+    pub fn max_count(&self) -> &usize {
+        &self.max_count
+    }
+}
+
+/// A group of musical rows, potentially subdivided into more groups.  This strongly follows the
+/// shape of [`super::music::Music`].
+#[derive(Debug, Clone)]
+pub enum MusicGroup {
+    Regex {
+        name: String,
+        count: usize,
+        max_count: usize,
+    },
+    Group {
+        name: String,
+        count: usize,
+        max_count: usize,
+        sub_groups: Vec<MusicGroup>,
+    },
+}
+
+impl MusicGroup {
+    /// The number of times that this group appears in proved rows in the composition
+    pub fn count(&self) -> usize {
+        match self {
+            MusicGroup::Regex { count, .. } => *count,
+            MusicGroup::Group { count, .. } => *count,
+        }
+    }
+
+    /// The maximum value of `self.count()` that is possible without repeating rows
+    pub fn max_count(&self) -> usize {
+        match self {
+            MusicGroup::Regex { max_count, .. } => *max_count,
+            MusicGroup::Group { max_count, .. } => *max_count,
+        }
+    }
+}
+
+/////////////////////
+// MISC STATISTICS //
+/////////////////////
 
 #[derive(Debug, Clone)]
 pub(crate) struct Stats {

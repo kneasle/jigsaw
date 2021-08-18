@@ -1,4 +1,4 @@
-mod full;
+pub mod full;
 mod history;
 mod music;
 pub mod spec;
@@ -51,13 +51,13 @@ impl State {
     }
 
     /// Creates a [`Jigsaw`] struct displaying a single [`CompSpec`], with no other undo history.
-    pub(crate) fn new(spec: CompSpec, music_classes: Vec<Music>) -> Self {
-        let full_state = FullState::from_spec(&spec);
+    pub(crate) fn new(spec: CompSpec, music_groups: Vec<Music>) -> Self {
+        let full_state = FullState::new(&spec, &music_groups);
         let history = History::new(spec);
         Self {
             full_state,
             history,
-            music_groups: music_classes,
+            music_groups,
         }
     }
 
@@ -95,7 +95,8 @@ impl State {
 
     /// Update `self.full_state` so that it is up-to-date with any changes to `self`
     pub fn rebuild_full_state(&mut self) {
-        self.full_state.update(self.history.comp_spec());
+        self.full_state
+            .update(self.history.comp_spec(), &self.music_groups);
     }
 
     /////////////

@@ -5,7 +5,7 @@ use eframe::{
     epi,
 };
 
-use crate::state::{spec::part_heads, FullState, Music, State};
+use crate::state::{self, full, spec::part_heads, FullState, State};
 
 /// The top-level singleton for Jigsaw.  This isn't [`Clone`] because it is a singleton - at any
 /// time, there should be at most one copy of it in existence.
@@ -144,11 +144,13 @@ impl JigsawApp {
             }
 
             // Music panel
-            panels_ui.collapsing("Music", |ui| {
-                for c in self.state.music_groups() {
-                    draw_music_ui(c, ui);
-                }
-            });
+            let music = &self.full_state().music;
+            let label = format!("Music ({}/{})", music.total_count(), music.max_count());
+            egui::CollapsingHeader::new(label)
+                .id_source("Music")
+                .show(panels_ui, |ui| {
+                    draw_music_ui(music.groups(), ui);
+                });
         });
     }
 
@@ -189,16 +191,18 @@ impl JigsawApp {
 
     fn draw_method_panel(&mut self, ui: &mut Ui) {
         for (i, method) in self.full_state().methods.iter().enumerate() {
-            ui.horizontal(|left_ui| {
+            left_then_right(
+                ui,
                 // The main label sticks to the left
-                left_ui.label(format!(
-                    "(#{}, {}): {}",
-                    i,
-                    method.shorthand(),
-                    method.name()
-                ));
-                // The row count/buttons sticks to the right
-                left_ui.with_layout(egui::Layout::right_to_left(), |right_ui| {
+                |left_ui| {
+                    left_ui.label(format!(
+                        "(#{}, {}): {}",
+                        i,
+                        method.shorthand(),
+                        method.name()
+                    ))
+                },
+                |right_ui| {
                     if method.num_rows == 0 {
                         // Because we're in a right-to-left block, the buttons are added from right
                         // to left (which feels like the reverse order)
@@ -224,29 +228,60 @@ impl JigsawApp {
                         };
                         right_ui.label(label_text);
                     }
-                });
-            });
+                },
+            );
         }
     }
 }
 
-/// Recursively creates the GUI for a music class
-fn draw_music_ui(music: &Music, ui: &mut Ui) {
-    match music {
-        Music::Regex(name, r) => {
-            match name {
-                Some(name) => ui.label(name),
-                None => ui.label(format!("{}", r)),
-            };
+/// Recursively creates the GUI for a set of `MusicGroup`s
+fn draw_music_ui(musics: &[state::full::MusicGroup], ui: &mut Ui) {
+    for m in musics {
+        draw_music_group_ui(m, ui);
+    }
+}
+
+/// Recursively creates the GUI for a single `MusicGroup`
+fn draw_music_group_ui(group: &state::full::MusicGroup, ui: &mut Ui) {
+    match group {
+        full::MusicGroup::Regex {
+            name,
+            count,
+            max_count,
+        } => {
+            left_then_right(
+                ui,
+                |left_ui| left_ui.label(name),
+                |right_ui| right_ui.label(format!("{}/{}", count, max_count)),
+            );
         }
-        Music::Group(name, sub_groups) => {
-            ui.collapsing(name, |ui| {
-                for m in sub_groups {
-                    draw_music_ui(m, ui);
-                }
-            });
+
+        full::MusicGroup::Group {
+            name,
+            count,
+            max_count,
+            sub_groups,
+        } => {
+            let label = format!("{} ({}/{})", name, count, max_count);
+            egui::CollapsingHeader::new(label)
+                .id_source(name)
+                .show(ui, |sub_ui| draw_music_ui(&sub_groups, sub_ui));
         }
     }
+}
+
+/// Draw two pieces of GUI, one aligned left and one aligned right
+fn left_then_right<L, R>(
+    ui: &mut Ui,
+    left: impl FnOnce(&mut Ui) -> L,
+    right: impl FnOnce(&mut Ui) -> R,
+) -> (L, R) {
+    let response = ui.horizontal(|left_ui| {
+        let left_res = left(left_ui);
+        let right_res = left_ui.with_layout(egui::Layout::right_to_left(), right);
+        (left_res, right_res.inner)
+    });
+    response.inner
 }
 
 #[cfg(test)]
