@@ -2,7 +2,7 @@
 
 use std::{collections::HashMap, rc::Rc};
 
-use bellframe::{AnnotRow, Row, SameStageVec, Stage};
+use bellframe::{Row, RowBuf, SameStageVec, Stage};
 use itertools::Itertools;
 
 use crate::state::{
@@ -10,7 +10,7 @@ use crate::state::{
     music,
 };
 
-use super::{part_heads::PartHeads, CompSpec, Fragment, Method, RowData};
+use super::{part_heads::PartHeads, Chunk, CompSpec, Fragment, Method};
 
 type MethodMap = HashMap<*const super::Method, full::Method>;
 
@@ -72,16 +72,64 @@ fn expand_fragment(
     method_map: &mut MethodMap,
     stats: &mut full::Stats,
 ) -> full::Fragment {
+    // Update statistics
     stats.part_len += fragment.len(); // Update the length
 
-    // Expand all rows, including the leftover row - i.e. pre-multiply by each part head to compute
-    // the rows in each part
-    let mut expanded_rows = fragment
-        .annot_rows()
-        .map(|annot_row| expand_row(annot_row, part_heads, fragment.is_proved(), method_map))
-        .collect_vec();
-    // Expand the leftover row as a special case
-    expanded_rows.push(expand_leftover_row(fragment.leftover_row(), part_heads));
+    // Expand the fragment's chunks
+    let mut expanded_rows = Vec::<full::ExpandedRow>::with_capacity(fragment.len());
+    let mut chunk_start_row = fragment.start_row.as_ref().to_owned();
+    for chunk in &fragment.chunks {
+        // Update method stats for this chunk
+        let num_rows_in_all_parts = chunk.len() * part_heads.len();
+        let source_method_ptr = chunk.method() as *const Method;
+        let full_method = method_map.get_mut(&source_method_ptr).unwrap();
+        full_method.num_rows += num_rows_in_all_parts;
+        if fragment.is_proved {
+            full_method.num_proved_rows += num_rows_in_all_parts;
+        }
+
+        // TODO: Update ATW stats
+
+        // Extend rows
+        match chunk.as_ref() {
+            Chunk::Method {
+                method,
+                start_sub_lead_index,
+                length,
+            } => {
+                // Compute the lead head of the lead containing the first row in this chunk
+                let first_lead = method.inner.first_lead();
+                let start_row_in_first_lead = first_lead
+                    .get_row(*start_sub_lead_index)
+                    .expect("Chunk's sub-lead index out of range");
+                let first_lead_head =
+                    Row::solve_xa_equals_b(start_row_in_first_lead, &chunk_start_row)
+                        .expect("All methods should have the same stage");
+
+                // Create an iterator over the rows in this chunk
+                let mut iter = first_lead.repeat_iter(first_lead_head).unwrap();
+                // Consume the right number of rows from it
+                let mut row_buf = RowBuf::rounds(Stage::ONE);
+                for _ in 0..*length {
+                    iter.next_into(&mut row_buf)
+                        .expect("Method should have non-zero lead length");
+                    expanded_rows.push(expand_row(&row_buf, part_heads, fragment.is_proved));
+                }
+                // Make sure that the next chunk starts with the correct row
+                iter.next_into(&mut chunk_start_row).unwrap();
+            }
+            Chunk::Call { call, .. } => {
+                let block = call.inner.block();
+                for r in block.rows() {
+                    expanded_rows.push(expand_row(r, part_heads, fragment.is_proved));
+                }
+                chunk_start_row = chunk_start_row.as_row() * block.leftover_row();
+            }
+        }
+    }
+    // The contents of `chunk_start_row` become the leftover row of the Fragment (we set
+    // `is_proved = false` because leftover rows are never proved).
+    expanded_rows.push(expand_row(&chunk_start_row, part_heads, false));
 
     // TODO: Populate the fields of the `ExpandedRow`s that require cross-row information
 
@@ -102,46 +150,17 @@ fn expand_method(method: &Rc<Method>) -> full::Method {
     }
 }
 
-///////////////////
-// ROW EXPANSION //
-///////////////////
-
-/// Expand a non-leftover source row as much as possible without requiring information about other
-/// rows or fragments.
-fn expand_row(
-    annot_row: AnnotRow<RowData>,
-    part_heads: &PartHeads,
-    is_frag_proved: bool,
-    method_map: &mut MethodMap,
-) -> full::ExpandedRow {
-    let row = annot_row.row();
-    let data = annot_row.annot();
-
-    // Accumulate row counters of this Row's Method
-    let source_method_ptr = data.method() as *const Method;
-    let method = method_map.get_mut(&source_method_ptr).unwrap();
-    method.num_rows += part_heads.len(); // The rows in each part are all owned by the same method
-    if is_frag_proved {
-        method.num_proved_rows += part_heads.len();
-    }
-
-    // Pre-multiply this row by each part head
-    let row_per_part = get_rows_per_part(row, part_heads);
-
-    full::ExpandedRow {
-        rows: row_per_part,
-        is_proved: is_frag_proved,
-        is_false: false, // Will be filled in later during falseness checking
-    }
-}
+/////////////////////////
+// ROW/CHUNK EXPANSION //
+/////////////////////////
 
 /// Expand a leftover [`Row`] as much as possible without requiring information about other
 /// rows or fragments.
-fn expand_leftover_row(row: &Row, part_heads: &PartHeads) -> full::ExpandedRow {
+fn expand_row(row: &Row, part_heads: &PartHeads, is_proved: bool) -> full::ExpandedRow {
     full::ExpandedRow {
         rows: get_rows_per_part(row, part_heads),
-        is_proved: false, // Leftover rows are never proved
-        is_false: false,  // Won't be filled in later, because unproved rows can't be false
+        is_proved,
+        is_false: false, // Will be filled in later by the truth proving
     }
 }
 

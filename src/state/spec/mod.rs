@@ -3,7 +3,8 @@ use std::{
     rc::Rc,
 };
 
-use bellframe::{AnnotBlock, AnnotRow, Row, Stage};
+use bellframe::{Row, RowBuf, Stage};
+use itertools::Itertools;
 
 use crate::V2;
 
@@ -66,31 +67,27 @@ impl CompSpec {
             /* 6. */ gen_method("W", "Cornwall", "-56-14-56-38-14-58-14-58,18"),
         ];
 
-        let fragment = {
-            let mut block = AnnotBlock::<RowData>::empty(STAGE);
-            // Touch is Deva, Yorkshire, York, Superlative, Lessness
-            for &meth_idx in &[0usize, 3, 4, 5, 2] {
-                let method_rc = methods[meth_idx].clone();
-                let first_lead_block = method_rc.clone().inner.first_lead().row_vec().to_owned();
-                let annot_lead =
-                    AnnotBlock::with_annots_from_indices(first_lead_block, |sub_lead_index| {
-                        RowData {
-                            method: method_rc.clone(),
-                            sub_lead_index,
-                            call: None,
-                            fold: None,
-                        }
-                    })
-                    .expect("Can't have a zero-length method lead");
-                block.extend(annot_lead).unwrap();
-            }
-
-            Rc::new(Fragment {
-                position: V2::new(100.0, 200.0),
-                block,
-                is_proved: true,
+        // Touch is Deva, Yorkshire, York, Superlative, Lessness
+        let chunks = [0usize, 3, 4, 5, 2]
+            .iter()
+            .map(|method_idx| {
+                let method = methods[*method_idx].clone();
+                let lead_len = method.inner.lead_len();
+                // Add an entire lead of each method
+                Rc::new(Chunk::Method {
+                    method,
+                    start_sub_lead_index: 0,
+                    length: lead_len,
+                })
             })
-        };
+            .collect_vec();
+
+        let fragment = Rc::new(Fragment {
+            position: V2::new(100.0, 200.0),
+            start_row: Rc::new(RowBuf::rounds(STAGE)),
+            chunks,
+            is_proved: true,
+        });
 
         CompSpec {
             stage: STAGE,
@@ -123,8 +120,9 @@ impl CompSpec {
 pub(super) struct Fragment {
     /// The on-screen location of the top-left corner of the top row this `Frag`
     position: V2,
-    /// The `Block` of annotated [`Row`]s making up this `Fragment`
-    block: AnnotBlock<RowData>,
+    start_row: Rc<RowBuf>,
+    /// A sequence of [`Chunk`]s that make up this `Fragment`
+    chunks: Vec<Rc<Chunk>>,
     /// Set to `false` if this `Fragment` is visible but 'muted' - i.e. visually greyed out and not
     /// included in the proving, ATW calculations, statistics, etc.
     is_proved: bool,
@@ -135,62 +133,58 @@ impl Fragment {
         self.position
     }
 
-    pub fn is_proved(&self) -> bool {
-        self.is_proved
-    }
-
-    /// Get a reference to the fragment's rows.
-    pub fn annot_rows(&self) -> impl Iterator<Item = AnnotRow<RowData>> {
-        self.block.annot_rows()
-    }
-
-    /// Gets the leftover row of this [`Fragment`]
-    pub fn leftover_row(&self) -> &Row {
-        self.block.leftover_row()
-    }
-
     /// Gets the number of non-leftover [`Row`]s in this [`Fragment`] in one part of the
     /// composition.
     pub fn len(&self) -> usize {
-        self.block.len()
+        self.chunks.iter().map(|c| c.len()).sum()
     }
 }
 
-/// The meta-data associated with each (non-leftover) [`Row`] in the composition.
+/// A `Chunk` of a [`Fragment`], consisting of either a contiguous segment of a [`Method`] or a
+/// [`Call`] rung all the way through
 #[derive(Debug, Clone)]
-pub(crate) struct RowData {
-    /// A reference to the [`Method`] that generated this [`Row`]
-    method: Rc<Method>,
-    /// The index within the method's lead that this [`Row`] belongs to.  This is used for many
-    /// purposes - such as ATW checking, inserting ruleoffs, determining valid call locations, etc.
-    sub_lead_index: usize,
-    /// This is `Some(c)` if an instance of that call **starts** on this [`Row`].
-    ///
-    /// **NOTE**: This is the opposite way round to how lead locations are defined (a call at a
-    /// lead location will _finish_ at that location).  For example, the 0th row of a lead is
-    /// usually referred to as `"LE"` for 'Lead End' and all lead end calls (including those in
-    /// Grandsire) will finish at the 0th row.  However, we have to do it this way round because we
-    /// might have a call at the end of a `Fragment`, in which case we would have to attach data to
-    /// the leftover row (which [`AnnotBlock`] doesn't allow):
-    /// ```text
-    ///            ...
-    ///          31425678
-    ///          13246587    call = Some(<bob>)
-    ///          --------
-    ///  (LE) -H 12345678  <- leftover row; can't be assigned a `Call` but **can** be rendered
-    ///                       with text
-    /// ```
-    /// Note, however, that `FullComp` allows the leftover row to be given annotations, so we can
-    /// display the `-H` to the user in the place they expect.
-    call: Option<Rc<Call>>,
-    /// If `self.fold.is_some()`, then this [`Row`] corresponds to a fold-point in the composition.
-    fold: Option<Rc<Fold>>,
+pub(super) enum Chunk {
+    Method {
+        method: Rc<Method>,
+        start_sub_lead_index: usize,
+        length: usize,
+    },
+    Call {
+        call: Rc<Call>,
+        method: Rc<Method>,
+        start_sub_lead_index: usize,
+    },
 }
 
-impl RowData {
-    /// The [`Method`] that owns this [`Row`]
-    pub(super) fn method(&self) -> &Method {
-        &self.method
+impl Chunk {
+    /// Return the number of [`Row`]s generated by this [`Chunk`]
+    fn len(&self) -> usize {
+        match self {
+            Chunk::Method { length, .. } => *length,
+            Chunk::Call { call, .. } => call.inner.len(),
+        }
+    }
+
+    /// Gets the [`Method`] to which these rows are assigned
+    fn method(&self) -> &Method {
+        match self {
+            Chunk::Method { method, .. } => method,
+            Chunk::Call { method, .. } => method,
+        }
+    }
+
+    /// Gets the sub-lead index of the first [`Row`] in this `Chunk`
+    fn start_sub_lead_index(&self) -> usize {
+        match self {
+            Chunk::Method {
+                start_sub_lead_index,
+                ..
+            } => *start_sub_lead_index,
+            Chunk::Call {
+                start_sub_lead_index,
+                ..
+            } => *start_sub_lead_index,
+        }
     }
 }
 
@@ -226,7 +220,9 @@ impl Method {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct Call {}
+pub(crate) struct Call {
+    inner: bellframe::Call,
+}
 
 /// A point where the composition can be folded.  Composition folding is not part of the undo
 /// history and therefore relies on interior mutability.
