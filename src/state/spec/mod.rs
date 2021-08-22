@@ -71,17 +71,18 @@ impl CompSpec {
             // Touch is Deva, Yorkshire, York, Superlative, Lessness
             for &meth_idx in &[0usize, 3, 4, 5, 2] {
                 let method_rc = methods[meth_idx].clone();
-                let annotated_lead = method_rc
-                    .clone()
-                    .inner
-                    .first_lead()
-                    .gen_annots_from_indices(|sub_lead_index| RowData {
-                        method: method_rc.clone(),
-                        sub_lead_index,
-                        call: None,
-                        fold: None,
-                    });
-                block.extend(annotated_lead).unwrap();
+                let first_lead_block = method_rc.clone().inner.first_lead().row_vec().to_owned();
+                let annot_lead =
+                    AnnotBlock::with_annots_from_indices(first_lead_block, |sub_lead_index| {
+                        RowData {
+                            method: method_rc.clone(),
+                            sub_lead_index,
+                            call: None,
+                            fold: None,
+                        }
+                    })
+                    .expect("Can't have a zero-length method lead");
+                block.extend(annot_lead).unwrap();
             }
 
             Rc::new(Fragment {

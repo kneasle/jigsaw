@@ -162,7 +162,7 @@ impl PartHeads {
             Ok(self.set.contains(&transposition))
         } else {
             // PERF: Store this result in a `RefCell<HashMap<Row, bool>>`
-            let mut transposed_row_buf = RowBuf::empty();
+            let mut transposed_row_buf = RowBuf::rounds(Stage::ONE);
             for r in &self.rows {
                 // The unsafety here is OK because all the rows in `self` must have the same
                 // stage, and we checked that `transposition` shares that Stage.

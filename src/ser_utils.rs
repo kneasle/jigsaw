@@ -61,7 +61,7 @@ pub fn ser_borrowed_rows<S: Serializer>(rows: &[&Row], s: S) -> Result<S::Ok, S:
 
 /// Custom serialiser to serialise `Stage` as an integer
 pub fn ser_stage<S: Serializer>(stage: &Stage, s: S) -> Result<S::Ok, S::Error> {
-    s.serialize_u64(stage.as_usize() as u64)
+    s.serialize_u64(stage.num_bells() as u64)
 }
 
 /// Serializer which serialises a [`PnBlock`] parsing result, generating the error string if it

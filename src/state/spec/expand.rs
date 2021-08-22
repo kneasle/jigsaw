@@ -180,8 +180,7 @@ fn expand_music_groups(
     (music_groups, total_count, max_count)
 }
 
-/// Recursively expand a single [`music::Music`] group, returning the expanded
-/// [`full::MusicGroup`], as well as the total number of occurrences of the music group
+/// Recursively expand a single [`music::Music`] group
 fn expand_music_group(
     group: &music::Music,
     fragments: &[full::Fragment],
@@ -207,7 +206,9 @@ fn expand_music_group(
             let name = name
                 .as_ref()
                 .map_or_else(|| regex.to_string(), String::clone);
-            let max_count = regex.num_matching_rows(stage);
+            let max_count = regex
+                .num_matching_rows(stage)
+                .expect("Overflow whilst computing num rows");
             full::MusicGroup::Regex {
                 name,
                 count,
