@@ -3,10 +3,9 @@ use std::{
     rc::Rc,
 };
 
-use bellframe::{Row, RowBuf, Stage};
+use bellframe::{RowBuf, Stage};
+use eframe::egui::Vec2;
 use itertools::Itertools;
-
-use crate::V2;
 
 use self::part_heads::PartHeads;
 
@@ -83,7 +82,7 @@ impl CompSpec {
             .collect_vec();
 
         let fragment = Rc::new(Fragment {
-            position: V2::new(100.0, 200.0),
+            position: Vec2::new(200.0, 100.0),
             start_row: Rc::new(RowBuf::rounds(STAGE)),
             chunks,
             is_proved: true,
@@ -119,7 +118,7 @@ impl CompSpec {
 #[derive(Debug, Clone)]
 pub(super) struct Fragment {
     /// The on-screen location of the top-left corner of the top row this `Frag`
-    position: V2,
+    position: Vec2,
     start_row: Rc<RowBuf>,
     /// A sequence of [`Chunk`]s that make up this `Fragment`
     chunks: Vec<Rc<Chunk>>,
@@ -129,7 +128,7 @@ pub(super) struct Fragment {
 }
 
 impl Fragment {
-    pub fn position(&self) -> V2 {
+    pub fn position(&self) -> Vec2 {
         self.position
     }
 

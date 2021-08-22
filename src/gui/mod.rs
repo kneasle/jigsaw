@@ -7,6 +7,8 @@ use eframe::{
 
 use crate::state::{self, full, spec::part_heads, FullState, State};
 
+mod canvas;
+
 /// The top-level singleton for Jigsaw.  This isn't [`Clone`] because it is a singleton - at any
 /// time, there should be at most one copy of it in existence.
 #[derive(Debug)]
@@ -54,7 +56,12 @@ impl epi::App for JigsawApp {
             }
         }
 
+        // Draw right-hand panel
         egui::SidePanel::right("side_panel").show(ctx, |ui| self.draw_side_panel(ui));
+        // Draw main canvas
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.add(canvas::Canvas::new(self.full_state()));
+        });
     }
 
     fn max_size_points(&self) -> egui::Vec2 {

@@ -1,11 +1,6 @@
-use vector2d::Vector2D;
-
 mod gui;
 mod ser_utils;
 mod state;
-
-/// Type alias for a 2D vector, stored as two `f32`s.
-type V2 = Vector2D<f32>;
 
 /* Web start-up code */
 

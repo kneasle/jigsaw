@@ -62,6 +62,7 @@ pub(in crate::state) fn expand(spec: &CompSpec, music: &[music::Music]) -> FullS
         // TODO: In Rust `1.54` we can use `into_values()`
         methods: method_map.into_iter().map(|(_k, v)| v).collect_vec(),
         stats,
+        stage: spec.stage,
     }
 }
 

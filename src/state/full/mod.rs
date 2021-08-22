@@ -2,9 +2,8 @@
 
 use std::{ops::Deref, rc::Rc};
 
-use bellframe::SameStageVec;
-
-use crate::V2;
+use bellframe::{SameStageVec, Stage};
+use eframe::egui::Vec2;
 
 use super::{
     music,
@@ -27,6 +26,7 @@ pub(crate) struct FullState {
     pub music: Music,
     /// Misc statistics about the composition (e.g. part length)
     pub stats: Stats,
+    pub stage: Stage,
 }
 
 impl FullState {
@@ -51,13 +51,13 @@ pub(crate) struct Fragment {
     // These fields need to be `pub(super)` so that they can be populated during expansion by
     // `super::spec::expand::expand(...)`
     /// The position of the top-left corner of the first [`Row`] in this `Fragment`
-    pub(super) position: V2,
+    pub position: Vec2,
     /// The index of the link group which the top of this `Fragment` is connected to
-    pub(super) link_group_top: Option<usize>,
+    pub link_group_top: Option<usize>,
     /// The index of the link group which the bottom of this `Fragment` is connected to
-    pub(super) link_group_bottom: Option<usize>,
+    pub link_group_bottom: Option<usize>,
     /// The `ExpandedRow`s from this `Fragment`.  Each of these contains one [`Row`] per part.
-    pub(super) expanded_rows: Vec<ExpandedRow>,
+    pub expanded_rows: Vec<ExpandedRow>,
 }
 
 /////////////
@@ -66,7 +66,7 @@ pub(crate) struct Fragment {
 
 #[derive(Debug, Clone)]
 pub(crate) struct Method {
-    pub(super) source: Rc<spec::Method>,
+    pub(super) source: Rc<spec::Method>, // Accessed through `Deref` coercion
     /// Total number of [`Row`]s assigned to this [`Method`]
     pub num_rows: usize,
     /// Number of proved [`Row`]s assigned to this [`Method`]
@@ -93,11 +93,11 @@ impl Deref for Method {
 #[derive(Debug, Clone)]
 pub(crate) struct ExpandedRow {
     /// This `ExpandedRow` expands to one [`Row`] per part.
-    pub(super) rows: SameStageVec,
+    pub rows: SameStageVec,
     /// If `true` then this [`Row`] is considered 'part' of the composition.
-    pub(super) is_proved: bool,
+    pub is_proved: bool,
     /// Do any of these [`Row`]s appear elsewhere in the composition?
-    pub(super) is_false: bool,
+    pub is_false: bool,
 }
 
 ///////////
