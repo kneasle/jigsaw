@@ -17,7 +17,8 @@ pub(super) use expand::expand;
 /// The minimal but complete specification for a (partial) composition.  `CompSpec` is used for
 /// undo history, and is designed to be a very compact representation which is cheap to clone and
 /// modify.  Contrast this with [`FullComp`], which is computed from `CompSpec` and is designed to
-/// be efficient to query and display to the user.
+/// be efficient to query and display to the user (and so contains a large amount of redundant
+/// information).
 #[derive(Debug, Clone)]
 pub struct CompSpec {
     stage: Stage,

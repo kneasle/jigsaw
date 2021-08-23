@@ -1,22 +1,27 @@
 //! Code for maintaining Jigsaw's GUI
 
 use eframe::{
-    egui::{self, Color32, Ui, Vec2},
+    egui::{self, Color32, PointerButton, Pos2, Response, Ui, Vec2},
     epi,
 };
 
 use crate::state::{self, full, spec::part_heads, FullState, State};
 
+use self::config::Config;
+
 mod canvas;
+mod config;
 
 /// The top-level singleton for Jigsaw.  This isn't [`Clone`] because it is a singleton - at any
 /// time, there should be at most one copy of it in existence.
 #[derive(Debug)]
 pub struct JigsawApp {
     state: State,
+    config: Config,
     /// The text currently in the part head UI box.  This may not parse to a valid sequence of
     /// [`Row`]s, and therefore is allowed to diverge from `self.history`
     part_head_str: String,
+    camera_pos: Pos2,
 }
 
 impl JigsawApp {
@@ -26,6 +31,8 @@ impl JigsawApp {
         Self {
             part_head_str: state.full().part_heads.spec_string(),
             state,
+            config: Config::default(),
+            camera_pos: Pos2::ZERO,
         }
     }
 
@@ -40,7 +47,36 @@ impl epi::App for JigsawApp {
     }
 
     fn update(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
-        // Handle input
+        // Draw right-hand panel
+        egui::SidePanel::right("side_panel").show(ctx, |ui| self.draw_side_panel(ui));
+        // Draw main canvas, making any side effects if necessary
+        let canvas_response = egui::CentralPanel::default()
+            .show(ctx, |ui| {
+                ui.add(canvas::Canvas {
+                    state: self.full_state(),
+                    config: &self.config,
+                    camera_pos: self.camera_pos,
+                })
+            })
+            .inner;
+
+        // Handle inputs, and mutate `self` for the next frame
+        self.handle_input(ctx, canvas_response);
+    }
+
+    fn max_size_points(&self) -> egui::Vec2 {
+        Vec2::new(5000.0, 3000.0)
+    }
+}
+
+impl JigsawApp {
+    ////////////////////
+    // INPUT HANDLING //
+    ////////////////////
+
+    /// Handle all input for this frame
+    fn handle_input(&mut self, ctx: &egui::CtxRef, canvas_response: Response) {
+        // Keyboard events
         for evt in &ctx.input().events {
             match evt {
                 &egui::Event::Key {
@@ -56,24 +92,12 @@ impl epi::App for JigsawApp {
             }
         }
 
-        // Draw right-hand panel
-        egui::SidePanel::right("side_panel").show(ctx, |ui| self.draw_side_panel(ui));
-        // Draw main canvas
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(canvas::Canvas::new(self.full_state()));
-        });
+        // Pan the canvas
+        if canvas_response.dragged_by(PointerButton::Middle) {
+            self.camera_pos -= canvas_response.drag_delta();
+        }
     }
 
-    fn max_size_points(&self) -> egui::Vec2 {
-        Vec2::new(5000.0, 3000.0)
-    }
-}
-
-/////////////////////////////////
-// GUI DRAWING/INPUT FUNCTIONS //
-/////////////////////////////////
-
-impl JigsawApp {
     /// Handle a keyboard input signal that **isn't** captured by [`egui`] itself
     fn handle_key_input(&mut self, key: egui::Key, pressed: bool, modifiers: egui::Modifiers) {
         use egui::Key::*;
@@ -99,6 +123,10 @@ impl JigsawApp {
             }
         }
     }
+
+    /////////////////
+    // GUI DRAWING //
+    /////////////////
 
     fn draw_side_panel(&mut self, ui: &mut Ui) {
         const PANEL_SPACE: f32 = 5.0; // points
