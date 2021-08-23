@@ -1,13 +1,20 @@
 //! Code for maintaining Jigsaw's GUI
 
-use std::rc::Rc;
+use std::{collections::HashSet, rc::Rc};
 
 use eframe::{
     egui::{self, Color32, PointerButton, Pos2, Response, Ui, Vec2},
     epi,
 };
 
-use crate::state::{full, spec::part_heads, FullState, State};
+use crate::{
+    state::{
+        full::{self, MusicGroupInner},
+        spec::part_heads,
+        FullState, State,
+    },
+    utils::RowSource,
+};
 
 use self::config::Config;
 
@@ -50,7 +57,10 @@ impl epi::App for JigsawApp {
 
     fn update(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
         // Draw right-hand panel
-        egui::SidePanel::right("side_panel").show(ctx, |ui| self.draw_side_panel(ui));
+        let rows_to_highlight = egui::SidePanel::right("side_panel")
+            .show(ctx, |ui| self.draw_side_panel(ui))
+            .inner;
+
         // Draw main canvas, making any side effects if necessary
         let canvas_response = egui::CentralPanel::default()
             .show(ctx, |ui| {
@@ -58,6 +68,7 @@ impl epi::App for JigsawApp {
                     state: self.full_state(),
                     config: &self.config,
                     camera_pos: self.camera_pos,
+                    rows_to_highlight,
                 })
             })
             .inner;
@@ -130,8 +141,10 @@ impl JigsawApp {
     // GUI DRAWING //
     /////////////////
 
-    fn draw_side_panel(&mut self, ui: &mut Ui) {
+    fn draw_side_panel(&mut self, ui: &mut Ui) -> HashSet<RowSource> {
         const PANEL_SPACE: f32 = 5.0; // points
+
+        let mut rows_to_highlight = HashSet::<RowSource>::new();
 
         ui.heading("Jigsaw");
 
@@ -186,9 +199,11 @@ impl JigsawApp {
             egui::CollapsingHeader::new(label)
                 .id_source("Music")
                 .show(panels_ui, |ui| {
-                    draw_music_ui(music.groups(), ui);
+                    draw_music_ui(music.groups(), ui, &mut rows_to_highlight);
                 });
         });
+
+        rows_to_highlight
     }
 
     fn draw_parts_panel(&mut self, ui: &mut Ui) {
@@ -272,35 +287,51 @@ impl JigsawApp {
 }
 
 /// Recursively creates the GUI for a set of `MusicGroup`s
-fn draw_music_ui(musics: &[Rc<full::MusicGroup>], ui: &mut Ui) {
+fn draw_music_ui(
+    musics: &[Rc<full::MusicGroup>],
+    ui: &mut Ui,
+    rows_to_highlight: &mut HashSet<RowSource>,
+) {
     for m in musics {
-        draw_music_group_ui(m, ui);
+        draw_music_group_ui(m, ui, rows_to_highlight);
     }
 }
 
 /// Recursively creates the GUI for a single `MusicGroup`
-fn draw_music_group_ui(group: &full::MusicGroup, ui: &mut Ui) {
+fn draw_music_group_ui(
+    group: &full::MusicGroup,
+    ui: &mut Ui,
+    rows_to_highlight: &mut HashSet<RowSource>,
+) {
     let full::MusicGroup {
         name,
-        count,
         max_count,
-        sub_groups,
+        inner,
     } = group;
 
-    match sub_groups.as_slice() {
-        [] => {
+    let response = match inner {
+        MusicGroupInner::Leaf { rows_matched } => {
             left_then_right(
                 ui,
                 |left_ui| left_ui.label(name),
-                |right_ui| right_ui.label(format!("{}/{}", count, max_count)),
-            );
+                |right_ui| right_ui.label(format!("{}/{}", rows_matched.len(), max_count)),
+            )
+            .response // Get the response from the entire horizontal layout
         }
-        _ => {
+        MusicGroupInner::Group { sub_groups, count } => {
             let label = format!("{} ({}/{})", name, count, max_count);
             egui::CollapsingHeader::new(label)
                 .id_source(name)
-                .show(ui, |sub_ui| draw_music_ui(&sub_groups, sub_ui));
+                .show(ui, |sub_ui| {
+                    draw_music_ui(&sub_groups, sub_ui, rows_to_highlight)
+                })
+                .header_response
         }
+    };
+
+    // If this is being hovered, then highlight every row matched by any of its descendants
+    if response.hovered() {
+        group.add_row_sources(rows_to_highlight);
     }
 }
 
@@ -309,23 +340,11 @@ fn left_then_right<L, R>(
     ui: &mut Ui,
     left: impl FnOnce(&mut Ui) -> L,
     right: impl FnOnce(&mut Ui) -> R,
-) -> (L, R) {
+) -> egui::InnerResponse<(L, R)> {
     let response = ui.horizontal(|left_ui| {
         let left_res = left(left_ui);
         let right_res = left_ui.with_layout(egui::Layout::right_to_left(), right);
         (left_res, right_res.inner)
     });
-    response.inner
-}
-
-#[cfg(test)]
-mod tests {
-    use super::JigsawApp;
-
-    /// Just test that [`Jigsaw::example`] doesn't panic
-    #[test]
-    fn example() {
-        let j = JigsawApp::example();
-        dbg!(j.full_state());
-    }
+    response
 }

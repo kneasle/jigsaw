@@ -5,6 +5,8 @@ use std::{ops::Deref, rc::Rc};
 use bellframe::{SameStageVec, Stage};
 use eframe::egui::Vec2;
 
+use crate::utils::{RowLocation, RowSource};
+
 use super::{
     music,
     spec::{self, part_heads::PartHeads, CompSpec},
@@ -98,6 +100,8 @@ pub(crate) struct ExpandedRow {
     pub is_proved: bool,
     /// Do any of these [`Row`]s appear elsewhere in the composition?
     pub is_false: bool,
+    /// For each part, for each place, how many leaf music groups match at this location
+    pub music_highlights: Vec<Vec<usize>>,
 }
 
 ///////////
@@ -132,10 +136,47 @@ impl Music {
 #[derive(Debug, Clone)]
 pub struct MusicGroup {
     pub name: String,
-    pub count: usize,
     pub max_count: usize,
     // If empty, then this [`MusicGroup`] is a 'leaf' of the tree
-    pub sub_groups: Vec<Rc<MusicGroup>>,
+    pub inner: MusicGroupInner,
+}
+
+impl MusicGroup {
+    /// Add the [`RowSource`] of every [`Row`] matched by `self` or any of its descendants.
+    /// [`RowSource`]s may be added multiple times.
+    pub fn add_row_sources(&self, out: &mut impl Extend<RowSource>) {
+        match &self.inner {
+            MusicGroupInner::Leaf { rows_matched } => {
+                out.extend(rows_matched.iter().map(|loc| loc.as_source()))
+            }
+            MusicGroupInner::Group { sub_groups, .. } => {
+                for g in sub_groups {
+                    g.add_row_sources(out);
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum MusicGroupInner {
+    Leaf {
+        rows_matched: Vec<RowLocation>,
+    },
+    Group {
+        sub_groups: Vec<Rc<MusicGroup>>,
+        count: usize,
+    },
+}
+
+impl MusicGroupInner {
+    /// Returns the number of times that this [`MusicGroup`] was matched in the composition
+    pub fn count(&self) -> usize {
+        match self {
+            MusicGroupInner::Leaf { rows_matched } => rows_matched.len(),
+            MusicGroupInner::Group { count, .. } => *count,
+        }
+    }
 }
 
 /////////////////////

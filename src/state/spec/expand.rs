@@ -5,9 +5,12 @@ use std::{collections::HashMap, rc::Rc};
 use bellframe::{Row, RowBuf, SameStageVec, Stage};
 use itertools::Itertools;
 
-use crate::state::{
-    full::{self, FullState},
-    music,
+use crate::{
+    state::{
+        full::{self, FullState},
+        music,
+    },
+    utils::RowLocation,
 };
 
 use super::{part_heads::PartHeads, Chunk, CompSpec, Fragment, Method};
@@ -162,6 +165,9 @@ fn expand_row(row: &Row, part_heads: &PartHeads, is_proved: bool) -> full::Expan
         rows: get_rows_per_part(row, part_heads),
         is_proved,
         is_false: false, // Will be filled in later by the truth proving
+        music_highlights: (0..part_heads.len())
+            .map(|_| vec![0; row.stage().num_bells()])
+            .collect_vec(),
     }
 }
 
@@ -196,7 +202,7 @@ fn expand_music_groups(
         .collect_vec();
     // Sum their instances (ignoring the fact that we might double count identical regexes in
     // different groups)
-    let total_count = music_groups.iter().map(|g| g.count).sum();
+    let total_count = music_groups.iter().map(|g| g.inner.count()).sum();
     let max_count = music_groups.iter().map(|g| g.max_count).sum();
     (music_groups, total_count, max_count)
 }
@@ -209,16 +215,20 @@ fn expand_music_group(
 ) -> full::MusicGroup {
     match group {
         music::Music::Regex(name, regex) => {
-            // Count occurrences with a truly beautiful set of nested loops
-            let mut count = 0;
-            for f in fragments {
-                for exp_row in &f.expanded_rows {
+            // Compute where this `Regex` is matched in the composition
+            let mut rows_matched = Vec::<RowLocation>::new();
+            for (frag_index, f) in fragments.iter().enumerate() {
+                for (row_index, exp_row) in f.expanded_rows.iter().enumerate() {
                     if !exp_row.is_proved {
                         continue; // Don't count music in rows which aren't proved
                     }
-                    for row in &exp_row.rows {
+                    for (part_index, row) in exp_row.rows.iter().enumerate() {
                         if regex.matches(row) {
-                            count += 1;
+                            rows_matched.push(RowLocation {
+                                frag_index,
+                                row_index,
+                                part_index,
+                            });
                         }
                     }
                 }
@@ -232,9 +242,8 @@ fn expand_music_group(
                 .expect("Overflow whilst computing num rows");
             full::MusicGroup {
                 name,
-                count,
                 max_count,
-                sub_groups: Vec::new(), // `Music::Regex` can't have subgroups
+                inner: full::MusicGroupInner::Leaf { rows_matched },
             }
         }
         music::Music::Group(name, source_sub_groups) => {
@@ -242,9 +251,8 @@ fn expand_music_group(
                 expand_music_groups(&source_sub_groups, fragments, stage);
             full::MusicGroup {
                 name: name.to_owned(),
-                count,
                 max_count,
-                sub_groups,
+                inner: full::MusicGroupInner::Group { count, sub_groups },
             }
         }
     }

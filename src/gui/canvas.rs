@@ -1,13 +1,23 @@
 //! Code for rendering the canvas in the centre of the screen
 
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
+use bellframe::Bell;
 use eframe::egui::{
-    epaint::Galley, Color32, Pos2, Sense, Shape, Stroke, TextStyle, Ui, Vec2, Widget,
+    epaint::Galley, Color32, Pos2, Rgba, Sense, Shape, Stroke, TextStyle, Ui, Vec2, Widget,
 };
 use itertools::Itertools;
 
-use crate::state::{full::Fragment, FullState};
+use crate::{
+    state::{
+        full::{ExpandedRow, Fragment},
+        FullState,
+    },
+    utils::RowSource,
+};
 
 use super::config::Config;
 
@@ -20,6 +30,7 @@ pub(super) struct Canvas<'a> {
     pub(super) config: &'a Config,
     /// Position of the camera
     pub(super) camera_pos: Pos2,
+    pub(super) rows_to_highlight: HashSet<RowSource>,
 }
 
 impl<'a> Widget for Canvas<'a> {
@@ -37,8 +48,8 @@ impl<'a> Widget for Canvas<'a> {
             .map(|bell| ui.fonts().layout_single_line(TextStyle::Body, bell.name()))
             .collect_vec();
 
-        for frag in &self.state.fragments {
-            self.draw_frag(ui, frag, origin, &bell_name_galleys);
+        for (frag_idx, frag) in self.state.fragments.iter().enumerate() {
+            self.draw_frag(ui, frag_idx, frag, origin, &bell_name_galleys);
         }
 
         response
@@ -50,6 +61,7 @@ impl<'a> Canvas<'a> {
     fn draw_frag(
         &self,
         ui: &mut Ui,
+        frag_index: usize,
         frag: &Fragment,
         origin: Vec2, // Position of the origin in screen space
         bell_name_galleys: &[Arc<Galley>],
@@ -62,37 +74,21 @@ impl<'a> Canvas<'a> {
             .map(|(&bell, &(width, color))| (bell, (width, color, Vec::<Pos2>::new())))
             .collect();
 
-        // Render rows
-        for (row_idx, exp_row) in frag.expanded_rows.iter().enumerate() {
-            for (col_idx, bell) in exp_row.rows[0].bell_iter().enumerate() {
-                let top_left_coord = origin
-                    + frag.position
-                    + Vec2::new(
-                        col_idx as f32 * self.config.col_width,
-                        row_idx as f32 * self.config.row_height,
-                    );
-                let top_left_coord = Pos2::new(top_left_coord.x, top_left_coord.y);
-
-                if let Some((_, _, points)) = lines.get_mut(&bell) {
-                    // If this bell is part of a line, then add this location to the line path
-                    points.push(
-                        top_left_coord
-                            + Vec2::new(self.config.col_width, self.config.row_height) / 2.0,
-                    );
-                } else {
-                    // If this bell isn't part of a line, then render it as text
-                    ui.painter().add(Shape::Text {
-                        pos: top_left_coord
-                            + Vec2::new(
-                                self.config.col_width * self.config.text_pos_x,
-                                self.config.row_height * self.config.text_pos_y,
-                            ),
-                        galley: bell_name_galleys[bell.index()].clone(),
-                        color: Color32::WHITE,
-                        fake_italics: false,
-                    });
-                }
-            }
+        // Draw the rows
+        for (row_index, exp_row) in frag.expanded_rows.iter().enumerate() {
+            let row_source = RowSource {
+                frag_index,
+                row_index,
+            };
+            self.draw_row(
+                ui,
+                frag,
+                row_source,
+                exp_row,
+                origin,
+                bell_name_galleys,
+                &mut lines,
+            );
         }
 
         // Render lines, always in increasing order (otherwise the non-determinism makes the
@@ -109,6 +105,58 @@ impl<'a> Canvas<'a> {
                     color,
                 },
             });
+        }
+    }
+
+    fn draw_row(
+        &self,
+        ui: &mut Ui,
+        frag: &Fragment,
+        source: RowSource,
+        row: &ExpandedRow,
+        origin: Vec2,
+        bell_name_galleys: &[Arc<Galley>],
+        lines: &mut HashMap<Bell, (f32, Color32, Vec<Pos2>)>,
+    ) {
+        // Opacity ranges from 0 to 1
+        let mut opacity = 1.0;
+        // If no rows are highlighted, then all rows are highlighted
+        let is_highlighted =
+            self.rows_to_highlight.is_empty() || self.rows_to_highlight.contains(&source);
+        if !is_highlighted {
+            opacity *= 0.5; // Fade out non-highlighted rows
+        }
+        if !row.is_proved {
+            opacity *= 0.5; // Also fade out non-proved rows
+        }
+
+        for (col_idx, bell) in row.rows[0].bell_iter().enumerate() {
+            let top_left_coord = origin
+                + frag.position
+                + Vec2::new(
+                    col_idx as f32 * self.config.col_width,
+                    source.row_index as f32 * self.config.row_height,
+                );
+            let top_left_coord = Pos2::new(top_left_coord.x, top_left_coord.y);
+
+            if let Some((_, _, points)) = lines.get_mut(&bell) {
+                // If this bell is part of a line, then add this location to the line path
+                points.push(
+                    top_left_coord + Vec2::new(self.config.col_width, self.config.row_height) / 2.0,
+                );
+            } else {
+                // If this bell isn't part of a line, then render it as text
+                ui.painter().add(Shape::Text {
+                    pos: top_left_coord
+                        + Vec2::new(
+                            self.config.col_width * self.config.text_pos_x,
+                            self.config.row_height * self.config.text_pos_y,
+                        ),
+                    galley: bell_name_galleys[bell.index()].clone(),
+                    color: Rgba::WHITE.multiply(opacity).into(),
+                    fake_italics: false,
+                });
+            }
         }
     }
 }

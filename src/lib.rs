@@ -1,6 +1,7 @@
 mod gui;
 mod ser_utils;
 mod state;
+mod utils;
 
 /* Web start-up code */
 
