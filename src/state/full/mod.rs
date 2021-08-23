@@ -107,13 +107,13 @@ pub(crate) struct ExpandedRow {
 /// Top-level representation of music
 #[derive(Debug, Clone)]
 pub struct Music {
-    pub(super) groups: Vec<MusicGroup>,
+    pub(super) groups: Vec<Rc<MusicGroup>>,
     pub(super) total_count: usize,
     pub(super) max_count: usize,
 }
 
 impl Music {
-    pub fn groups(&self) -> &[MusicGroup] {
+    pub fn groups(&self) -> &[Rc<MusicGroup>] {
         self.groups.as_slice()
     }
 
@@ -130,36 +130,12 @@ impl Music {
 /// A group of musical rows, potentially subdivided into more groups.  This strongly follows the
 /// shape of [`super::music::Music`].
 #[derive(Debug, Clone)]
-pub enum MusicGroup {
-    Regex {
-        name: String,
-        count: usize,
-        max_count: usize,
-    },
-    Group {
-        name: String,
-        count: usize,
-        max_count: usize,
-        sub_groups: Vec<MusicGroup>,
-    },
-}
-
-impl MusicGroup {
-    /// The number of times that this group appears in proved rows in the composition
-    pub fn count(&self) -> usize {
-        match self {
-            MusicGroup::Regex { count, .. } => *count,
-            MusicGroup::Group { count, .. } => *count,
-        }
-    }
-
-    /// The maximum value of `self.count()` that is possible without repeating rows
-    pub fn max_count(&self) -> usize {
-        match self {
-            MusicGroup::Regex { max_count, .. } => *max_count,
-            MusicGroup::Group { max_count, .. } => *max_count,
-        }
-    }
+pub struct MusicGroup {
+    pub name: String,
+    pub count: usize,
+    pub max_count: usize,
+    // If empty, then this [`MusicGroup`] is a 'leaf' of the tree
+    pub sub_groups: Vec<Rc<MusicGroup>>,
 }
 
 /////////////////////

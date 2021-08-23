@@ -187,16 +187,17 @@ fn expand_music_groups(
     music: &[music::Music],
     fragments: &[full::Fragment],
     stage: Stage,
-) -> (Vec<full::MusicGroup>, usize, usize) {
+) -> (Vec<Rc<full::MusicGroup>>, usize, usize) {
     // Expand groups individually
     let music_groups = music
         .iter()
         .map(|m| expand_music_group(m, &fragments, stage))
+        .map(Rc::new)
         .collect_vec();
     // Sum their instances (ignoring the fact that we might double count identical regexes in
     // different groups)
-    let total_count = music_groups.iter().map(full::MusicGroup::count).sum();
-    let max_count = music_groups.iter().map(full::MusicGroup::max_count).sum();
+    let total_count = music_groups.iter().map(|g| g.count).sum();
+    let max_count = music_groups.iter().map(|g| g.max_count).sum();
     (music_groups, total_count, max_count)
 }
 
@@ -229,16 +230,17 @@ fn expand_music_group(
             let max_count = regex
                 .num_matching_rows(stage)
                 .expect("Overflow whilst computing num rows");
-            full::MusicGroup::Regex {
+            full::MusicGroup {
                 name,
                 count,
                 max_count,
+                sub_groups: Vec::new(), // `Music::Regex` can't have subgroups
             }
         }
         music::Music::Group(name, source_sub_groups) => {
             let (sub_groups, count, max_count) =
                 expand_music_groups(&source_sub_groups, fragments, stage);
-            full::MusicGroup::Group {
+            full::MusicGroup {
                 name: name.to_owned(),
                 count,
                 max_count,

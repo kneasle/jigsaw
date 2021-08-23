@@ -1,11 +1,13 @@
 //! Code for maintaining Jigsaw's GUI
 
+use std::rc::Rc;
+
 use eframe::{
     egui::{self, Color32, PointerButton, Pos2, Response, Ui, Vec2},
     epi,
 };
 
-use crate::state::{self, full, spec::part_heads, FullState, State};
+use crate::state::{full, spec::part_heads, FullState, State};
 
 use self::config::Config;
 
@@ -270,33 +272,30 @@ impl JigsawApp {
 }
 
 /// Recursively creates the GUI for a set of `MusicGroup`s
-fn draw_music_ui(musics: &[state::full::MusicGroup], ui: &mut Ui) {
+fn draw_music_ui(musics: &[Rc<full::MusicGroup>], ui: &mut Ui) {
     for m in musics {
         draw_music_group_ui(m, ui);
     }
 }
 
 /// Recursively creates the GUI for a single `MusicGroup`
-fn draw_music_group_ui(group: &state::full::MusicGroup, ui: &mut Ui) {
-    match group {
-        full::MusicGroup::Regex {
-            name,
-            count,
-            max_count,
-        } => {
+fn draw_music_group_ui(group: &full::MusicGroup, ui: &mut Ui) {
+    let full::MusicGroup {
+        name,
+        count,
+        max_count,
+        sub_groups,
+    } = group;
+
+    match sub_groups.as_slice() {
+        [] => {
             left_then_right(
                 ui,
                 |left_ui| left_ui.label(name),
                 |right_ui| right_ui.label(format!("{}/{}", count, max_count)),
             );
         }
-
-        full::MusicGroup::Group {
-            name,
-            count,
-            max_count,
-            sub_groups,
-        } => {
+        _ => {
             let label = format!("{} ({}/{})", name, count, max_count);
             egui::CollapsingHeader::new(label)
                 .id_source(name)
