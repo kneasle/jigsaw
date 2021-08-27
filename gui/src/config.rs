@@ -22,8 +22,8 @@ impl Default for Config {
             col_width: 10.0,
             row_height: 16.0,
 
-            text_pos_x: 0.1,
-            text_pos_y: 0.1,
+            text_pos_x: 0.125,
+            text_pos_y: 0.05,
 
             bell_lines: {
                 let mut map = HashMap::new();

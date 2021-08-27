@@ -1,6 +1,6 @@
 //! The fully annotated state of a composition used for querying and rendering.
 
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 use bellframe::{SameStageVec, Stage};
 use emath::Vec2;
@@ -120,7 +120,7 @@ pub struct ExpandedRow {
     /// Do any of these [`Row`]s appear elsewhere in the composition?
     pub is_false: bool,
     /// For each place, for each part, how many leaf music groups match at this location
-    pub(crate) music_highlights: Vec<Vec<usize>>,
+    pub music_highlights: HashMap<usize, Vec<usize>>,
 }
 
 ///////////

@@ -7,7 +7,7 @@ use std::{
 
 use bellframe::Bell;
 use eframe::egui::{
-    epaint::Galley, Color32, Pos2, Rgba, Sense, Shape, Stroke, TextStyle, Ui, Vec2, Widget,
+    epaint::Galley, Color32, Pos2, Rect, Rgba, Sense, Shape, Stroke, TextStyle, Ui, Vec2, Widget,
 };
 use itertools::Itertools;
 
@@ -29,6 +29,7 @@ pub(super) struct Canvas<'a> {
     /// Position of the camera
     pub(super) camera_pos: Pos2,
     pub(super) rows_to_highlight: HashSet<RowSource>,
+    pub(super) part_being_viewed: usize,
 }
 
 impl<'a> Widget for Canvas<'a> {
@@ -129,7 +130,9 @@ impl<'a> Canvas<'a> {
             opacity *= 0.5; // Also fade out non-proved rows
         }
 
-        for (col_idx, bell) in row.rows[0].bell_iter().enumerate() {
+        let music_highlights = row.music_highlights.get(&self.part_being_viewed);
+        for (col_idx, bell) in row.rows[self.part_being_viewed].bell_iter().enumerate() {
+            // Compute coordinate
             let top_left_coord = origin
                 + frag.position
                 + Vec2::new(
@@ -138,6 +141,19 @@ impl<'a> Canvas<'a> {
                 );
             let top_left_coord = Pos2::new(top_left_coord.x, top_left_coord.y);
 
+            // Draw music highlight
+            if music_highlights.map_or(false, |counts| counts[col_idx] > 0) {
+                ui.painter().add(Shape::Rect {
+                    rect: Rect::from_min_size(
+                        top_left_coord,
+                        Vec2::new(self.config.col_width, self.config.row_height),
+                    ),
+                    corner_radius: 0.0,
+                    fill: Color32::from_rgb(50, 100, 0),
+                    stroke: Stroke::none(),
+                });
+            }
+            // Draw text or add point to line
             if let Some((_, _, points)) = lines.get_mut(&bell) {
                 // If this bell is part of a line, then add this location to the line path
                 points.push(

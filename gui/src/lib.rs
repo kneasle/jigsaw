@@ -71,6 +71,7 @@ impl epi::App for JigsawApp {
                     config: &self.config,
                     camera_pos: self.camera_pos,
                     rows_to_highlight,
+                    part_being_viewed: 0, // For now, always view the first part
                 })
             })
             .inner;

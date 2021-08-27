@@ -43,14 +43,15 @@ pub(crate) fn expand(spec: &CompSpec, music: &[music::Music]) -> FullState {
     // Expand as much of the fragment information as we can without using relations **between**
     // fragments.  Other things (like falseness) will be computed after all the fragments have been
     // expanded individually.
-    let fragments = spec
+    let mut fragments = spec
         .fragments
         .iter()
         .map(|f| expand_fragment(f, &spec.part_heads, &mut method_map, &mut stats))
         .collect_vec();
 
-    // Expand music
-    let (music_groups, total_count, max_count) = expand_music_groups(music, &fragments, spec.stage);
+    // Expand music, and add highlight to the musical rows
+    let (music_groups, total_count, max_count) =
+        expand_music_groups(music, &mut fragments, spec.stage);
     let music = full::Music {
         groups: music_groups,
         total_count,
@@ -166,10 +167,8 @@ fn expand_row(row: &Row, part_heads: &PartHeads, is_proved: bool) -> full::Expan
     full::ExpandedRow {
         rows: get_rows_per_part(row, part_heads),
         is_proved,
-        is_false: false, // Will be filled in later by the truth proving
-        music_highlights: (0..part_heads.len())
-            .map(|_| vec![0; row.stage().num_bells()])
-            .collect_vec(),
+        is_false: false,                  // Populated later by the truth proving
+        music_highlights: HashMap::new(), // Populated later by the music checking
     }
 }
 
@@ -193,13 +192,13 @@ fn get_rows_per_part(row: &Row, part_heads: &PartHeads) -> SameStageVec {
 /// Recursively expand a sequence of music groups, totalling the number of occurrences
 fn expand_music_groups(
     music: &[music::Music],
-    fragments: &[full::Fragment],
+    fragments: &mut [full::Fragment],
     stage: Stage,
 ) -> (Vec<Rc<full::MusicGroup>>, usize, usize) {
     // Expand groups individually
     let music_groups = music
         .iter()
-        .map(|m| expand_music_group(m, &fragments, stage))
+        .map(|m| expand_music_group(m, fragments, stage))
         .map(Rc::new)
         .collect_vec();
     // Sum their instances (ignoring the fact that we might double count identical regexes in
@@ -212,25 +211,41 @@ fn expand_music_groups(
 /// Recursively expand a single [`music::Music`] group
 fn expand_music_group(
     group: &music::Music,
-    fragments: &[full::Fragment],
+    fragments: &mut [full::Fragment],
     stage: Stage,
 ) -> full::MusicGroup {
     match group {
         music::Music::Regex(name, regex) => {
             // Compute where this `Regex` is matched in the composition
             let mut rows_matched = Vec::<RowLocation>::new();
-            for (frag_index, f) in fragments.iter().enumerate() {
-                for (row_index, exp_row) in f.expanded_rows.iter().enumerate() {
-                    if !exp_row.is_proved {
-                        continue; // Don't count music in rows which aren't proved
-                    }
+            for (frag_index, frag) in fragments.iter_mut().enumerate() {
+                for (row_index, exp_row) in frag.expanded_rows.iter_mut().enumerate() {
+                    let mut matches_per_part = Vec::<(usize, Vec<usize>)>::new();
                     for (part_index, row) in exp_row.rows.iter().enumerate() {
-                        if regex.matches(row) {
-                            rows_matched.push(RowLocation {
-                                frag_index,
-                                row_index,
-                                part_index,
-                            });
+                        if let Some(matched_places) = regex.match_pattern(row) {
+                            // Mark on the music pattern that this row matches it (but only if the
+                            // row is proved)
+                            if exp_row.is_proved {
+                                rows_matched.push(RowLocation {
+                                    frag_index,
+                                    row_index,
+                                    part_index,
+                                });
+                            }
+                            // Mark which parts of the row were matched.  We highlight all rows,
+                            // even those which aren't used in truth proving.
+                            matches_per_part.push((part_index, matched_places));
+                        }
+                    }
+                    // Now that we're not borrowing `exp_row` for the loop iterator, we can add the
+                    // match patterns
+                    for (part_index, matched_places) in matches_per_part {
+                        let existing_counts = exp_row
+                            .music_highlights
+                            .entry(part_index)
+                            .or_insert_with(|| vec![0; stage.num_bells()]);
+                        for p in matched_places {
+                            existing_counts[p] += 1;
                         }
                     }
                 }
