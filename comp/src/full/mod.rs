@@ -7,20 +7,24 @@ use emath::Vec2;
 
 use jigsaw_utils::{RowLocation, RowSource};
 
-use super::{
+use crate::{
     music,
     spec::{self, part_heads::PartHeads, CompSpec},
 };
+
+// Imports only used for doc comments
+#[allow(unused_imports)]
+use bellframe::Row;
 
 /// The fully specified state of a composition.  This is designed to be efficient to query and easy
 /// to render from, unlike [`CompSpec`] which is designed to be compact and easy to modify or store
 /// to disk.
 ///
-/// There will only be one copy of [`FullComp`] instantiated at a time, and it is up to the
-/// [`Comp`] instance to make sure that it always represents the data that the user expects to see.
-/// Every time the [`CompSpec`] being viewed changes (either through the user's changes or through
-/// undo/redo), the [`FullComp`] is recomputed for the new [`CompSpec`].
-#[derive(Debug, Clone)]
+/// There will only be one copy of [`FullState`] instantiated at a time, and it is up to the
+/// [`State`](super::State) instance to make sure that it always represents the data that the user
+/// expects to see.  Every time the [`CompSpec`] being viewed changes (either through the user's
+/// changes or through undo/redo), the [`FullState`] is recomputed for the new [`CompSpec`].
+#[derive(Debug)]
 pub struct FullState {
     pub part_heads: Rc<PartHeads>,
     pub fragments: Vec<Fragment>,

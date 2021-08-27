@@ -19,6 +19,10 @@ use self::config::Config;
 mod canvas;
 mod config;
 
+// Imports only used for doc comments
+#[allow(unused_imports)]
+use bellframe::Row;
+
 /// The top-level singleton for Jigsaw.  This isn't [`Clone`] because it is a singleton - at any
 /// time, there should be at most one copy of it in existence.
 #[derive(Debug)]
@@ -89,17 +93,15 @@ impl JigsawApp {
     fn handle_input(&mut self, ctx: &egui::CtxRef, canvas_response: Response) {
         // Keyboard events
         for evt in &ctx.input().events {
-            match evt {
-                &egui::Event::Key {
-                    key,
-                    pressed,
-                    modifiers,
-                } => {
-                    if !ctx.wants_keyboard_input() {
-                        self.handle_key_input(key, pressed, modifiers);
-                    }
+            if let egui::Event::Key {
+                key,
+                pressed,
+                modifiers,
+            } = *evt
+            {
+                if !ctx.wants_keyboard_input() {
+                    self.handle_key_input(key, pressed, modifiers);
                 }
-                _ => {}
             }
         }
 
@@ -339,10 +341,9 @@ fn left_then_right<L, R>(
     left: impl FnOnce(&mut Ui) -> L,
     right: impl FnOnce(&mut Ui) -> R,
 ) -> egui::InnerResponse<(L, R)> {
-    let response = ui.horizontal(|left_ui| {
+    ui.horizontal(|left_ui| {
         let left_res = left(left_ui);
         let right_res = left_ui.with_layout(egui::Layout::right_to_left(), right);
         (left_res, right_res.inner)
-    });
-    response
+    })
 }

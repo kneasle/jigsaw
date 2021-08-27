@@ -1,4 +1,8 @@
-//! Code for expanding a [`CompSpec`] into a [`FullComp`] that represents the same data.
+//! Code for expanding a [`CompSpec`] into a [`FullState`] that represents the same data.
+
+// This gives false positives for raw pointers (which are hashed by the memory address they point
+// to).  See https://github.com/rust-lang/rust-clippy/issues/6745 for more details.
+#![allow(clippy::mutable_key_type)]
 
 use std::{collections::HashMap, rc::Rc};
 
@@ -15,7 +19,7 @@ use super::{part_heads::PartHeads, Chunk, CompSpec, Fragment, Method};
 
 type MethodMap = HashMap<*const super::Method, full::Method>;
 
-/// Convert a [`CompSpec`] to a [`FullComp`] which represents the same composition.  [`FullComp`]
+/// Convert a [`CompSpec`] to a [`FullState`] which represents the same composition.  [`FullState`]
 /// explicitly specifies all the information that is implied by a [`CompSpec`], so this function
 /// essentially computes that extra information.
 pub(crate) fn expand(spec: &CompSpec, music: &[music::Music]) -> FullState {

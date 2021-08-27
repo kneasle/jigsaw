@@ -1,3 +1,5 @@
+#![allow(private_intra_doc_links)] // We're not exporting a public API, so internal docs are OK
+
 pub mod full;
 mod history;
 mod music;
@@ -11,8 +13,12 @@ use spec::CompSpec;
 pub use full::FullState;
 pub use music::Music;
 
+// Imports only used for doc comments
+#[allow(unused_imports)]
+use bellframe::Row;
+
 /// The internal composition 'model' of Jigsaw
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct State {
     /// Undo history of anything which changes the [`Row`]s of the composition (methods, calls,
     /// fragments, part heads, etc.)
@@ -55,9 +61,9 @@ impl State {
         let full_state = FullState::new(&spec, &music_groups);
         let history = History::new(spec);
         Self {
-            full_state,
             history,
             music_groups,
+            full_state,
         }
     }
 

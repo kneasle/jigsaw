@@ -106,6 +106,7 @@ impl<'a> Canvas<'a> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw_row(
         &self,
         ui: &mut Ui,

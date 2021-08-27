@@ -3,6 +3,10 @@
 use bellframe::{music::Regex, Stage};
 use itertools::Itertools;
 
+// Imports only used for doc comments
+#[allow(unused_imports)]
+use bellframe::Row;
+
 /// A tree-like structure which recursively combines groups of musical [`Row`]s
 #[derive(Debug, Clone)]
 pub enum Music {

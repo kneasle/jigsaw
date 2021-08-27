@@ -60,15 +60,16 @@ impl PartHeads {
 
     /// Attempts to parse `new_spec_string`, as though the user changed the contents of the 'part
     /// heads' box.  There are three cases (corresponding to the variants
-    /// of [`ReparseResult`]:
-    /// - `new_spec_string` can't be parsed, and a [`ParseError`] is returned
+    /// of `Result<ReparseOk, _>`:
+    /// - `new_spec_string` can't be parsed, and `Err(`[`ParseError`]`)` is returned
     /// - `new_spec_string` is valid, and generates the same sequence of [`Row`]s as `self`.  In
-    ///   this case, the specification string of `self` is updated using interior mutability and
-    ///   `Ok(ReparseResult::SameRows)` is returned.
+    ///   this case, the specification string of `self` is updated (through interior mutability)
+    ///   and `Ok(ReparseResult::SameRows)` is returned.
     /// - `new_spec_string` is valid, but generates a **different** sequence of [`Row`]s to `self`.
-    ///   In this case, a `Ok(ReparseResult::DifferentRows(_))` is returned
+    ///   In this case, a `Ok(ReparseResult::DifferentRows(_))` is returned, containing a new set
+    ///   of [`PartHeads`] which correspond to the new string.
     pub fn try_reparse(&self, new_spec_string: &str) -> Result<ReparseOk, ParseError> {
-        if &new_spec_string == &*self.spec.borrow() {
+        if new_spec_string == *self.spec.borrow() {
             // If `new_spec_string` is identical to that of 'self', then the parsed rows must be
             // the same.  `try_reparse` is called every frame, and in the overwhelming majority of
             // frames the part head string won't change.  Therefore, for maximum frame rate it's
@@ -191,7 +192,7 @@ impl PartialEq for PartHeads {
     }
 }
 
-/// The result of successfully [`reparsing`](PartHeads::reparse) a sequence of [`PartHeads`] - i.e.
+/// The result of successfully [`reparsing`](PartHeads::try_reparse) a sequence of [`PartHeads`] - i.e.
 /// modifying the 'part head' box in the GUI.
 #[derive(Debug, Clone)]
 pub enum ReparseOk {
