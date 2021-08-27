@@ -1,11 +1,11 @@
 //! The fully annotated state of a composition used for querying and rendering.
 
-use std::{ops::Deref, rc::Rc};
+use std::rc::Rc;
 
 use bellframe::{SameStageVec, Stage};
-use eframe::egui::Vec2;
+use emath::Vec2;
 
-use crate::utils::{RowLocation, RowSource};
+use jigsaw_utils::{RowLocation, RowSource};
 
 use super::{
     music,
@@ -21,7 +21,7 @@ use super::{
 /// Every time the [`CompSpec`] being viewed changes (either through the user's changes or through
 /// undo/redo), the [`FullComp`] is recomputed for the new [`CompSpec`].
 #[derive(Debug, Clone)]
-pub(crate) struct FullState {
+pub struct FullState {
     pub part_heads: Rc<PartHeads>,
     pub fragments: Vec<Fragment>,
     pub methods: Vec<Method>,
@@ -49,7 +49,7 @@ impl FullState {
 ///////////////
 
 #[derive(Debug, Clone)]
-pub(crate) struct Fragment {
+pub struct Fragment {
     // These fields need to be `pub(super)` so that they can be populated during expansion by
     // `super::spec::expand::expand(...)`
     /// The position of the top-left corner of the first [`Row`] in this `Fragment`
@@ -67,14 +67,28 @@ pub(crate) struct Fragment {
 /////////////
 
 #[derive(Debug, Clone)]
-pub(crate) struct Method {
-    pub(super) source: Rc<spec::Method>, // Accessed through `Deref` coercion
+pub struct Method {
+    pub(crate) source: Rc<spec::Method>, // Accessed through `Deref` coercion
     /// Total number of [`Row`]s assigned to this [`Method`]
     pub num_rows: usize,
     /// Number of proved [`Row`]s assigned to this [`Method`]
     pub num_proved_rows: usize,
 }
 
+impl Method {
+    #[inline]
+    pub fn name(&self) -> String {
+        self.source.name().to_owned()
+    }
+
+    #[inline]
+    pub fn shorthand(&self) -> String {
+        self.source.shorthand().to_owned()
+    }
+}
+
+/*
+TODO: Find some way to only have deref-coercion within this crate
 // Deref-coerce to `spec::Method`.  This will make `full::Method` appear to 'inherit' all the
 // properties of the contained `spec::Method`
 impl Deref for Method {
@@ -84,6 +98,7 @@ impl Deref for Method {
         &self.source
     }
 }
+*/
 
 /////////////////////
 // (EXPANDED) ROWS //
@@ -93,15 +108,15 @@ impl Deref for Method {
 /// [`Row`]s (one per part) but these are connected inasmuch as they can only be added or removed
 /// together.
 #[derive(Debug, Clone)]
-pub(crate) struct ExpandedRow {
+pub struct ExpandedRow {
     /// This `ExpandedRow` expands to one [`Row`] per part.
     pub rows: SameStageVec,
     /// If `true` then this [`Row`] is considered 'part' of the composition.
     pub is_proved: bool,
     /// Do any of these [`Row`]s appear elsewhere in the composition?
     pub is_false: bool,
-    /// For each part, for each place, how many leaf music groups match at this location
-    pub music_highlights: Vec<Vec<usize>>,
+    /// For each place, for each part, how many leaf music groups match at this location
+    pub(crate) music_highlights: Vec<Vec<usize>>,
 }
 
 ///////////
@@ -184,7 +199,7 @@ impl MusicGroupInner {
 /////////////////////
 
 #[derive(Debug, Clone)]
-pub(crate) struct Stats {
+pub struct Stats {
     /// The number of [`Row`]s in each part of the composition
     pub part_len: usize,
 }

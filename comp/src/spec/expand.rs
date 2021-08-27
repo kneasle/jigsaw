@@ -6,12 +6,10 @@ use bellframe::{Row, RowBuf, SameStageVec, Stage};
 use itertools::Itertools;
 
 use crate::{
-    state::{
-        full::{self, FullState},
-        music,
-    },
-    utils::RowLocation,
+    full::{self, FullState},
+    music,
 };
+use jigsaw_utils::RowLocation;
 
 use super::{part_heads::PartHeads, Chunk, CompSpec, Fragment, Method};
 
@@ -20,7 +18,7 @@ type MethodMap = HashMap<*const super::Method, full::Method>;
 /// Convert a [`CompSpec`] to a [`FullComp`] which represents the same composition.  [`FullComp`]
 /// explicitly specifies all the information that is implied by a [`CompSpec`], so this function
 /// essentially computes that extra information.
-pub(in crate::state) fn expand(spec: &CompSpec, music: &[music::Music]) -> FullState {
+pub(crate) fn expand(spec: &CompSpec, music: &[music::Music]) -> FullState {
     // Stats will be accumulated during the expansion process
     let mut stats = full::Stats::default();
 

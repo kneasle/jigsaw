@@ -1,0 +1,8 @@
+[package]
+name = "jigsaw"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+jigsaw_gui.path = "../gui" # We only need to access the `gui` module directly
+eframe = "0.13"

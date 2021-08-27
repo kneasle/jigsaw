@@ -1,14 +1,9 @@
-mod gui;
-mod ser_utils;
-mod state;
-mod utils;
-
 /* Web start-up code */
 
 // Export `gui::Jigsaw::example()` out of the library.  We're really unlikely to ever use this, but
 // exporting it will prevent the compiler from flagging everything as 'dead_code' when we aren't
 // building with `wasm32`.
-pub use gui::JigsawApp;
+pub use jigsaw_gui::JigsawApp;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;

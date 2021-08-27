@@ -11,13 +11,11 @@ use eframe::egui::{
 };
 use itertools::Itertools;
 
-use crate::{
-    state::{
-        full::{ExpandedRow, Fragment},
-        FullState,
-    },
-    utils::RowSource,
+use jigsaw_comp::{
+    full::{ExpandedRow, Fragment},
+    FullState,
 };
+use jigsaw_utils::RowSource;
 
 use super::config::Config;
 

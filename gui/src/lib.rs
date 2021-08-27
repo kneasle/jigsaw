@@ -7,14 +7,12 @@ use eframe::{
     epi,
 };
 
-use crate::{
-    state::{
-        full::{self, MusicGroupInner},
-        spec::part_heads,
-        FullState, State,
-    },
-    utils::RowSource,
+use jigsaw_comp::{
+    full::{self, MusicGroupInner},
+    spec::part_heads,
+    FullState, State,
 };
+use jigsaw_utils::RowSource;
 
 use self::config::Config;
 

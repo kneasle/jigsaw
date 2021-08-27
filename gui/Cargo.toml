@@ -1,0 +1,22 @@
+[package]
+name = "jigsaw_gui"
+version = "0.1.0"
+authors = ["Ben White-Horne <kneasle@gmail.com>"]
+edition = "2018"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# console_error_panic_hook = "0.1"
+# wasm-bindgen = "0.2"
+eframe = "0.13"
+itertools = "0.10"
+
+jigsaw_comp = { path = "../comp" }
+jigsaw_utils = { path = "../utils" }
+
+[dependencies.bellframe]
+path = "../../bellframe/"
+default_features = false # We don't need access to the method library (we'll do that ourselves)
+features = ["serde"] # We do want to be able to serialise types from `Bellframe`

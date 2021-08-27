@@ -19,7 +19,7 @@ pub struct PartHeads {
     /// The string that generated this set of [`PartHeads`].  This is allowed to change, provided
     /// that doing so would not change the value of `self.rows`
     spec: RefCell<String>,
-    #[serde(serialize_with = "crate::ser_utils::ser_rows")]
+    #[serde(serialize_with = "jigsaw_utils::serialisation::ser_rows")]
     rows: Vec<RowBuf>,
     /// A `HashSet` containing the same [`Row`]s as `rows`, used to make lookups more efficient.
     #[serde(skip)]

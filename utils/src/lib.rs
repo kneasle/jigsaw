@@ -1,3 +1,5 @@
+pub mod serialisation;
+
 /// The position of a [`Row`] within the source [`CompSpec`].  This does not specify which part a
 /// [`Row`] occurs in - if you want this behaviour, then use [`RowLocation`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

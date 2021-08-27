@@ -4,7 +4,7 @@ use std::{
 };
 
 use bellframe::{RowBuf, Stage};
-use eframe::egui::Vec2;
+use emath::Vec2;
 use itertools::Itertools;
 
 use self::part_heads::PartHeads;
