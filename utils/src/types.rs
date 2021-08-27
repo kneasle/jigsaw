@@ -7,17 +7,17 @@ use bellframe::Row;
 /// [`RowLocation`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RowSource {
-    pub frag_index: usize,
-    pub row_index: usize,
+    pub frag_index: FragIdx,
+    pub row_index: RowIdx,
 }
 
 /// The position of a [`Row`] within the expanded/`full` composition - i.e. the same as
 /// [`RowSource`], but also specifying the part.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RowLocation {
-    pub frag_index: usize,
-    pub row_index: usize,
-    pub part_index: usize,
+    pub frag_index: FragIdx,
+    pub row_index: RowIdx,
+    pub part_index: PartIdx,
 }
 
 impl RowLocation {
@@ -28,3 +28,15 @@ impl RowLocation {
         }
     }
 }
+
+///////////////////
+// TYPED VECTORS //
+///////////////////
+
+index_vec::define_index_type! { pub struct FragIdx = usize; }
+index_vec::define_index_type! { pub struct RowIdx = usize; }
+index_vec::define_index_type! { pub struct PartIdx = usize; }
+
+pub type FragVec<T> = index_vec::IndexVec<FragIdx, T>;
+pub type RowVec<T> = index_vec::IndexVec<RowIdx, T>;
+pub type PartVec<T> = index_vec::IndexVec<PartIdx, T>;

@@ -5,10 +5,11 @@ authors = ["Ben White-Horne <kneasle@gmail.com>"]
 edition = "2018"
 
 [dependencies]
+emath = "0.13"
+index_vec = "0.1"
 itertools = "0.10"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = "1.0"
-emath = "0.13"
 
 jigsaw_utils = { path = "../utils" }
 

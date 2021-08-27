@@ -7,13 +7,14 @@
 use std::{collections::HashMap, rc::Rc};
 
 use bellframe::{Row, RowBuf, SameStageVec, Stage};
+use index_vec::IndexSlice;
 use itertools::Itertools;
 
 use crate::{
     full::{self, FullState},
     music,
 };
-use jigsaw_utils::types::RowLocation;
+use jigsaw_utils::types::{FragIdx, FragVec, PartIdx, RowLocation, RowVec};
 
 use super::{part_heads::PartHeads, Chunk, CompSpec, Fragment, Method};
 
@@ -47,7 +48,7 @@ pub(crate) fn expand(spec: &CompSpec, music: &[music::Music]) -> FullState {
         .fragments
         .iter()
         .map(|f| expand_fragment(f, &spec.part_heads, &mut method_map, &mut stats))
-        .collect_vec();
+        .collect::<FragVec<_>>();
 
     // Expand music, and add highlight to the musical rows
     let (music_groups, total_count, max_count) =
@@ -83,7 +84,7 @@ fn expand_fragment(
     stats.part_len += fragment.len(); // Update the length
 
     // Expand the fragment's chunks
-    let mut expanded_rows = Vec::<full::ExpandedRow>::with_capacity(fragment.len());
+    let mut expanded_rows = RowVec::<full::ExpandedRow>::with_capacity(fragment.len());
     let mut chunk_start_row = fragment.start_row.as_ref().to_owned();
     for chunk in &fragment.chunks {
         // Update method stats for this chunk
@@ -192,7 +193,7 @@ fn get_rows_per_part(row: &Row, part_heads: &PartHeads) -> SameStageVec {
 /// Recursively expand a sequence of music groups, totalling the number of occurrences
 fn expand_music_groups(
     music: &[music::Music],
-    fragments: &mut [full::Fragment],
+    fragments: &mut IndexSlice<FragIdx, [full::Fragment]>,
     stage: Stage,
 ) -> (Vec<Rc<full::MusicGroup>>, usize, usize) {
     // Expand groups individually
@@ -211,17 +212,18 @@ fn expand_music_groups(
 /// Recursively expand a single [`music::Music`] group
 fn expand_music_group(
     group: &music::Music,
-    fragments: &mut [full::Fragment],
+    fragments: &mut IndexSlice<FragIdx, [full::Fragment]>,
     stage: Stage,
 ) -> full::MusicGroup {
     match group {
         music::Music::Regex(name, regex) => {
             // Compute where this `Regex` is matched in the composition
             let mut rows_matched = Vec::<RowLocation>::new();
-            for (frag_index, frag) in fragments.iter_mut().enumerate() {
-                for (row_index, exp_row) in frag.expanded_rows.iter_mut().enumerate() {
-                    let mut matches_per_part = Vec::<(usize, Vec<usize>)>::new();
+            for (frag_index, frag) in fragments.iter_mut_enumerated() {
+                for (row_index, exp_row) in frag.expanded_rows.iter_mut_enumerated() {
+                    let mut matches_per_part = Vec::<(PartIdx, Vec<usize>)>::new();
                     for (part_index, row) in exp_row.rows.iter().enumerate() {
+                        let part_index = PartIdx::new(part_index);
                         if let Some(matched_places) = regex.match_pattern(row) {
                             // Mark on the music pattern that this row matches it (but only if the
                             // row is proved)

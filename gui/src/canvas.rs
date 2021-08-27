@@ -15,7 +15,7 @@ use jigsaw_comp::{
     full::{ExpandedRow, Fragment},
     FullState,
 };
-use jigsaw_utils::types::RowSource;
+use jigsaw_utils::types::{FragIdx, PartIdx, RowSource};
 
 use super::config::Config;
 
@@ -29,7 +29,7 @@ pub(super) struct Canvas<'a> {
     /// Position of the camera
     pub(super) camera_pos: Pos2,
     pub(super) rows_to_highlight: HashSet<RowSource>,
-    pub(super) part_being_viewed: usize,
+    pub(super) part_being_viewed: PartIdx,
 }
 
 impl<'a> Widget for Canvas<'a> {
@@ -47,7 +47,7 @@ impl<'a> Widget for Canvas<'a> {
             .map(|bell| ui.fonts().layout_single_line(TextStyle::Body, bell.name()))
             .collect_vec();
 
-        for (frag_idx, frag) in self.state.fragments.iter().enumerate() {
+        for (frag_idx, frag) in self.state.fragments.iter_enumerated() {
             self.draw_frag(ui, frag_idx, frag, origin, &bell_name_galleys);
         }
 
@@ -60,7 +60,7 @@ impl<'a> Canvas<'a> {
     fn draw_frag(
         &self,
         ui: &mut Ui,
-        frag_index: usize,
+        frag_index: FragIdx,
         frag: &Fragment,
         origin: Vec2, // Position of the origin in screen space
         bell_name_galleys: &[Arc<Galley>],
@@ -74,7 +74,7 @@ impl<'a> Canvas<'a> {
             .collect();
 
         // Draw the rows
-        for (row_index, exp_row) in frag.expanded_rows.iter().enumerate() {
+        for (row_index, exp_row) in frag.expanded_rows.iter_enumerated() {
             let row_source = RowSource {
                 frag_index,
                 row_index,
@@ -131,13 +131,16 @@ impl<'a> Canvas<'a> {
         }
 
         let music_highlights = row.music_highlights.get(&self.part_being_viewed);
-        for (col_idx, bell) in row.rows[self.part_being_viewed].bell_iter().enumerate() {
+        for (col_idx, bell) in row.rows[self.part_being_viewed.index()]
+            .bell_iter()
+            .enumerate()
+        {
             // Compute coordinate
             let top_left_coord = origin
                 + frag.position
                 + Vec2::new(
                     col_idx as f32 * self.config.col_width,
-                    source.row_index as f32 * self.config.row_height,
+                    source.row_index.index() as f32 * self.config.row_height,
                 );
             let top_left_coord = Pos2::new(top_left_coord.x, top_left_coord.y);
 

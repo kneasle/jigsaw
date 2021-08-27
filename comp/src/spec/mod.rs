@@ -5,7 +5,9 @@ use std::{
 
 use bellframe::{RowBuf, Stage};
 use emath::Vec2;
+use index_vec::index_vec;
 use itertools::Itertools;
+use jigsaw_utils::types::FragVec;
 
 use self::part_heads::PartHeads;
 
@@ -25,7 +27,7 @@ pub struct CompSpec {
     part_heads: Rc<PartHeads>,
     methods: Vec<Rc<Method>>,
     calls: Vec<Rc<Call>>,
-    fragments: Vec<Rc<Fragment>>,
+    fragments: FragVec<Rc<Fragment>>,
 }
 
 impl CompSpec {
@@ -38,7 +40,7 @@ impl CompSpec {
             part_heads: Rc::new(PartHeads::one_part(stage)),
             methods: vec![],
             calls: vec![],
-            fragments: vec![],
+            fragments: index_vec![],
         }
     }
 
@@ -96,7 +98,7 @@ impl CompSpec {
             ),
             methods,
             calls: vec![], // No calls for now
-            fragments: vec![fragment],
+            fragments: index_vec![fragment],
         }
     }
 

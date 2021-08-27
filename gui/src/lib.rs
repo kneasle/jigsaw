@@ -12,7 +12,7 @@ use jigsaw_comp::{
     spec::part_heads,
     FullState, State,
 };
-use jigsaw_utils::types::RowSource;
+use jigsaw_utils::types::{PartIdx, RowSource};
 
 use self::config::Config;
 
@@ -71,7 +71,7 @@ impl epi::App for JigsawApp {
                     config: &self.config,
                     camera_pos: self.camera_pos,
                     rows_to_highlight,
-                    part_being_viewed: 0, // For now, always view the first part
+                    part_being_viewed: PartIdx::new(0), // For now, always view the first part
                 })
             })
             .inner;

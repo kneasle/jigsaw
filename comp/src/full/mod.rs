@@ -5,7 +5,7 @@ use std::{collections::HashMap, rc::Rc};
 use bellframe::{SameStageVec, Stage};
 use emath::Vec2;
 
-use jigsaw_utils::types::{RowLocation, RowSource};
+use jigsaw_utils::types::{FragVec, PartIdx, RowLocation, RowSource, RowVec};
 
 use crate::{
     music,
@@ -27,7 +27,7 @@ use bellframe::Row;
 #[derive(Debug)]
 pub struct FullState {
     pub part_heads: Rc<PartHeads>,
-    pub fragments: Vec<Fragment>,
+    pub fragments: FragVec<Fragment>,
     pub methods: Vec<Method>,
     pub music: Music,
     /// Misc statistics about the composition (e.g. part length)
@@ -63,7 +63,7 @@ pub struct Fragment {
     /// The index of the link group which the bottom of this `Fragment` is connected to
     pub link_group_bottom: Option<usize>,
     /// The `ExpandedRow`s from this `Fragment`.  Each of these contains one [`Row`] per part.
-    pub expanded_rows: Vec<ExpandedRow>,
+    pub expanded_rows: RowVec<ExpandedRow>,
 }
 
 /////////////
@@ -120,7 +120,7 @@ pub struct ExpandedRow {
     /// Do any of these [`Row`]s appear elsewhere in the composition?
     pub is_false: bool,
     /// For each place, for each part, how many leaf music groups match at this location
-    pub music_highlights: HashMap<usize, Vec<usize>>,
+    pub music_highlights: HashMap<PartIdx, Vec<usize>>,
 }
 
 ///////////
