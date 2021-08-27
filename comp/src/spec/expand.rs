@@ -13,7 +13,7 @@ use crate::{
     full::{self, FullState},
     music,
 };
-use jigsaw_utils::RowLocation;
+use jigsaw_utils::types::RowLocation;
 
 use super::{part_heads::PartHeads, Chunk, CompSpec, Fragment, Method};
 

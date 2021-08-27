@@ -15,7 +15,7 @@ use jigsaw_comp::{
     full::{ExpandedRow, Fragment},
     FullState,
 };
-use jigsaw_utils::RowSource;
+use jigsaw_utils::types::RowSource;
 
 use super::config::Config;
 

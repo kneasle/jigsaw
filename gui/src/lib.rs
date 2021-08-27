@@ -12,7 +12,7 @@ use jigsaw_comp::{
     spec::part_heads,
     FullState, State,
 };
-use jigsaw_utils::RowSource;
+use jigsaw_utils::types::RowSource;
 
 use self::config::Config;
 

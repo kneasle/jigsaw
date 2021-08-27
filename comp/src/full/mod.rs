@@ -5,7 +5,7 @@ use std::rc::Rc;
 use bellframe::{SameStageVec, Stage};
 use emath::Vec2;
 
-use jigsaw_utils::{RowLocation, RowSource};
+use jigsaw_utils::types::{RowLocation, RowSource};
 
 use crate::{
     music,
@@ -72,7 +72,7 @@ pub struct Fragment {
 
 #[derive(Debug, Clone)]
 pub struct Method {
-    pub(crate) source: Rc<spec::Method>, // Accessed through `Deref` coercion
+    pub(crate) source: Rc<spec::Method>,
     /// Total number of [`Row`]s assigned to this [`Method`]
     pub num_rows: usize,
     /// Number of proved [`Row`]s assigned to this [`Method`]
