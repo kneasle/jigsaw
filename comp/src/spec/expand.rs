@@ -117,9 +117,10 @@ fn expand_fragment(
                 // Create an iterator over the rows in this chunk
                 let mut iter = first_lead.repeat_iter(first_lead_head).unwrap();
                 // Consume the right number of rows from it
-                let mut row_buf = RowBuf::rounds(Stage::ONE);
+                let mut row_buf = RowBuf::rounds(Stage::ONE); // Temporary buffer to avoid allocations
                 for _ in 0..*length {
-                    iter.next_into(&mut row_buf)
+                    let (sub_lead_idx, annot) = iter
+                        .next_into(&mut row_buf)
                         .expect("Method should have non-zero lead length");
                     expanded_rows.push(expand_row(&row_buf, part_heads, fragment.is_proved));
                 }
@@ -143,9 +144,9 @@ fn expand_fragment(
 
     full::Fragment {
         position: fragment.position(),
+        expanded_rows,
         link_group_top: None,    // Link groups will be filled later
         link_group_bottom: None, // Link groups will be filled later
-        expanded_rows,
     }
 }
 
