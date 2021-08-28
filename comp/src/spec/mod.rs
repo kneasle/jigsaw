@@ -1,5 +1,6 @@
 use std::{
     cell::{Cell, Ref, RefCell},
+    collections::HashSet,
     rc::Rc,
 };
 
@@ -51,7 +52,7 @@ impl CompSpec {
 
         /// Create a new [`Method`] by parsing a string of place notation
         fn gen_method(shorthand: &str, name: &str, pn_str: &str) -> Rc<Method> {
-            let method = Method::new(
+            let method = Method::with_lead_end_ruleoff(
                 bellframe::Method::from_place_not_string(String::new(), STAGE, pn_str).unwrap(),
                 name.to_owned(),
                 shorthand.to_string(),
@@ -211,16 +212,36 @@ pub(crate) struct Method {
     /// Surprise Major"` would have name `"Bristol"`.
     name: RefCell<String>,
     /// A short string which denotes this Method.  There are no restrictions on this - they do not
-    /// even have to be unique (since the rows store their corresponding method through an [`Rc`]).
+    /// even have to be unique or non-empty (since the rows store their corresponding method
+    /// through an [`Rc`]).  For example, `B` is often used as a shorthand for `"Bristol Surprise
+    /// Major"`.
     shorthand: RefCell<String>,
+    /// Which locations in the lead should have lines drawn **below** them
+    ruleoffs: HashSet<usize>, // TODO: Use a bitmask
 }
 
 impl Method {
-    fn new(inner: bellframe::Method, name: String, shorthand: String) -> Self {
+    fn with_lead_end_ruleoff(inner: bellframe::Method, name: String, shorthand: String) -> Self {
+        let lead_len = inner.lead_len();
+        Self::new(
+            inner,
+            name,
+            shorthand,
+            std::iter::once(lead_len - 1).collect(),
+        )
+    }
+
+    fn new(
+        inner: bellframe::Method,
+        name: String,
+        shorthand: String,
+        ruleoffs: HashSet<usize>,
+    ) -> Self {
         Self {
             inner,
             name: RefCell::new(name),
             shorthand: RefCell::new(shorthand),
+            ruleoffs,
         }
     }
 
