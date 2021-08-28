@@ -5,4 +5,4 @@ edition = "2018"
 
 [dependencies]
 jigsaw_gui.path = "../gui" # We only need to access the `gui` module directly
-eframe = "0.13"
+eframe = "0.14"

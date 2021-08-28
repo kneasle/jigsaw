@@ -21,15 +21,15 @@ use super::config::Config;
 
 /// A [`Widget`] which renders the canvas-style view of the composition being edited
 #[derive(Debug)]
-pub(super) struct Canvas<'a> {
+pub(crate) struct Canvas<'a> {
     /// The [`FullState`] of the composition currently being viewed
-    pub(super) state: &'a FullState,
+    pub(crate) state: &'a FullState,
     /// Configuration & styling for the GUI
-    pub(super) config: &'a Config,
+    pub(crate) config: &'a Config,
     /// Position of the camera
-    pub(super) camera_pos: Pos2,
-    pub(super) rows_to_highlight: HashSet<RowSource>,
-    pub(super) part_being_viewed: PartIdx,
+    pub(crate) camera_pos: Pos2,
+    pub(crate) rows_to_highlight: HashSet<RowSource>,
+    pub(crate) part_being_viewed: PartIdx,
 }
 
 impl<'a> Widget for Canvas<'a> {
@@ -37,7 +37,7 @@ impl<'a> Widget for Canvas<'a> {
         let size = ui.available_size_before_wrap_finite();
         let (rect, response) = ui.allocate_exact_size(size, Sense::click_and_drag());
 
-        let origin = rect.min - self.camera_pos;
+        let origin = rect.min - self.camera_pos.to_vec2();
 
         // Generate 'Galley's for every bell upfront, placing them in a lookup table when rendering
         let bell_name_galleys = self
@@ -56,22 +56,46 @@ impl<'a> Widget for Canvas<'a> {
 }
 
 impl<'a> Canvas<'a> {
-    /// Draw a [`Fragment`] to the display
+    /// Draw a [`Fragment`] to the display, returning the bounding [`Rect`] of this [`Fragment`]
+    /// **in screen space**.
     fn draw_frag(
         &self,
         ui: &mut Ui,
         frag_index: FragIdx,
         frag: &Fragment,
-        origin: Vec2, // Position of the origin in screen space
+        origin: Pos2, // Position of the origin in screen space
         bell_name_galleys: &[Arc<Galley>],
-    ) {
-        // Which bells' paths are currently being drawn
+    ) -> Rect {
+        // Create empty line paths for each bell which should be drawn as lines.  These will be
+        // extended during row drawing, and then all rendered at the end.
         let mut lines: HashMap<_, _> = self
             .config
             .bell_lines
             .iter()
             .map(|(&bell, &(width, color))| (bell, (width, color, Vec::<Pos2>::new())))
             .collect();
+
+        // The unpadded rectangle containing all the rows
+        let frag_rows_bbox = Rect::from_min_size(
+            origin + frag.position,
+            Vec2::new(
+                self.config.col_width * self.state.stage.num_bells() as f32,
+                // TODO: This doesn't take row folding into account - once row folding is
+                // implemented, this will become incorrect
+                self.config.row_height * frag.expanded_rows.len() as f32,
+            ),
+        );
+        // The bounding box of the fragment **after** padding has been added.  This is used for
+        // detecting mouse input and is used to draw the backing rectangle
+        let padded_bbox = frag_rows_bbox.expand2(self.config.frag_padding_vec());
+
+        // Draw the background rect
+        ui.painter().add(Shape::Rect {
+            rect: padded_bbox,
+            corner_radius: 0.0,
+            fill: Color32::BLACK,
+            stroke: Stroke::none(),
+        });
 
         // Draw the rows
         for (row_index, exp_row) in frag.expanded_rows.iter_enumerated() {
@@ -81,17 +105,16 @@ impl<'a> Canvas<'a> {
             };
             self.draw_row(
                 ui,
-                frag,
+                frag_rows_bbox.min,
                 row_source,
                 exp_row,
-                origin,
                 bell_name_galleys,
                 &mut lines,
             );
         }
 
-        // Render lines, always in increasing order (otherwise the non-determinism makes the
-        // lines appear to flicker)
+        // Render lines, always in increasing order of bell (otherwise HashMap's non-determinism
+        // makes the lines appear to flicker)
         let mut lines = lines.into_iter().collect_vec();
         lines.sort_by_key(|(k, _)| *k);
         for (_bell, (width, color, points)) in lines {
@@ -105,16 +128,18 @@ impl<'a> Canvas<'a> {
                 },
             });
         }
+
+        // Return the bbox which should be used for collision detection
+        padded_bbox
     }
 
     #[allow(clippy::too_many_arguments)]
     fn draw_row(
         &self,
         ui: &mut Ui,
-        frag: &Fragment,
+        screen_space_frag_pos: Pos2,
         source: RowSource,
         row: &ExpandedRow,
-        origin: Vec2,
         bell_name_galleys: &[Arc<Galley>],
         lines: &mut HashMap<Bell, (f32, Color32, Vec<Pos2>)>,
     ) {
@@ -135,22 +160,20 @@ impl<'a> Canvas<'a> {
             .bell_iter()
             .enumerate()
         {
-            // Compute coordinate
-            let top_left_coord = origin
-                + frag.position
-                + Vec2::new(
-                    col_idx as f32 * self.config.col_width,
-                    source.row_index.index() as f32 * self.config.row_height,
-                );
-            let top_left_coord = Pos2::new(top_left_coord.x, top_left_coord.y);
+            // Compute the screen-space rectangle covered by this bell
+            let rect = Rect::from_min_size(
+                screen_space_frag_pos
+                    + Vec2::new(
+                        col_idx as f32 * self.config.col_width,
+                        source.row_index.index() as f32 * self.config.row_height,
+                    ),
+                self.config.bell_box_size(),
+            );
 
             // Draw music highlight
             if music_highlights.map_or(false, |counts| counts[col_idx] > 0) {
                 ui.painter().add(Shape::Rect {
-                    rect: Rect::from_min_size(
-                        top_left_coord,
-                        Vec2::new(self.config.col_width, self.config.row_height),
-                    ),
+                    rect,
                     corner_radius: 0.0,
                     fill: Color32::from_rgb(50, 100, 0),
                     stroke: Stroke::none(),
@@ -159,13 +182,11 @@ impl<'a> Canvas<'a> {
             // Draw text or add point to line
             if let Some((_, _, points)) = lines.get_mut(&bell) {
                 // If this bell is part of a line, then add this location to the line path
-                points.push(
-                    top_left_coord + Vec2::new(self.config.col_width, self.config.row_height) / 2.0,
-                );
+                points.push(rect.center());
             } else {
                 // If this bell isn't part of a line, then render it as text
                 ui.painter().add(Shape::Text {
-                    pos: top_left_coord
+                    pos: rect.min
                         + Vec2::new(
                             self.config.col_width * self.config.text_pos_x,
                             self.config.row_height * self.config.text_pos_y,
