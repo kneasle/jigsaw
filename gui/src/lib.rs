@@ -2,6 +2,7 @@
 
 use std::{collections::HashSet, rc::Rc};
 
+use canvas::FragHover;
 use eframe::{
     egui::{self, Color32, PointerButton, Pos2, Response, Ui, Vec2},
     epi,
@@ -58,12 +59,15 @@ impl epi::App for JigsawApp {
     }
 
     fn update(&mut self, ctx: &egui::CtxRef, _frame: &mut epi::Frame<'_>) {
-        // Draw right-hand panel
+        // Draw right-hand panel, and use the mouse hovering to decide which rows should be
+        // highlighted
         let rows_to_highlight = egui::SidePanel::right("side_panel")
             .show(ctx, |ui| self.draw_side_panel(ui))
             .inner;
 
-        // Draw main canvas, making any side effects if necessary
+        // Draw the main canvas, determining which fragment is being hovered (and the corresponding
+        // position).
+        let mut frag_hover = None;
         let canvas_response = egui::CentralPanel::default()
             .show(ctx, |ui| {
                 ui.add(canvas::Canvas {
@@ -72,12 +76,13 @@ impl epi::App for JigsawApp {
                     camera_pos: self.camera_pos,
                     rows_to_highlight,
                     part_being_viewed: PartIdx::new(0), // For now, always view the first part
+                    frag_hover: &mut frag_hover,        // Used to pass values out of `ui.add`
                 })
             })
             .inner;
 
         // Handle inputs, and mutate `self` for the next frame
-        self.handle_input(ctx, canvas_response);
+        self.handle_input(ctx, canvas_response, frag_hover);
     }
 
     fn max_size_points(&self) -> egui::Vec2 {
@@ -91,7 +96,12 @@ impl JigsawApp {
     ////////////////////
 
     /// Handle all input for this frame
-    fn handle_input(&mut self, ctx: &egui::CtxRef, canvas_response: Response) {
+    fn handle_input(
+        &mut self,
+        ctx: &egui::CtxRef,
+        canvas_response: Response,
+        frag_hover: Option<FragHover>,
+    ) {
         // Keyboard events
         for evt in &ctx.input().events {
             if let egui::Event::Key {
@@ -100,8 +110,8 @@ impl JigsawApp {
                 modifiers,
             } = *evt
             {
-                if !ctx.wants_keyboard_input() {
-                    self.handle_key_input(key, pressed, modifiers);
+                if !ctx.wants_keyboard_input() && pressed {
+                    self.handle_key_press(key, modifiers, frag_hover.as_ref());
                 }
             }
         }
@@ -112,28 +122,40 @@ impl JigsawApp {
         }
     }
 
-    /// Handle a keyboard input signal that **isn't** captured by [`egui`] itself
-    fn handle_key_input(&mut self, key: egui::Key, pressed: bool, modifiers: egui::Modifiers) {
+    /// Handle a keyboard key being pressed down
+    fn handle_key_press(
+        &mut self,
+        key: egui::Key,
+        modifiers: egui::Modifiers,
+        frag_hover: Option<&FragHover>,
+    ) {
         use egui::Key::*;
 
-        if pressed {
-            // z with any set of modifiers is undo
-            if key == Z && !modifiers.shift {
-                self.state.undo();
-                // Update the part head box, since we have potentially changed the part heads.  If
-                // we don't do this, then the code will notice that the contents of the part head
-                // box is different to the current part heads, and promptly creates a new undo step
-                // to change them.
-                self.part_head_str = self.full_state().part_heads.spec_string();
-            }
-            // Z, y or Y with any set of modifiers is redo
-            if (key == Z && modifiers.shift) || key == Y {
-                self.state.redo();
-                // Update the part head box, since we have potentially changed the part heads.  If
-                // we don't do this, then the code will notice that the contents of the part head
-                // box is different to the current part heads, and promptly creates a new undo step
-                // to change them.
-                self.part_head_str = self.full_state().part_heads.spec_string();
+        // z with any set of modifiers is undo
+        if key == Z && !modifiers.shift {
+            self.state.undo();
+            // Update the part head box, since we have potentially changed the part heads.  If
+            // we don't do this, then the code will notice that the contents of the part head
+            // box is different to the current part heads, and promptly creates a new undo step
+            // to change them.
+            self.part_head_str = self.full_state().part_heads.spec_string();
+        }
+        // Z, y or Y with any set of modifiers is redo
+        if (key == Z && modifiers.shift) || key == Y {
+            self.state.redo();
+            // Update the part head box, since we have potentially changed the part heads.  If
+            // we don't do this, then the code will notice that the contents of the part head
+            // box is different to the current part heads, and promptly creates a new undo step
+            // to change them.
+            self.part_head_str = self.full_state().part_heads.spec_string();
+        }
+
+        // Actions which apply to the fragment under the cursor
+        if let Some(frag_hover) = frag_hover {
+            // d or D to delete the fragment under the cursor
+            if key == D {
+                self.state
+                    .apply_edit(|spec| spec.delete_fragment(frag_hover.frag_idx()));
             }
         }
     }

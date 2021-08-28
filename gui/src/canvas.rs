@@ -30,6 +30,7 @@ pub(crate) struct Canvas<'a> {
     pub(crate) camera_pos: Pos2,
     pub(crate) rows_to_highlight: HashSet<RowSource>,
     pub(crate) part_being_viewed: PartIdx,
+    pub(crate) frag_hover: &'a mut Option<FragHover>,
 }
 
 impl<'a> Widget for Canvas<'a> {
@@ -39,7 +40,9 @@ impl<'a> Widget for Canvas<'a> {
 
         let origin = rect.min - self.camera_pos.to_vec2();
 
-        // Generate 'Galley's for every bell upfront, placing them in a lookup table when rendering
+        // Generate 'Galley's for every bell upfront, placing them in a lookup table when
+        // rendering.  This way, the text layout only gets calculated once which (marginally)
+        // increases performance and keeps the code in one place.
         let bell_name_galleys = self
             .state
             .stage
@@ -48,7 +51,45 @@ impl<'a> Widget for Canvas<'a> {
             .collect_vec();
 
         for (frag_idx, frag) in self.state.fragments.iter_enumerated() {
-            self.draw_frag(ui, frag_idx, frag, origin, &bell_name_galleys);
+            /* Compute bboxes */
+
+            // The unpadded rectangle containing all the rows
+            let row_bbox = Rect::from_min_size(
+                origin + frag.position,
+                Vec2::new(
+                    self.config.col_width * self.state.stage.num_bells() as f32,
+                    // TODO: This doesn't take row folding into account - once row folding is
+                    // implemented, this will become incorrect
+                    self.config.row_height * frag.expanded_rows.len() as f32,
+                ),
+            );
+            // The bounding box of the fragment **after** padding has been added.  This is used for
+            // detecting mouse input and is used to draw the backing rectangle
+            let padded_bbox = row_bbox.expand2(self.config.frag_padding_vec());
+
+            /* Draw fragment */
+
+            self.draw_frag(
+                ui,
+                frag_idx,
+                frag,
+                row_bbox,
+                padded_bbox,
+                &bell_name_galleys,
+            );
+
+            // If the cursor is hovering this fragment, then save its position.  When the user
+            // presses a key, this position is used by the input handling code to determine which
+            // fragment/row should receive the input.
+            if let Some(mouse_pos) = ui.ctx().input().pointer.hover_pos() {
+                if padded_bbox.contains(mouse_pos) {
+                    let mouse_indices_float =
+                        (mouse_pos - row_bbox.min) / self.config.bell_box_size();
+                    // Overwrite the `frag_hover` with this fragment.  This way, the top-most
+                    // fragment will take any user input
+                    *self.frag_hover = Some(FragHover::new(frag_idx, mouse_indices_float));
+                }
+            }
         }
 
         response
@@ -63,9 +104,10 @@ impl<'a> Canvas<'a> {
         ui: &mut Ui,
         frag_index: FragIdx,
         frag: &Fragment,
-        origin: Pos2, // Position of the origin in screen space
+        row_bbox: Rect,    // The bbox containing the rows of this fragment
+        padded_bbox: Rect, // The bbox which adds padding round the rows
         bell_name_galleys: &[Arc<Galley>],
-    ) -> Rect {
+    ) {
         // Create empty line paths for each bell which should be drawn as lines.  These will be
         // extended during row drawing, and then all rendered at the end.
         let mut lines: HashMap<_, _> = self
@@ -74,20 +116,6 @@ impl<'a> Canvas<'a> {
             .iter()
             .map(|(&bell, &(width, color))| (bell, (width, color, Vec::<Pos2>::new())))
             .collect();
-
-        // The unpadded rectangle containing all the rows
-        let frag_rows_bbox = Rect::from_min_size(
-            origin + frag.position,
-            Vec2::new(
-                self.config.col_width * self.state.stage.num_bells() as f32,
-                // TODO: This doesn't take row folding into account - once row folding is
-                // implemented, this will become incorrect
-                self.config.row_height * frag.expanded_rows.len() as f32,
-            ),
-        );
-        // The bounding box of the fragment **after** padding has been added.  This is used for
-        // detecting mouse input and is used to draw the backing rectangle
-        let padded_bbox = frag_rows_bbox.expand2(self.config.frag_padding_vec());
 
         // Draw the background rect
         ui.painter().add(Shape::Rect {
@@ -105,7 +133,7 @@ impl<'a> Canvas<'a> {
             };
             self.draw_row(
                 ui,
-                frag_rows_bbox.min,
+                row_bbox.min,
                 row_source,
                 exp_row,
                 bell_name_galleys,
@@ -128,9 +156,6 @@ impl<'a> Canvas<'a> {
                 },
             });
         }
-
-        // Return the bbox which should be used for collision detection
-        padded_bbox
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -197,5 +222,26 @@ impl<'a> Canvas<'a> {
                 });
             }
         }
+    }
+}
+
+/// The location of a mouse hovering within a [`Fragment`]
+#[derive(Debug, Clone)]
+pub(crate) struct FragHover {
+    frag_idx: FragIdx,
+    /// The possibly fractional (column, row) indices of the point under the cursor
+    mouse_indices_float: Vec2,
+}
+
+impl FragHover {
+    pub fn new(frag_idx: FragIdx, mouse_indices_float: Vec2) -> Self {
+        Self {
+            frag_idx,
+            mouse_indices_float,
+        }
+    }
+
+    pub fn frag_idx(&self) -> FragIdx {
+        self.frag_idx
     }
 }

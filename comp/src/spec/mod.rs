@@ -7,14 +7,14 @@ use bellframe::{RowBuf, Stage};
 use emath::Vec2;
 use index_vec::index_vec;
 use itertools::Itertools;
-use jigsaw_utils::types::FragVec;
+use jigsaw_utils::types::{FragIdx, FragVec};
 
 use self::part_heads::PartHeads;
 
 mod expand;
 pub mod part_heads;
 
-pub(super) use expand::expand;
+pub(crate) use expand::expand;
 
 /// The minimal but complete specification for a (partial) composition.  `CompSpec` is used for
 /// undo history, and is designed to be a very compact representation which is cheap to clone and
@@ -30,6 +30,7 @@ pub struct CompSpec {
     fragments: FragVec<Rc<Fragment>>,
 }
 
+// This `impl` block is the entire public surface of `CompSpec`
 impl CompSpec {
     /// Creates a [`CompSpec`] with a given [`Stage`] but no [`PartHeads`], [`Method`]s, [`Call`]s
     /// or [`Fragment`]s.
@@ -102,9 +103,11 @@ impl CompSpec {
         }
     }
 
-    /////////////
-    // SETTERS //
-    /////////////
+    /////////////////////////
+    // MODIFIERS & ACTIONS //
+    /////////////////////////
+
+    // All modifiers and actions will create steps in the undo history
 
     /// Overwrites the [`PartHeads`] of `self`.
     ///
@@ -115,11 +118,20 @@ impl CompSpec {
         assert_eq!(self.stage, part_heads.stage());
         self.part_heads = Rc::new(part_heads);
     }
+
+    /// Deletes the [`Fragment`] with a given [`FragIdx`]
+    ///
+    /// # Panics
+    ///
+    /// Panics if no [`Fragment`] has the given [`FragIdx`]
+    pub fn delete_fragment(&mut self, frag_idx: FragIdx) {
+        self.fragments.remove(frag_idx);
+    }
 }
 
 /// A single `Fragment` of composition.
 #[derive(Debug, Clone)]
-pub(super) struct Fragment {
+pub(crate) struct Fragment {
     /// The on-screen location of the top-left corner of the top row this `Frag`
     position: Vec2,
     start_row: Rc<RowBuf>,
@@ -145,7 +157,7 @@ impl Fragment {
 /// A `Chunk` of a [`Fragment`], consisting of either a contiguous segment of a [`Method`] or a
 /// [`Call`] rung all the way through
 #[derive(Debug, Clone)]
-pub(super) enum Chunk {
+enum Chunk {
     Method {
         method: Rc<Method>,
         start_sub_lead_index: usize,
