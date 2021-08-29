@@ -46,10 +46,10 @@ impl FullState {
         let expanded_frags = spec.expand_fragments();
         from_expanded_frags::from_expanded_frags(
             expanded_frags,
-            &spec.methods,
-            spec.part_heads.clone(),
+            &spec.methods(),
+            spec.part_heads().clone(),
             music,
-            spec.stage,
+            spec.stage(),
         )
     }
 

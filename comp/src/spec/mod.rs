@@ -10,7 +10,7 @@ use bellframe::{AnnotBlock, RowBuf, Stage};
 use emath::Pos2;
 use index_vec::index_vec;
 use itertools::Itertools;
-use jigsaw_utils::types::{FragIdx, FragVec, MethodVec, RowVec};
+use jigsaw_utils::types::{FragIdx, FragVec, MethodSlice, MethodVec, RowVec};
 
 use crate::expanded_frag::{ExpandedFrag, RowData};
 
@@ -23,26 +23,29 @@ use self::part_heads::PartHeads;
 /// large amount of redundant information).
 #[derive(Debug, Clone)]
 pub struct CompSpec {
-    // TODO: Make these non-pub
-    pub(crate) stage: Stage,
-    pub(crate) part_heads: Rc<PartHeads>,
-    pub(crate) methods: MethodVec<Rc<Method>>,
-    calls: Vec<Rc<Call>>,
     fragments: FragVec<Rc<Fragment>>,
+    part_heads: Rc<PartHeads>,
+    methods: MethodVec<Rc<Method>>,
+    calls: Vec<Rc<Call>>,
+    stage: Stage,
 }
 
 // This `impl` block is the entire public surface of `CompSpec`
 impl CompSpec {
+    //////////////////
+    // CONSTRUCTORS //
+    //////////////////
+
     /// Creates a [`CompSpec`] with a given [`Stage`] but no [`PartHeads`], [`Method`]s, [`Call`]s
     /// or [`Fragment`]s.
     #[allow(dead_code)]
     pub fn empty(stage: Stage) -> Self {
         CompSpec {
-            stage,
+            fragments: index_vec![],
             part_heads: Rc::new(PartHeads::one_part(stage)),
             methods: index_vec![],
             calls: vec![],
-            fragments: index_vec![],
+            stage,
         }
     }
 
@@ -104,11 +107,27 @@ impl CompSpec {
         }
     }
 
+    ////////////////////////////
+    // GETTERS/EXPANSION CODE //
+    ////////////////////////////
+
     pub(crate) fn expand_fragments(&self) -> FragVec<ExpandedFrag> {
         self.fragments
             .iter()
             .map(|f| f.expand(&self.part_heads))
             .collect()
+    }
+
+    pub(crate) fn part_heads(&self) -> &Rc<PartHeads> {
+        &self.part_heads
+    }
+
+    pub(crate) fn methods(&self) -> &MethodSlice<Rc<Method>> {
+        &self.methods
+    }
+
+    pub(crate) fn stage(&self) -> Stage {
+        self.stage
     }
 
     /////////////////////////
