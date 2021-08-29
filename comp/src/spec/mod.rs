@@ -1,21 +1,20 @@
+pub mod part_heads;
+
 use std::{
     cell::{Cell, Ref, RefCell},
     collections::HashSet,
     rc::Rc,
 };
 
-use bellframe::{RowBuf, Stage};
-use emath::Vec2;
+use bellframe::{AnnotBlock, RowBuf, Stage};
+use emath::Pos2;
 use index_vec::index_vec;
 use itertools::Itertools;
-use jigsaw_utils::types::{FragIdx, FragVec};
+use jigsaw_utils::types::{FragIdx, FragVec, MethodVec, RowVec};
+
+use crate::expanded_frag::{ExpandedFrag, RowData};
 
 use self::part_heads::PartHeads;
-
-mod expand;
-pub mod part_heads;
-
-pub(crate) use expand::expand;
 
 /// The minimal but complete specification for a (partial) composition.  `CompSpec` is used for
 /// undo history, and is designed to be a very compact representation which is cheap to clone and
@@ -24,9 +23,10 @@ pub(crate) use expand::expand;
 /// large amount of redundant information).
 #[derive(Debug, Clone)]
 pub struct CompSpec {
-    stage: Stage,
-    part_heads: Rc<PartHeads>,
-    methods: Vec<Rc<Method>>,
+    // TODO: Make these non-pub
+    pub(crate) stage: Stage,
+    pub(crate) part_heads: Rc<PartHeads>,
+    pub(crate) methods: MethodVec<Rc<Method>>,
     calls: Vec<Rc<Call>>,
     fragments: FragVec<Rc<Fragment>>,
 }
@@ -40,7 +40,7 @@ impl CompSpec {
         CompSpec {
             stage,
             part_heads: Rc::new(PartHeads::one_part(stage)),
-            methods: vec![],
+            methods: index_vec![],
             calls: vec![],
             fragments: index_vec![],
         }
@@ -61,7 +61,7 @@ impl CompSpec {
         }
 
         // The methods used in the composition
-        let methods = vec![
+        let methods = index_vec![
             /* 0. */ gen_method("D", "Deva", "-58-14.58-58.36-14-58-36-18,18"),
             /* 1. */ gen_method("B", "Bristol", "-58-14.58-58.36.14-14.58-14-18,18"),
             /* 2. */ gen_method("E", "Lessness", "-38-14-56-16-12-58-14-58,12"),
@@ -87,7 +87,7 @@ impl CompSpec {
             .collect_vec();
 
         let fragment = Rc::new(Fragment {
-            position: Vec2::new(200.0, 100.0),
+            position: Pos2::new(200.0, 100.0),
             start_row: Rc::new(RowBuf::rounds(STAGE)),
             chunks,
             is_proved: true,
@@ -102,6 +102,13 @@ impl CompSpec {
             calls: vec![], // No calls for now
             fragments: index_vec![fragment],
         }
+    }
+
+    pub(crate) fn expand_fragments(&self) -> FragVec<ExpandedFrag> {
+        self.fragments
+            .iter()
+            .map(|f| f.expand(&self.part_heads))
+            .collect()
     }
 
     /////////////////////////
@@ -134,7 +141,7 @@ impl CompSpec {
 #[derive(Debug, Clone)]
 pub(crate) struct Fragment {
     /// The on-screen location of the top-left corner of the top row this `Frag`
-    position: Vec2,
+    position: Pos2,
     start_row: Rc<RowBuf>,
     /// A sequence of [`Chunk`]s that make up this `Fragment`
     chunks: Vec<Rc<Chunk>>,
@@ -144,10 +151,6 @@ pub(crate) struct Fragment {
 }
 
 impl Fragment {
-    pub fn position(&self) -> Vec2 {
-        self.position
-    }
-
     /// Gets the number of non-leftover [`Row`]s in this [`Fragment`] in one part of the
     /// composition.
     pub fn len(&self) -> usize {
@@ -264,4 +267,97 @@ pub(crate) struct Call {
 #[derive(Debug, Clone)]
 pub(crate) struct Fold {
     is_open: Cell<bool>,
+}
+
+///////////////
+// EXPANSION //
+///////////////
+
+impl Fragment {
+    fn expand(&self, part_heads: &PartHeads) -> ExpandedFrag {
+        let mut rows_in_one_part = AnnotBlock::<()>::empty(self.start_row.stage());
+        rows_in_one_part.pre_multiply(&self.start_row).unwrap(); // Set the start row of the first chunk
+        let mut row_data = RowVec::<RowData>::with_capacity(self.len() + 1);
+        // Expand the chunks for a single part (i.e. the part with a part head of rounds)
+        for chunk in &self.chunks {
+            chunk.expand_one_part(&mut rows_in_one_part, &mut row_data, self.is_proved);
+        }
+        // Create row data for the leftover row
+        row_data.push(RowData {
+            method_source: None,
+            call_source: None,
+            is_proved: false, // leftover rows are never proved
+        });
+        // Expand the rows across the part heads, thus generating the rows in each part
+        ExpandedFrag::from_single_part(
+            rows_in_one_part.into_row_vec(),
+            row_data,
+            self.is_proved,
+            self.position,
+            part_heads,
+        )
+    }
+}
+
+impl Chunk {
+    fn expand_one_part(
+        &self,
+        rows_in_one_part: &mut AnnotBlock<()>,
+        row_data: &mut RowVec<RowData>,
+        is_proved: bool,
+    ) {
+        match self {
+            Chunk::Method {
+                method,
+                start_sub_lead_index,
+                length,
+            } => {
+                let unannotated_first_lead = method
+                    .inner
+                    .first_lead()
+                    .clone_map_annots_with_index(|_, _| ()); // PERF: Compute this once per method
+                let lead_len = method.inner.lead_len();
+                // Extend row data
+                row_data.extend((0..*length).map(|i| {
+                    let sub_lead_idx = (*start_sub_lead_index + i) % lead_len;
+                    RowData {
+                        method_source: Some((method.clone(), sub_lead_idx)),
+                        call_source: None,
+                        is_proved,
+                    }
+                }));
+                // Extend rows a lead at a time
+                let mut start_sub_lead_index = *start_sub_lead_index;
+                let mut length_left_to_add = *length;
+                // While there's more length to be added ...
+                while length_left_to_add > 0 {
+                    // ... extend rows by either `length` rows or until the Method's lead repeats
+                    // (whichever appears sooner).
+                    let end_sub_lead_index =
+                        std::cmp::min(start_sub_lead_index + length_left_to_add, lead_len);
+                    let sub_lead_range = start_sub_lead_index..end_sub_lead_index;
+                    rows_in_one_part
+                        .extend_range(&unannotated_first_lead, sub_lead_range)
+                        .unwrap();
+                    // Update vars for next loop iteration
+                    let num_rows_added = end_sub_lead_index - start_sub_lead_index;
+                    length_left_to_add -= num_rows_added;
+                    start_sub_lead_index = 0; // After the first iteration, we always start chunks
+                                              // at lead ends
+                }
+            }
+            Chunk::Call {
+                call,
+                method: _,
+                start_sub_lead_index: _,
+            } => {
+                let block = call.inner.block();
+                // TODO: Extend row data
+                // Extend rows
+                rows_in_one_part.extend(block).unwrap();
+                // Update the start row of the next chunk
+                todo!()
+            }
+        }
+    }
 }

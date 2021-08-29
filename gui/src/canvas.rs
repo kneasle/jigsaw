@@ -5,14 +5,13 @@ use std::{
     sync::Arc,
 };
 
-use bellframe::Bell;
+use bellframe::{Bell, Row};
 use eframe::egui::{
     epaint::Galley, Color32, Pos2, Rect, Rgba, Sense, Shape, Stroke, TextStyle, Ui, Vec2, Widget,
 };
 use itertools::Itertools;
-
 use jigsaw_comp::{
-    full::{ExpandedRow, Fragment},
+    full::{Fragment, RowData},
     FullState,
 };
 use jigsaw_utils::types::{FragIdx, PartIdx, RowSource};
@@ -55,12 +54,12 @@ impl<'a> Widget for Canvas<'a> {
 
             // The unpadded rectangle containing all the rows
             let row_bbox = Rect::from_min_size(
-                origin + frag.position,
+                origin + frag.position.to_vec2(),
                 Vec2::new(
                     self.config.col_width * self.state.stage.num_bells() as f32,
                     // TODO: This doesn't take row folding into account - once row folding is
                     // implemented, this will become incorrect
-                    self.config.row_height * frag.expanded_rows.len() as f32,
+                    self.config.row_height * frag.num_rows() as f32,
                 ),
             );
             // The bounding box of the fragment **after** padding has been added.  This is used for
@@ -104,7 +103,7 @@ impl<'a> Canvas<'a> {
         ui: &mut Ui,
         frag_index: FragIdx,
         frag: &Fragment,
-        row_bbox: Rect,    // The bbox containing the rows of this fragment
+        rows_bbox: Rect,   // The bbox containing the rows of this fragment
         padded_bbox: Rect, // The bbox which adds padding round the rows
         bell_name_galleys: &[Arc<Galley>],
     ) {
@@ -126,16 +125,18 @@ impl<'a> Canvas<'a> {
         });
 
         // Draw the rows
-        for (row_index, exp_row) in frag.expanded_rows.iter_enumerated() {
+        for (row_index, row, music_counts, data) in frag.rows_in_part(self.part_being_viewed) {
             let row_source = RowSource {
                 frag_index,
                 row_index,
             };
             self.draw_row(
                 ui,
-                row_bbox.min,
+                rows_bbox.min,
                 row_source,
-                exp_row,
+                row,
+                music_counts,
+                data,
                 bell_name_galleys,
                 &mut lines,
             );
@@ -164,7 +165,9 @@ impl<'a> Canvas<'a> {
         ui: &mut Ui,
         screen_space_frag_pos: Pos2,
         source: RowSource,
-        row: &ExpandedRow,
+        row: &Row,
+        music_highlights: &[u8],
+        data: &RowData,
         bell_name_galleys: &[Arc<Galley>],
         lines: &mut HashMap<Bell, (f32, Color32, Vec<Pos2>)>,
     ) {
@@ -176,15 +179,11 @@ impl<'a> Canvas<'a> {
         if !is_highlighted {
             opacity *= 0.5; // Fade out non-highlighted rows
         }
-        if !row.is_proved {
+        if !data.is_proved {
             opacity *= 0.5; // Also fade out non-proved rows
         }
 
-        let music_highlights = row.music_highlights.get(&self.part_being_viewed);
-        for (col_idx, bell) in row.rows[self.part_being_viewed.index()]
-            .bell_iter()
-            .enumerate()
-        {
+        for (col_idx, bell) in row.bell_iter().enumerate() {
             // Compute the screen-space rectangle covered by this bell
             let rect = Rect::from_min_size(
                 screen_space_frag_pos
@@ -196,7 +195,7 @@ impl<'a> Canvas<'a> {
             );
 
             // Draw music highlight
-            if music_highlights.map_or(false, |counts| counts[col_idx] > 0) {
+            if music_highlights[col_idx] > 0 {
                 ui.painter().add(Shape::Rect {
                     rect,
                     corner_radius: 0.0,

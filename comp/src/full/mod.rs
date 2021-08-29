@@ -1,11 +1,14 @@
 //! The fully annotated state of a composition used for querying and rendering.
 
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 
 use bellframe::{SameStageVec, Stage};
-use emath::Vec2;
+use emath::Pos2;
 
-use jigsaw_utils::types::{FragVec, PartIdx, RowLocation, RowSource, RowVec};
+use itertools::Itertools;
+use jigsaw_utils::types::{
+    FragVec, MethodVec, PartIdx, PartVec, RowIdx, RowLocation, RowSource, RowVec,
+};
 
 use crate::{
     music,
@@ -15,6 +18,8 @@ use crate::{
 // Imports only used for doc comments
 #[allow(unused_imports)]
 use bellframe::Row;
+
+mod from_expanded_frags; // Code to build a [`FullState`] from [`ExpandedFrag`]s and other data
 
 /// The fully specified state of a composition.  This is designed to be efficient to query and easy
 /// to render from, unlike [`CompSpec`] which is designed to be compact and easy to modify or store
@@ -28,7 +33,7 @@ use bellframe::Row;
 pub struct FullState {
     pub part_heads: Rc<PartHeads>,
     pub fragments: FragVec<Fragment>,
-    pub methods: Vec<Method>,
+    pub methods: MethodVec<Method>,
     pub music: Music,
     /// Misc statistics about the composition (e.g. part length)
     pub stats: Stats,
@@ -38,12 +43,19 @@ pub struct FullState {
 impl FullState {
     /// Creates a new [`FullState`] representing the same composition as a given [`CompSpec`].
     pub fn new(spec: &CompSpec, music: &[music::Music]) -> Self {
-        spec::expand(spec, music) // Delegate to the `expand` module
+        let expanded_frags = spec.expand_fragments();
+        from_expanded_frags::from_expanded_frags(
+            expanded_frags,
+            &spec.methods,
+            spec.part_heads.clone(),
+            music,
+            spec.stage,
+        )
     }
 
     /// Updates `self` to represent the same composition as a given [`CompSpec`]
     pub fn update(&mut self, spec: &CompSpec, music: &[music::Music]) {
-        // Just overwrite `self`, without reusing any allocations
+        // For now, just overwrite `self` without reusing any allocations
         *self = Self::new(spec, music);
     }
 }
@@ -54,16 +66,50 @@ impl FullState {
 
 #[derive(Debug, Clone)]
 pub struct Fragment {
-    // These fields need to be `pub(super)` so that they can be populated during expansion by
-    // `super::spec::expand::expand(...)`
     /// The position of the top-left corner of the first [`Row`] in this `Fragment`
-    pub position: Vec2,
-    /// The index of the link group which the top of this `Fragment` is connected to
-    pub link_group_top: Option<usize>,
-    /// The index of the link group which the bottom of this `Fragment` is connected to
-    pub link_group_bottom: Option<usize>,
-    /// The `ExpandedRow`s from this `Fragment`.  Each of these contains one [`Row`] per part.
-    pub expanded_rows: RowVec<ExpandedRow>,
+    pub position: Pos2,
+    /// For each part, which [`Row`]s make up this `Fragment`
+    rows_per_part: PartVec<SameStageVec>,
+    /// For each part, how many leaf music groups match each place in the [`Row`]s from that part.
+    /// I find it extremely unlikely that we'll overflow `u8`s here (since we'd need at least 256
+    /// music groups to apply to the same position in a row).  Even then, the code saturates
+    /// instead of overflowing and prints a warning to stderr.
+    music_highlights_per_part: PartVec<Vec<u8>>,
+    /// Extra non-part-specific data about each row to help the rendering
+    row_data: RowVec<RowData>,
+}
+
+impl Fragment {
+    pub fn num_rows(&self) -> usize {
+        self.row_data.len()
+    }
+
+    pub fn rows_in_part(
+        &self,
+        part: PartIdx,
+    ) -> impl Iterator<Item = (RowIdx, &Row, &[u8], &RowData)> {
+        let row_vec = &self.rows_per_part[part];
+        let stage = row_vec.stage();
+        row_vec
+            .iter()
+            .zip_eq(&self.row_data)
+            .zip_eq(self.music_highlights_per_part[part].chunks(stage.num_bells()))
+            .enumerate()
+            .map(|(idx, ((row, data), music_counts))| (RowIdx::new(idx), row, music_counts, data))
+    }
+}
+
+/// A single place where a [`Row`] can be displayed on the screen.  This corresponds to multiple
+/// [`Row`]s (one per part) but these are connected inasmuch as they can only be added or removed
+/// together.
+#[derive(Debug, Clone)]
+pub struct RowData {
+    /// If `true` then this [`Row`] is considered 'part' of the composition.
+    pub is_proved: bool,
+    /*
+    /// Do any of these [`Row`]s appear elsewhere in the composition?
+    pub is_false: bool,
+    */
 }
 
 /////////////
@@ -89,38 +135,6 @@ impl Method {
     pub fn shorthand(&self) -> String {
         self.source.shorthand().to_owned()
     }
-}
-
-/*
-TODO: Find some way to only have deref-coercion within this crate
-// Deref-coerce to `spec::Method`.  This will make `full::Method` appear to 'inherit' all the
-// properties of the contained `spec::Method`
-impl Deref for Method {
-    type Target = spec::Method;
-
-    fn deref(&self) -> &Self::Target {
-        &self.source
-    }
-}
-*/
-
-/////////////////////
-// (EXPANDED) ROWS //
-/////////////////////
-
-/// A single place where a [`Row`] can be displayed on the screen.  This corresponds to multiple
-/// [`Row`]s (one per part) but these are connected inasmuch as they can only be added or removed
-/// together.
-#[derive(Debug, Clone)]
-pub struct ExpandedRow {
-    /// This `ExpandedRow` expands to one [`Row`] per part.
-    pub rows: SameStageVec,
-    /// If `true` then this [`Row`] is considered 'part' of the composition.
-    pub is_proved: bool,
-    /// Do any of these [`Row`]s appear elsewhere in the composition?
-    pub is_false: bool,
-    /// For each place, for each part, how many leaf music groups match at this location
-    pub music_highlights: HashMap<PartIdx, Vec<usize>>,
 }
 
 ///////////
