@@ -39,9 +39,9 @@ impl<'a> Widget for Canvas<'a> {
 
         let origin = rect.min - self.camera_pos.to_vec2();
 
-        // Generate 'Galley's for every bell upfront, placing them in a lookup table when
-        // rendering.  This way, the text layout only gets calculated once which (marginally)
-        // increases performance and keeps the code in one place.
+        // Generate 'Galley's for every bell before rendering starts, placing them in a lookup
+        // table when rendering.  This way, the text layout only gets calculated once which
+        // (marginally) increases performance and keeps this code in one place.
         let bell_name_galleys = self
             .state
             .stage
@@ -167,6 +167,11 @@ impl<'a> Canvas<'a> {
         bell_name_galleys: &[Arc<Galley>],
         lines: &mut HashMap<Bell, (f32, Color32, Vec<Pos2>)>,
     ) {
+        let y_coord = rows_bbox.min.y + source.row_index.index() as f32 * self.config.row_height;
+        let text_y_coord = y_coord + self.config.row_height * self.config.text_pos_y;
+
+        /* COMPUTE OPACITY */
+
         // Opacity ranges from 0 to 1
         let mut opacity = 1.0;
         // If no rows are highlighted, then all rows are highlighted
@@ -178,10 +183,12 @@ impl<'a> Canvas<'a> {
         if !data.is_proved {
             opacity *= 0.5; // Also fade out non-proved rows
         }
+        let foreground_color: Color32 = Rgba::WHITE.multiply(opacity).into();
 
-        // Draw bells/lines
+        /* DRAW BELLS/LINES */
+
         for (col_idx, bell) in data.row.bell_iter().enumerate() {
-            // Compute the screen-space rectangle covered by this bell
+            // The screen-space rectangle covered by this bell
             let rect = Rect::from_min_size(
                 rows_bbox.min
                     + Vec2::new(
@@ -190,7 +197,6 @@ impl<'a> Canvas<'a> {
                     ),
                 self.config.bell_box_size(),
             );
-
             // Draw music highlight
             if data.music_counts[col_idx] > 0 {
                 ui.painter().add(Shape::Rect {
@@ -207,22 +213,33 @@ impl<'a> Canvas<'a> {
             } else {
                 // If this bell isn't part of a line, then render it as text
                 ui.painter().add(Shape::Text {
-                    pos: rect.min
-                        + Vec2::new(
-                            self.config.col_width * self.config.text_pos_x,
-                            self.config.row_height * self.config.text_pos_y,
-                        ),
+                    pos: Pos2::new(
+                        rect.min.x + self.config.col_width * self.config.text_pos_x,
+                        text_y_coord,
+                    ),
                     galley: bell_name_galleys[bell.index()].clone(),
-                    color: Rgba::WHITE.multiply(opacity).into(),
+                    color: foreground_color,
                     fake_italics: false,
                 });
             }
         }
 
-        // Draw ruleoffs
+        /* DRAW METHOD NAME */
+
+        if let Some(method_name) = &data.method_annotation {
+            ui.painter().add(Shape::Text {
+                pos: Pos2::new(rows_bbox.max.x + self.config.col_width, text_y_coord),
+                galley: ui
+                    .fonts()
+                    .layout_single_line(TextStyle::Body, method_name.name()),
+                color: foreground_color,
+                fake_italics: false,
+            });
+        }
+
+        /* DRAW RULEOFF */
+
         if data.ruleoff_above {
-            let y_coord =
-                rows_bbox.min.y + source.row_index.index() as f32 * self.config.row_height;
             ui.painter().add(Shape::LineSegment {
                 points: [
                     Pos2::new(rows_bbox.min.x, y_coord),
@@ -230,7 +247,7 @@ impl<'a> Canvas<'a> {
                 ],
                 stroke: Stroke {
                     width: self.config.ruleoff_line_width,
-                    color: Color32::WHITE,
+                    color: foreground_color,
                 },
             });
         }

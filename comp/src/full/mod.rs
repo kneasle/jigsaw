@@ -33,7 +33,7 @@ mod from_expanded_frags; // Code to build a [`FullState`] from [`ExpandedFrag`]s
 pub struct FullState {
     pub part_heads: Rc<PartHeads>,
     pub fragments: FragVec<Fragment>,
-    pub methods: MethodVec<Method>,
+    pub methods: MethodVec<Rc<Method>>,
     pub music: Music,
     /// Misc statistics about the composition (e.g. part length)
     pub stats: Stats,
@@ -130,10 +130,12 @@ impl<'frag> Deref for FullRowData<'frag> {
 /// together.
 #[derive(Debug, Clone)]
 pub struct RowData {
-    /// If `true` then this [`Row`] should have a line drawn **above** it
-    pub ruleoff_above: bool,
     /// If `true` then this [`Row`] is considered 'part' of the composition.
     pub is_proved: bool,
+    /// If `true` then this [`Row`] should have a line drawn **above** it
+    pub ruleoff_above: bool,
+    /// What method name should be placed here
+    pub method_annotation: Option<Rc<Method>>,
     /*
     /// Do any of these [`Row`]s appear elsewhere in the composition?
     pub is_false: bool,
