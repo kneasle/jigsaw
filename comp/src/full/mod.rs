@@ -1,6 +1,6 @@
 //! The fully annotated state of a composition used for querying and rendering.
 
-use std::rc::Rc;
+use std::{ops::Deref, rc::Rc};
 
 use bellframe::{SameStageVec, Stage};
 use emath::Pos2;
@@ -84,10 +84,7 @@ impl Fragment {
         self.row_data.len()
     }
 
-    pub fn rows_in_part(
-        &self,
-        part: PartIdx,
-    ) -> impl Iterator<Item = (RowIdx, &Row, &[u8], &RowData)> {
+    pub fn rows_in_part(&self, part: PartIdx) -> impl Iterator<Item = (RowIdx, FullRowData)> {
         let row_vec = &self.rows_per_part[part];
         let stage = row_vec.stage();
         row_vec
@@ -95,7 +92,36 @@ impl Fragment {
             .zip_eq(&self.row_data)
             .zip_eq(self.music_highlights_per_part[part].chunks(stage.num_bells()))
             .enumerate()
-            .map(|(idx, ((row, data), music_counts))| (RowIdx::new(idx), row, music_counts, data))
+            .map(|(idx, ((row, data), music_counts))| {
+                (RowIdx::new(idx), FullRowData::new(row, music_counts, data))
+            })
+    }
+}
+
+/// All the data required to render a row to the screen
+#[derive(Debug, Clone)]
+pub struct FullRowData<'frag> {
+    pub row: &'frag Row,
+    pub music_counts: &'frag [u8],
+    data: &'frag RowData,
+}
+
+impl<'frag> FullRowData<'frag> {
+    pub fn new(row: &'frag Row, music_counts: &'frag [u8], data: &'frag RowData) -> Self {
+        Self {
+            row,
+            music_counts,
+            data,
+        }
+    }
+}
+
+impl<'frag> Deref for FullRowData<'frag> {
+    type Target = &'frag RowData;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.data
     }
 }
 
@@ -104,6 +130,8 @@ impl Fragment {
 /// together.
 #[derive(Debug, Clone)]
 pub struct RowData {
+    /// If `true` then this [`Row`] should have a line drawn **above** it
+    pub ruleoff_above: bool,
     /// If `true` then this [`Row`] is considered 'part' of the composition.
     pub is_proved: bool,
     /*

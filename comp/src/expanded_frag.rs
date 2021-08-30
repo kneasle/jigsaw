@@ -7,7 +7,7 @@
 //! The main purpose of this intermediate step is to separate the full [`CompSpec`] ->
 //! [`FullState`] conversion from the implementation details of [`CompSpec`] itself.
 //! [`ExpandedFrag`] is intended as the public interface of [`CompSpec`]'s fragment storage - so
-//! long as [`CompSpec`] can generate [`ExpandedFrag`]s, it's internal representation can be
+//! long as [`CompSpec`] can generate [`ExpandedFrag`]s, its internal representation can be
 //! changed at any point.
 
 use std::rc::Rc;

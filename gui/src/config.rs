@@ -6,8 +6,10 @@ use eframe::egui::{Color32, Vec2};
 /// Configuration settings for Jigsaw's GUI
 #[derive(Debug, Clone)]
 pub struct Config {
-    pub(crate) col_width: f32,
-    pub(crate) row_height: f32,
+    pub(crate) col_width: f32,  // points
+    pub(crate) row_height: f32, // points
+
+    pub(crate) ruleoff_line_width: f32, // points
 
     pub(crate) text_pos_x: f32, // multiple of `col_width`
     pub(crate) text_pos_y: f32, // multiple of `row_height`
@@ -39,6 +41,8 @@ impl Default for Config {
         Self {
             col_width: 10.0,
             row_height: 16.0,
+
+            ruleoff_line_width: 1.0,
 
             text_pos_x: 0.125,
             text_pos_y: 0.05,

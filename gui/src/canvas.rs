@@ -5,13 +5,13 @@ use std::{
     sync::Arc,
 };
 
-use bellframe::{Bell, Row};
+use bellframe::Bell;
 use eframe::egui::{
     epaint::Galley, Color32, Pos2, Rect, Rgba, Sense, Shape, Stroke, TextStyle, Ui, Vec2, Widget,
 };
 use itertools::Itertools;
 use jigsaw_comp::{
-    full::{Fragment, RowData},
+    full::{Fragment, FullRowData},
     FullState,
 };
 use jigsaw_utils::types::{FragIdx, PartIdx, RowSource};
@@ -125,17 +125,15 @@ impl<'a> Canvas<'a> {
         });
 
         // Draw the rows
-        for (row_index, row, music_counts, data) in frag.rows_in_part(self.part_being_viewed) {
+        for (row_index, data) in frag.rows_in_part(self.part_being_viewed) {
             let row_source = RowSource {
                 frag_index,
                 row_index,
             };
             self.draw_row(
                 ui,
-                rows_bbox.min,
+                rows_bbox,
                 row_source,
-                row,
-                music_counts,
                 data,
                 bell_name_galleys,
                 &mut lines,
@@ -163,11 +161,9 @@ impl<'a> Canvas<'a> {
     fn draw_row(
         &self,
         ui: &mut Ui,
-        screen_space_frag_pos: Pos2,
+        rows_bbox: Rect,
         source: RowSource,
-        row: &Row,
-        music_highlights: &[u8],
-        data: &RowData,
+        data: FullRowData,
         bell_name_galleys: &[Arc<Galley>],
         lines: &mut HashMap<Bell, (f32, Color32, Vec<Pos2>)>,
     ) {
@@ -183,10 +179,11 @@ impl<'a> Canvas<'a> {
             opacity *= 0.5; // Also fade out non-proved rows
         }
 
-        for (col_idx, bell) in row.bell_iter().enumerate() {
+        // Draw bells/lines
+        for (col_idx, bell) in data.row.bell_iter().enumerate() {
             // Compute the screen-space rectangle covered by this bell
             let rect = Rect::from_min_size(
-                screen_space_frag_pos
+                rows_bbox.min
                     + Vec2::new(
                         col_idx as f32 * self.config.col_width,
                         source.row_index.index() as f32 * self.config.row_height,
@@ -195,7 +192,7 @@ impl<'a> Canvas<'a> {
             );
 
             // Draw music highlight
-            if music_highlights[col_idx] > 0 {
+            if data.music_counts[col_idx] > 0 {
                 ui.painter().add(Shape::Rect {
                     rect,
                     corner_radius: 0.0,
@@ -220,6 +217,22 @@ impl<'a> Canvas<'a> {
                     fake_italics: false,
                 });
             }
+        }
+
+        // Draw ruleoffs
+        if data.ruleoff_above {
+            let y_coord =
+                rows_bbox.min.y + source.row_index.index() as f32 * self.config.row_height;
+            ui.painter().add(Shape::LineSegment {
+                points: [
+                    Pos2::new(rows_bbox.min.x, y_coord),
+                    Pos2::new(rows_bbox.max.x, y_coord),
+                ],
+                stroke: Stroke {
+                    width: self.config.ruleoff_line_width,
+                    color: Color32::WHITE,
+                },
+            });
         }
     }
 }

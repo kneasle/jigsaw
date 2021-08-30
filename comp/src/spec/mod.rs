@@ -201,28 +201,6 @@ impl Chunk {
             Chunk::Call { call, .. } => call.inner.len(),
         }
     }
-
-    /// Gets the [`Method`] to which these rows are assigned
-    fn method(&self) -> &Method {
-        match self {
-            Chunk::Method { method, .. } => method,
-            Chunk::Call { method, .. } => method,
-        }
-    }
-
-    /// Gets the sub-lead index of the first [`Row`] in this `Chunk`
-    fn start_sub_lead_index(&self) -> usize {
-        match self {
-            Chunk::Method {
-                start_sub_lead_index,
-                ..
-            } => *start_sub_lead_index,
-            Chunk::Call {
-                start_sub_lead_index,
-                ..
-            } => *start_sub_lead_index,
-        }
-    }
 }
 
 /// The data required to define a [`Method`] that's used somewhere in the composition.  This is a
@@ -238,19 +216,13 @@ pub(crate) struct Method {
     /// through an [`Rc`]).  For example, `B` is often used as a shorthand for `"Bristol Surprise
     /// Major"`.
     shorthand: RefCell<String>,
-    /// Which locations in the lead should have lines drawn **below** them
-    ruleoffs: HashSet<usize>, // TODO: Use a bitmask
+    /// Which locations in the lead should have lines drawn **above** them
+    ruleoffs_above: HashSet<usize>, // TODO: Use a bitmask
 }
 
 impl Method {
     fn with_lead_end_ruleoff(inner: bellframe::Method, name: String, shorthand: String) -> Self {
-        let lead_len = inner.lead_len();
-        Self::new(
-            inner,
-            name,
-            shorthand,
-            std::iter::once(lead_len - 1).collect(),
-        )
+        Self::new(inner, name, shorthand, std::iter::once(0).collect())
     }
 
     fn new(
@@ -263,8 +235,13 @@ impl Method {
             inner,
             name: RefCell::new(name),
             shorthand: RefCell::new(shorthand),
-            ruleoffs,
+            ruleoffs_above: ruleoffs,
         }
+    }
+
+    #[inline]
+    pub fn lead_len(&self) -> usize {
+        self.inner.lead_len()
     }
 
     pub fn shorthand(&self) -> Ref<String> {
@@ -273,6 +250,13 @@ impl Method {
 
     pub fn name(&self) -> Ref<String> {
         self.name.borrow()
+    }
+
+    pub fn is_ruleoff_below(&self, sub_lead_idx: usize) -> bool {
+        // We store which rows have ruleoffs **above** them, so we have to query the row below the
+        // one specified by `sub_lead_idx`
+        let idx = (sub_lead_idx + 1) % self.inner.lead_len();
+        self.ruleoffs_above.contains(&idx)
     }
 }
 

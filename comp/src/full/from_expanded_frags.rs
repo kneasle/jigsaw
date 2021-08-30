@@ -5,7 +5,8 @@
 use std::{collections::HashMap, rc::Rc};
 
 use bellframe::Stage;
-use jigsaw_utils::types::{FragSlice, FragVec, MethodSlice, MethodVec};
+use itertools::Itertools;
+use jigsaw_utils::types::{FragSlice, FragVec, MethodIdx, MethodSlice, RowVec};
 
 use crate::{
     expanded_frag::ExpandedFrag,
@@ -16,6 +17,11 @@ use crate::{
 
 use super::Stats;
 
+/// Mapping from [`spec::Method`] to both indices and [`full::Method`]s, where the source methods
+/// are hashed by their memory address (so two distinct but identical methods would be hashed
+/// differently).
+type MethodMap = HashMap<*const spec::Method, (MethodIdx, full::Method)>;
+
 pub(super) fn from_expanded_frags(
     expanded_frags: FragVec<ExpandedFrag>,
     spec_methods: &MethodSlice<Rc<spec::Method>>,
@@ -23,7 +29,7 @@ pub(super) fn from_expanded_frags(
     music: &[music::Music],
     stage: Stage,
 ) -> FullState {
-    let methods = expand_methods(spec_methods, &expanded_frags, part_heads.len());
+    let method_map = expand_methods(spec_methods, &expanded_frags, part_heads.len());
     let stats = generate_stats(&expanded_frags);
     let (music, frag_musics) = music_gen::compute_music(music, &expanded_frags, stage);
     let fragments = annotate_frags(expanded_frags, frag_musics);
@@ -31,7 +37,15 @@ pub(super) fn from_expanded_frags(
     FullState {
         part_heads,
         fragments,
-        methods,
+        // Make sure that the methods are sorted by their index.  Otherwise, the `HashMap`
+        // non-determinism will make the methods change order every time the `FullState` is built.
+        methods: method_map
+            // TODO: In Rust `1.54`+ we can use `into_values()`
+            .into_iter()
+            .map(|(_k, v)| v)
+            .sorted_by_key(|(idx, _m)| *idx)
+            .map(|(_idx, m)| m)
+            .collect(),
         music,
         stats,
         stage,
@@ -42,22 +56,22 @@ fn expand_methods(
     methods: &MethodSlice<Rc<spec::Method>>,
     frags: &FragSlice<ExpandedFrag>,
     num_parts: usize,
-) -> MethodVec<super::Method> {
-    // Maps source methods [`super::Method`] (hashed by their memory addresses) to the expanded
-    // [`self::Method`].  This is used so that the fragment expansion, which receives rows
-    // containing `Rc<super::Method>` can know which `full::Method` it corresponds to (so its row
+) -> MethodMap {
+    // Maps source methods [`spec::Method`] (hashed by their memory addresses) to the expanded
+    // [`full::Method`].  This is used so that the fragment expansion, which receives rows
+    // containing `Rc<spec::Method>` can know which `full::Method` it corresponds to (so its row
     // counters can be updated).
     let mut method_map = methods
-        .iter()
-        .map(|m| {
+        .iter_enumerated()
+        .map(|(idx, m)| {
             let source_ptr = m.as_ref() as *const spec::Method;
-            let expanded_method = super::Method {
+            let expanded_method = full::Method {
                 source: m.clone(),
                 // Will be accumulated later
                 num_rows: 0,
                 num_proved_rows: 0,
             };
-            (source_ptr, expanded_method)
+            (source_ptr, (idx, expanded_method))
         })
         .collect::<HashMap<_, _>>();
 
@@ -67,7 +81,7 @@ fn expand_methods(
         for row_data in &f.row_data {
             if let Some((spec_method, _)) = &row_data.method_source {
                 let spec_method_ptr = spec_method.as_ref() as *const spec::Method;
-                let annot_method = method_map
+                let (_idx, annot_method) = method_map
                     .get_mut(&spec_method_ptr)
                     .expect("Row owned by an unlisted method");
                 // This single `row_data` corresponds to one row for each part so, accordingly, we
@@ -80,8 +94,7 @@ fn expand_methods(
         }
     }
 
-    // TODO: In Rust `1.54` we can use `into_values()`
-    method_map.into_iter().map(|(_k, v)| v).collect()
+    method_map
 }
 
 fn generate_stats(frags: &FragSlice<ExpandedFrag>) -> Stats {
@@ -188,7 +201,7 @@ mod music_gen {
                                         // No problem if the counter didn't overflow
                                         Some(v) => *counter = v,
                                         None => {
-                                            eprintln!("WARNING: A place is matched by more than 255 music scores, clamping");
+                                            eprintln!("WARNING: A place is matched by more than 255 music scores, clamping value to 255");
                                             // Don't write to the counter, because its value is
                                             // already 255
                                         }
@@ -268,17 +281,61 @@ fn annotate_frags(
     expanded_frags
         .into_iter()
         .zip(frag_music)
-        .map(|(exp_frag, music)| full::Fragment {
-            position: exp_frag.position,
-            rows_per_part: exp_frag.rows_per_part,
-            music_highlights_per_part: music.music_highlights_per_part,
-            row_data: exp_frag
-                .row_data
-                .into_iter()
-                .map(|row_data| super::RowData {
-                    is_proved: row_data.is_proved,
-                })
-                .collect(),
-        })
+        .map(|(exp_frag, music)| expand_frag(exp_frag, music))
         .collect()
+}
+
+fn expand_frag(exp_frag: ExpandedFrag, music: music_gen::FragMusic) -> full::Fragment {
+    // Generate `row_data` elements, with some fields ready to be filled in later
+    let mut row_data: RowVec<full::RowData> = exp_frag
+        .row_data
+        .iter()
+        .map(|row_data| full::RowData {
+            ruleoff_above: false, // Set later in this function
+            is_proved: row_data.is_proved,
+        })
+        .collect();
+
+    for ((prev_row, row), full_row) in exp_frag
+        .row_data
+        .iter()
+        .tuple_windows()
+        .zip_eq(row_data.iter_mut().skip(1))
+    {
+        // This unwrap is safe, because `prev_row` can't be the last element of `exp_frag.row_data`
+        // (because otherwise `row` wouldn't exist).  Therefore, `prev_row` can't be leftover, and
+        // must belong to a method.
+        let (prev_meth, prev_sub_lead_idx) = prev_row.method_source.as_ref().unwrap();
+
+        // Set ruleoff it this method has a ruleoff at this index (usually because this row is
+        // a lead **end**, or a six end in e.g. Stedman).
+        if prev_meth.is_ruleoff_below(*prev_sub_lead_idx) {
+            // The GUI draws ruleoffs **above** rows, but in order to allow ruleoffs to be
+            // rendered above the leftover row, we detect ruleoffs using the previous row then
+            // write them to the row below that
+            full_row.ruleoff_above = true;
+        }
+        // Set a ruleoff **and a new method name** if there is:
+        // a) a method splice: two adjacent rows which belong to different methods
+        // b) a discontinuity: two adjacent rows cause the ringing to jump to a new place in a lead.
+        if let Some((meth, sub_lead_idx)) = &row.method_source {
+            if Rc::ptr_eq(prev_meth, meth) {
+                // Methods are the same, so check for discontinuity
+                let expected_sub_lead_idx = (*prev_sub_lead_idx + 1) % meth.lead_len();
+                if *sub_lead_idx != expected_sub_lead_idx {
+                    full_row.ruleoff_above = true;
+                }
+            } else {
+                // Methods are different, so this is a method splice
+                full_row.ruleoff_above = true;
+            }
+        }
+    }
+
+    full::Fragment {
+        position: exp_frag.position,
+        rows_per_part: exp_frag.rows_per_part,
+        music_highlights_per_part: music.music_highlights_per_part,
+        row_data,
+    }
 }
