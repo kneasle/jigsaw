@@ -6,7 +6,7 @@ use std::{collections::HashMap, rc::Rc};
 
 use bellframe::Stage;
 use itertools::Itertools;
-use jigsaw_utils::types::{FragSlice, FragVec, MethodIdx, MethodSlice, MethodVec, RowVec};
+use jigsaw_utils::indexed_vec::{FragSlice, FragVec, MethodIdx, MethodSlice, MethodVec, RowVec};
 
 use crate::{
     expanded_frag::ExpandedFrag,
@@ -109,7 +109,10 @@ mod music_gen {
     use bellframe::Stage;
     use index_vec::index_vec;
     use itertools::Itertools;
-    use jigsaw_utils::types::{FragSlice, FragVec, PartVec, RowIdx, RowLocation};
+    use jigsaw_utils::{
+        indexed_vec::{FragSlice, FragVec, PartVec, RowIdx},
+        types::RowLocation,
+    };
 
     use crate::{expanded_frag::ExpandedFrag, full, music};
 

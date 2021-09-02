@@ -13,7 +13,7 @@ use jigsaw_comp::{
     spec::{part_heads, EditError},
     FullState, State,
 };
-use jigsaw_utils::types::{PartIdx, RowSource};
+use jigsaw_utils::{indexed_vec::PartIdx, types::RowSource};
 
 use self::config::Config;
 

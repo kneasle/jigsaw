@@ -11,7 +11,7 @@ use std::{
 use bellframe::{row::RowAccumulator, AnnotBlock, IncompatibleStages, Row, RowBuf, Stage};
 use emath::Pos2;
 use index_vec::index_vec;
-use jigsaw_utils::types::{
+use jigsaw_utils::indexed_vec::{
     ChunkIdx, ChunkVec, FragIdx, FragVec, MethodSlice, MethodVec, RowIdx, RowVec,
 };
 

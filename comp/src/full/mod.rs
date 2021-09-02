@@ -4,10 +4,10 @@ use std::{ops::Deref, rc::Rc};
 
 use bellframe::{SameStageVec, Stage};
 use emath::Pos2;
-
 use itertools::Itertools;
-use jigsaw_utils::types::{
-    FragVec, MethodVec, PartIdx, PartVec, RowIdx, RowLocation, RowSource, RowVec,
+use jigsaw_utils::{
+    indexed_vec::{FragVec, MethodVec, PartIdx, PartVec, RowIdx, RowVec},
+    types::{RowLocation, RowSource},
 };
 
 use crate::{
@@ -19,7 +19,8 @@ use crate::{
 #[allow(unused_imports)]
 use bellframe::Row;
 
-mod from_expanded_frags; // Code to build a [`FullState`] from [`ExpandedFrag`]s and other data
+/// Code to build a [`FullState`] from [`ExpandedFrag`]s and other data
+mod from_expanded_frags;
 
 /// The fully specified state of a composition.  This is designed to be efficient to query and easy
 /// to render from, unlike [`CompSpec`] which is designed to be compact and easy to modify or store

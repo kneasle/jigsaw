@@ -14,7 +14,7 @@ use std::rc::Rc;
 
 use bellframe::SameStageVec;
 use emath::Pos2;
-use jigsaw_utils::types::{PartVec, RowVec};
+use jigsaw_utils::indexed_vec::{PartVec, RowVec};
 
 use crate::spec::{self, part_heads::PartHeads};
 

@@ -14,7 +14,10 @@ use jigsaw_comp::{
     full::{Fragment, FullRowData},
     FullState,
 };
-use jigsaw_utils::types::{FragIdx, PartIdx, RowSource};
+use jigsaw_utils::{
+    indexed_vec::{FragIdx, PartIdx},
+    types::RowSource,
+};
 
 use super::config::Config;
 
