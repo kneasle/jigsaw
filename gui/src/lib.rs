@@ -10,7 +10,7 @@ use eframe::{
 
 use jigsaw_comp::{
     full::{self, MusicGroupInner},
-    spec::part_heads,
+    spec::{part_heads, EditError},
     FullState, State,
 };
 use jigsaw_utils::types::{PartIdx, RowSource};
@@ -152,12 +152,54 @@ impl JigsawApp {
 
         // Actions which apply to the fragment under the cursor
         if let Some(frag_hover) = frag_hover {
-            // d or D to delete the fragment under the cursor
-            if key == D {
-                self.state
-                    .apply_edit(|spec| spec.delete_fragment(frag_hover.frag_idx()));
+            let edit_result = match (key, modifiers.shift) {
+                // d or D to delete the fragment under the cursor
+                (D, _) => self
+                    .state
+                    .apply_edit(|spec| spec.delete_fragment(frag_hover.frag_idx)),
+                // x to split the fragment at the nearest rule-off
+                (X, false) => self.split_fragment(frag_hover, FragSplitLocation::NearestRuleoff),
+                // X to split the fragment at the cursor location
+                (X, true) => self.split_fragment(frag_hover, FragSplitLocation::NearestRow),
+
+                // All other key presses are ignored
+                _ => Ok(()),
+            };
+
+            // Log an error if the edit didn't succeed
+            if let Err(e) = edit_result {
+                println!("Edit failed: {:?}", e);
             }
         }
+    }
+
+    fn split_fragment(
+        &mut self,
+        frag_hover: &FragHover,
+        location: FragSplitLocation,
+    ) -> Result<(), EditError> {
+        let fragment = &self.state.full().fragments[frag_hover.frag_idx];
+
+        // Decide which index to split the fragment
+        let split_index = match location {
+            FragSplitLocation::NearestRuleoff => fragment
+                // Snap to the nearest rule-off ...
+                .nearest_ruleoff_to(frag_hover.row_idx_float)
+                // ... unless it's too far away ...
+                .filter(|(_idx, dist)| *dist < self.config.ruleoff_snap_distance)
+                // ... remove the distance ...
+                .map(|(idx, _dist)| idx.index() as isize)
+                // ... and return error if no rule-offs found
+                .ok_or(EditError::NoRuleoffCloseEnough)?,
+            FragSplitLocation::NearestRow => frag_hover.nearest_row_boundary(),
+        };
+        // Compute the position of the new fragment
+        let position_of_new_frag = fragment.position
+            + Vec2::DOWN * self.config.row_height * (split_index as f32 + self.config.split_height);
+        // Perform the split
+        self.state.apply_edit(|spec| {
+            spec.split_fragment(frag_hover.frag_idx, split_index, position_of_new_frag)
+        })
     }
 
     /////////////////
@@ -241,7 +283,8 @@ impl JigsawApp {
         match parse_result {
             // If the part heads changed, then replace them as another undo step
             Ok(part_heads::ReparseOk::DifferentRows(new_phs)) => {
-                self.state.apply_edit(|spec| spec.set_part_heads(new_phs))
+                self.state
+                    .apply_infallible_edit(|spec| spec.set_part_heads(new_phs));
             }
             // No effect if the part heads haven't changed
             Ok(part_heads::ReparseOk::SameRows) => {}
@@ -309,6 +352,12 @@ impl JigsawApp {
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+enum FragSplitLocation {
+    NearestRow,
+    NearestRuleoff,
+}
+
 /// Recursively creates the GUI for a set of `MusicGroup`s
 fn draw_music_ui(
     musics: &[Rc<full::MusicGroup>],
@@ -358,7 +407,7 @@ fn draw_music_group_ui(
     }
 }
 
-/// Draw two pieces of GUI, one aligned left and one aligned right
+/// Helper function to draw two pieces of GUI, one aligned left and one aligned right
 fn left_then_right<L, R>(
     ui: &mut Ui,
     left: impl FnOnce(&mut Ui) -> L,

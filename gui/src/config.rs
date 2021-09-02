@@ -17,6 +17,12 @@ pub struct Config {
     pub(crate) frag_padding_x: f32, // multiple of `col_width`
     pub(crate) frag_padding_y: f32, // multiple of `row_height`
 
+    /// When splitting a fragment at a rule-off, the cursor must be less than this many rows away
+    /// from the nearest rule-off.
+    pub(crate) ruleoff_snap_distance: f32, // rows
+    /// When a fragment is split, how far away is the 2nd fragment?
+    pub(crate) split_height: f32, // multiples of `row_height`
+
     /// Widths are multiples of `self.col_width`
     pub(crate) bell_lines: HashMap<Bell, (f32, Color32)>,
 }
@@ -49,6 +55,9 @@ impl Default for Config {
 
             frag_padding_x: 0.5,
             frag_padding_y: 0.35,
+
+            ruleoff_snap_distance: 3.0, // rows
+            split_height: 2.0,
 
             bell_lines: {
                 let mut map = HashMap::new();

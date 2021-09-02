@@ -3,14 +3,17 @@ pub mod part_heads;
 use std::{
     cell::{Cell, Ref, RefCell},
     collections::HashSet,
+    convert::{TryFrom, TryInto},
+    ops::Deref,
     rc::Rc,
 };
 
-use bellframe::{AnnotBlock, RowBuf, Stage};
+use bellframe::{row::RowAccumulator, AnnotBlock, IncompatibleStages, Row, RowBuf, Stage};
 use emath::Pos2;
 use index_vec::index_vec;
-use itertools::Itertools;
-use jigsaw_utils::types::{FragIdx, FragVec, MethodSlice, MethodVec, RowVec};
+use jigsaw_utils::types::{
+    ChunkIdx, ChunkVec, FragIdx, FragVec, MethodSlice, MethodVec, RowIdx, RowVec,
+};
 
 use crate::expanded_frag::{ExpandedFrag, RowData};
 
@@ -81,13 +84,9 @@ impl CompSpec {
                 let method = methods[*method_idx].clone();
                 let lead_len = method.inner.lead_len();
                 // Add an entire lead of each method
-                Rc::new(Chunk::Method {
-                    method,
-                    start_sub_lead_index: 0,
-                    length: lead_len,
-                })
+                Rc::new(Chunk::method(method, 0, lead_len))
             })
-            .collect_vec();
+            .collect::<ChunkVec<_>>();
 
         let fragment = Rc::new(Fragment {
             position: Pos2::new(200.0, 100.0),
@@ -147,12 +146,41 @@ impl CompSpec {
     }
 
     /// Deletes the [`Fragment`] with a given [`FragIdx`]
-    ///
-    /// # Panics
-    ///
-    /// Panics if no [`Fragment`] has the given [`FragIdx`]
-    pub fn delete_fragment(&mut self, frag_idx: FragIdx) {
+    pub fn delete_fragment(&mut self, frag_idx: FragIdx) -> Result<(), EditError> {
+        self.get_fragment(frag_idx)?; // Return error if `frag_idx` is out-of-bounds
         self.fragments.remove(frag_idx);
+        Ok(())
+    }
+
+    /// Splits a given fragment into two fragments, at a given location
+    pub fn split_fragment(
+        &mut self,
+        frag_idx: FragIdx,
+        row_idx: isize,
+        new_frag_pos: Pos2,
+    ) -> Result<(), EditError> {
+        let frag_to_split = self.get_fragment_mut(frag_idx)?;
+        let new_frag = frag_to_split.split(frag_idx, row_idx, new_frag_pos)?;
+        self.fragments.push(Rc::new(new_frag));
+        Ok(())
+    }
+
+    fn get_fragment(&self, idx: FragIdx) -> Result<&Fragment, EditError> {
+        self.fragments
+            .get(idx)
+            .ok_or(EditError::FragOutOfRange {
+                idx,
+                len: self.fragments.len(),
+            })
+            .map(Deref::deref)
+    }
+
+    fn get_fragment_mut(&mut self, idx: FragIdx) -> Result<&mut Fragment, EditError> {
+        let len = self.fragments.len();
+        self.fragments
+            .get_mut(idx)
+            .ok_or(EditError::FragOutOfRange { idx, len })
+            .map(Rc::make_mut)
     }
 }
 
@@ -163,7 +191,7 @@ pub(crate) struct Fragment {
     position: Pos2,
     start_row: Rc<RowBuf>,
     /// A sequence of [`Chunk`]s that make up this `Fragment`
-    chunks: Vec<Rc<Chunk>>,
+    chunks: ChunkVec<Rc<Chunk>>,
     /// Set to `false` if this `Fragment` is visible but 'muted' - i.e. visually greyed out and not
     /// included in the proving, ATW calculations, statistics, etc.
     is_proved: bool,
@@ -175,6 +203,105 @@ impl Fragment {
     pub fn len(&self) -> usize {
         self.chunks.iter().map(|c| c.len()).sum()
     }
+
+    /// Shortens `self` such that the row at `split_idx` becomes leftover, returning a new
+    /// `Fragment` containing the remaining [`Row`]s
+    fn split(
+        &mut self,
+        frag_idx: FragIdx,
+        split_idx: isize,
+        new_frag_pos: Pos2,
+    ) -> Result<Self, EditError> {
+        // Compute which chunk contains the split point
+        let (chunk_idx, sub_chunk_idx, new_frag_start_row) =
+            self.get_row_data(frag_idx, split_idx)?;
+        // Split the chunk arrays, singling out the chunk which must be split
+        let other_chunks = self.chunks.split_off(chunk_idx + 1);
+        let chunk_being_split = self.chunks.pop().unwrap();
+        // Split the chunk
+        let (chunk_before_split, chunk_after_split) = chunk_being_split.split(sub_chunk_idx)?;
+        // Put the first half of the split chunk back onto `self` (if it's non-empty)
+        self.chunks.extend(chunk_before_split);
+
+        // Construct the chunks for the other fragment
+        let mut new_frag_chunks = ChunkVec::with_capacity(other_chunks.len() + 1);
+        new_frag_chunks.extend(chunk_after_split);
+        new_frag_chunks.extend(other_chunks);
+        // Construct and return the fragment containing the part of `self` after the split
+        Ok(Fragment {
+            position: new_frag_pos,
+            start_row: Rc::new(new_frag_start_row),
+            chunks: new_frag_chunks,
+            is_proved: self.is_proved, // Inherit proved-ness from `self`
+        })
+    }
+
+    /// Given a (possibly negative) row index, this returns a tuple of
+    /// `(chunk index, sub-chunk index, row)` at that index, or `None` if the index is
+    /// out-of-bounds.
+    fn get_row_data(
+        &self,
+        frag_idx: FragIdx,
+        idx: isize,
+    ) -> Result<(ChunkIdx, usize, RowBuf), EditError> {
+        self.get_row_data_option(idx)
+            .ok_or_else(|| EditError::RowOutOfRange {
+                frag_idx,
+                row_idx: idx,
+                frag_len: self.len(),
+            })
+    }
+    /// Given a (possibly negative) row index, this returns a tuple of
+    /// `(chunk index, sub-chunk index, row)` at that index, or `None` if the index is
+    /// out-of-bounds.
+    fn get_row_data_option(&self, row_idx: isize) -> Option<(ChunkIdx, usize, RowBuf)> {
+        let row_idx: usize = row_idx.try_into().ok()?; // Negative rows are never in-bounds
+
+        let mut chunk_start_idx = 0usize;
+        let mut chunk_start_row = RowAccumulator::new(self.start_row.as_ref().clone());
+        for (chunk_idx, chunk) in self.chunks.iter_enumerated() {
+            assert!(chunk_start_idx <= row_idx);
+
+            let next_chunk_start_idx = chunk_start_idx + chunk.len();
+            // If this chunk ends **after** the row's index, then this chunk must contain the row
+            // at `idx`
+            if row_idx < next_chunk_start_idx {
+                let sub_chunk_idx = row_idx - chunk_start_idx;
+                // Accumulate the part of the chunk which contains `row_idx`
+                let mut final_row_accum = chunk_start_row;
+                chunk
+                    .accumulate_transposition_to(sub_chunk_idx, &mut final_row_accum)
+                    .unwrap();
+                let final_row = final_row_accum.into_total();
+                return Some((chunk_idx, sub_chunk_idx, final_row));
+            }
+            // If this chunk didn't contain `idx`, then keep searching
+            chunk_start_idx = next_chunk_start_idx;
+            chunk_start_row *= chunk.transposition();
+        }
+        // If none of the chunks contain `idx`, then it must be out of range
+        assert!(row_idx >= chunk_start_idx);
+        None
+    }
+
+    /// Runs a bounds check on a row index (i.e. checking that the row at `idx` is non-leftover),
+    /// and generates a helpful error message when out-of-bounds.
+    #[allow(dead_code)] // TODO: This is probably replaced by `get_row_data`, so if it isn't used
+                        // for a while after 2021-08-30 then delete
+    fn test_row_idx(&self, frag_idx: FragIdx, idx: isize) -> Result<RowIdx, EditError> {
+        /// Returns `Some(RowIdx)` if `idx` is within `0..len`, else `None`
+        fn test_idx_option(idx: isize, len: usize) -> Option<RowIdx> {
+            let positive_idx = usize::try_from(idx).ok()?;
+            (positive_idx < len).then(|| positive_idx).map(RowIdx::from)
+        }
+
+        let len = self.len();
+        test_idx_option(idx, len).ok_or(EditError::RowOutOfRange {
+            frag_idx,
+            row_idx: idx,
+            frag_len: len,
+        })
+    }
 }
 
 /// A `Chunk` of a [`Fragment`], consisting of either a contiguous segment of a [`Method`] or a
@@ -185,6 +312,7 @@ enum Chunk {
         method: Rc<Method>,
         start_sub_lead_index: usize,
         length: usize,
+        transposition: RowBuf,
     },
     Call {
         call: Rc<Call>,
@@ -194,11 +322,114 @@ enum Chunk {
 }
 
 impl Chunk {
+    /// Creates a new [`Chunk::Method`], computing the `transposition` field.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `length` is `0`
+    fn method(method: Rc<Method>, start_sub_lead_index: usize, length: usize) -> Self {
+        assert_ne!(length, 0);
+        let start_sub_lead_index = start_sub_lead_index % method.lead_len();
+
+        // Compute the transposition
+        let start_transposition = method.inner.row_in_plain_lead(start_sub_lead_index);
+        let end_transposition = method
+            .inner
+            .row_in_plain_course(start_sub_lead_index + length);
+        let transposition =
+            // Unwrap is safe, because `start_transposition` and `end_transposition` both originate
+            // from the same Method
+            Row::solve_ax_equals_b(start_transposition, &end_transposition).unwrap();
+
+        Chunk::Method {
+            method,
+            start_sub_lead_index,
+            length,
+            transposition,
+        }
+    }
+
+    /// Accumulates the (post-) transposition from the first [`Row`] of `self` to the row at
+    /// `row_idx`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `row_idx >= self.len`
+    fn accumulate_transposition_to(
+        &self,
+        row_idx: usize,
+        accum: &mut RowAccumulator,
+    ) -> Result<(), IncompatibleStages> {
+        match self {
+            Chunk::Method {
+                method,
+                start_sub_lead_index,
+                length,
+                transposition: _,
+            } => {
+                assert!(row_idx < *length);
+                let num_leads = row_idx / method.lead_len();
+                let end_sub_lead_index = row_idx % method.lead_len();
+                // Update the `accum` to refer to the lead end containing the start row of `self`
+                accum.accumulate(&method.inner.row_in_plain_lead(*start_sub_lead_index).inv())?;
+                // Accumulate full leads until we reach the lead containing `row_idx`
+                for _ in 0..num_leads {
+                    accum.accumulate(method.inner.lead_head())?;
+                }
+                // Accumulate the remaining changes of the lead containing `row_idx`
+                accum.accumulate(method.inner.row_in_plain_lead(end_sub_lead_index))
+            }
+            // For a call, we just accumulate the `row_idx`th row of the call
+            Chunk::Call { call, .. } => accum.accumulate(&call.inner.block().row_vec()[row_idx]),
+        }
+    }
+
     /// Return the number of [`Row`]s generated by this [`Chunk`]
     fn len(&self) -> usize {
         match self {
             Chunk::Method { length, .. } => *length,
             Chunk::Call { call, .. } => call.inner.len(),
+        }
+    }
+
+    /// The transposition caused by this `Chunk`
+    fn transposition(&self) -> &Row {
+        match self {
+            Chunk::Method { transposition, .. } => transposition,
+            Chunk::Call { call, .. } => call.inner.transposition(),
+        }
+    }
+
+    /// Splits `self` into two chunks.  Empty `Chunk`s are returned as `None`
+    fn split(
+        self: Rc<Self>,
+        at: usize,
+    ) -> Result<(Option<Rc<Chunk>>, Option<Rc<Chunk>>), EditError> {
+        // Splits where one side is empty are essentially `no-ops` and so can be applied to any
+        // `Chunk` (even calls)
+        if at == 0 {
+            return Ok((None, Some(self)));
+        } else if at == self.len() {
+            return Ok((Some(self), None));
+        }
+        match self.as_ref() {
+            // Calls can't be split into two sub-chunks
+            Chunk::Call { .. } => Err(EditError::SplitCall),
+            Chunk::Method {
+                method,
+                start_sub_lead_index,
+                length,
+                transposition: _,
+            } => {
+                let sub_lead_index_of_split = (start_sub_lead_index + at) % method.lead_len();
+                let chunk_before_split = Chunk::method(method.clone(), *start_sub_lead_index, at);
+                let chunk_after_split =
+                    Chunk::method(method.clone(), sub_lead_index_of_split, length - at);
+                Ok((
+                    Some(Rc::new(chunk_before_split)),
+                    Some(Rc::new(chunk_after_split)),
+                ))
+            }
         }
     }
 }
@@ -272,6 +503,28 @@ pub(crate) struct Fold {
     is_open: Cell<bool>,
 }
 
+/////////////////
+// ERROR TYPES //
+/////////////////
+
+/// The possible ways that editing a [`CompSpec`] can fail
+#[derive(Debug, Clone)]
+pub enum EditError {
+    FragOutOfRange {
+        idx: FragIdx,
+        len: usize,
+    },
+    RowOutOfRange {
+        frag_idx: FragIdx,
+        row_idx: isize, // Can be negative if the user was hovering above the first row
+        frag_len: usize,
+    },
+    // Trying to split the region covered by a call
+    SplitCall,
+    // No rule-off was close enough to snap to
+    NoRuleoffCloseEnough,
+}
+
 ///////////////
 // EXPANSION //
 ///////////////
@@ -314,6 +567,7 @@ impl Chunk {
                 method,
                 start_sub_lead_index,
                 length,
+                transposition: _,
             } => {
                 let unannotated_first_lead = method
                     .inner
@@ -359,7 +613,7 @@ impl Chunk {
                 // Extend rows
                 rows_in_one_part.extend(block).unwrap();
                 // Update the start row of the next chunk
-                todo!()
+                todo!() // Decide what lead indices should be given
             }
         }
     }

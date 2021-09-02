@@ -93,9 +93,20 @@ impl State {
     }
 
     /// Apply a closure to modify current [`CompSpec`], thus creating a new step in the undo
+    /// history.  If the closure returns `Err(e)` then no changes are made
+    pub fn apply_edit<O, E>(
+        &mut self,
+        edit: impl FnOnce(&mut CompSpec) -> Result<O, E>,
+    ) -> Result<O, E> {
+        let edit_value = self.history.apply_edit(edit)?;
+        self.rebuild_full_state(); // Make sure that `self.full_state` reflects the edit
+        Ok(edit_value) // Bubble the result
+    }
+
+    /// Apply a closure to modify current [`CompSpec`], thus creating a new step in the undo
     /// history
-    pub fn apply_edit<R>(&mut self, edit: impl FnOnce(&mut CompSpec) -> R) -> R {
-        let result = self.history.apply_edit(edit);
+    pub fn apply_infallible_edit<R>(&mut self, edit: impl FnOnce(&mut CompSpec) -> R) -> R {
+        let result = self.history.apply_infallible_edit(edit);
         self.rebuild_full_state(); // Make sure that `self.full_state` reflects the edit
         result // Bubble the result
     }

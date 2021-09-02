@@ -48,7 +48,22 @@ impl History {
 
     /// Apply a closure to modify current [`CompSpec`], thus creating a new step in the undo
     /// history
-    pub fn apply_edit<R>(&mut self, edit: impl FnOnce(&mut CompSpec) -> R) -> R {
+    pub fn apply_edit<O, E>(
+        &mut self,
+        edit: impl FnOnce(&mut CompSpec) -> Result<O, E>,
+    ) -> Result<O, E> {
+        // Apply the edit to a clone of the current spec
+        let mut new_spec = self.comp_spec().clone();
+        let edit_value = edit(&mut new_spec)?;
+        // Add this new spec to the undo history
+        self.append_history(new_spec);
+        // Bubble the result
+        Ok(edit_value)
+    }
+
+    /// Apply a closure to modify current [`CompSpec`], thus creating a new step in the undo
+    /// history
+    pub fn apply_infallible_edit<R>(&mut self, edit: impl FnOnce(&mut CompSpec) -> R) -> R {
         // Apply the edit to a clone of the current spec
         let mut new_spec = self.comp_spec().to_owned();
         let result = edit(&mut new_spec);

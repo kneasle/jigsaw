@@ -96,6 +96,28 @@ impl Fragment {
                 (RowIdx::new(idx), FullRowData::new(row, music_counts, data))
             })
     }
+
+    /// Returns the (index, distance) of the nearest rule-off to a given `target` row position
+    /// (which may have a fractional component).
+    pub fn nearest_ruleoff_to(&self, target: f32) -> Option<(RowIdx, f32)> {
+        let mut nearest_dist = None;
+        for (row_idx, row_data) in self.row_data.iter_enumerated() {
+            if row_data.ruleoff_above {
+                let dist = (row_idx.index() as f32 - target).abs();
+                match nearest_dist {
+                    // If no rule-offs have been found, then this is automatically better
+                    None => nearest_dist = Some((row_idx, dist)),
+                    // If a rule-off has been found, then use this one only if it's closer
+                    Some((_, best_dist)) => {
+                        if dist < best_dist {
+                            nearest_dist = Some((row_idx, dist));
+                        }
+                    }
+                }
+            }
+        }
+        nearest_dist
+    }
 }
 
 /// All the data required to render a row to the screen

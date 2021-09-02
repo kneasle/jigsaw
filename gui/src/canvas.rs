@@ -143,7 +143,7 @@ impl<'a> Canvas<'a> {
         // Render lines, always in increasing order of bell (otherwise HashMap's non-determinism
         // makes the lines appear to flicker)
         let mut lines = lines.into_iter().collect_vec();
-        lines.sort_by_key(|(k, _)| *k);
+        lines.sort_by_key(|(bell, _)| *bell);
         for (_bell, (width, color, points)) in lines {
             ui.painter().add(Shape::Path {
                 points,
@@ -237,7 +237,7 @@ impl<'a> Canvas<'a> {
             });
         }
 
-        /* DRAW RULEOFF */
+        /* DRAW RULE-OFF */
 
         if data.ruleoff_above {
             ui.painter().add(Shape::LineSegment {
@@ -257,20 +257,33 @@ impl<'a> Canvas<'a> {
 /// The location of a mouse hovering within a [`Fragment`]
 #[derive(Debug, Clone)]
 pub(crate) struct FragHover {
-    frag_idx: FragIdx,
-    /// The possibly fractional (column, row) indices of the point under the cursor
-    mouse_indices_float: Vec2,
+    pub frag_idx: FragIdx,
+    /// The fractional index of the cursor's location within the rows (i.e. if the cursor is half
+    /// way through a row, then this will be `x + 0.5` where x is that row's index).  In addition
+    /// to being fractional, this can be negative or point to non-existent rows.
+    pub row_idx_float: f32,
+    /// The fractional index of the cursor's location within the places (i.e. if the cursor is half
+    /// way through a column, then this will be `x + 0.5` where x is that columns's index).  As
+    /// with `row_idx_float`, this can also be negative or otherwise out-of-bounds.
+    pub place_idx_float: f32,
 }
 
 impl FragHover {
-    pub fn new(frag_idx: FragIdx, mouse_indices_float: Vec2) -> Self {
+    fn new(frag_idx: FragIdx, mouse_indices_float: Vec2) -> Self {
         Self {
             frag_idx,
-            mouse_indices_float,
+            row_idx_float: mouse_indices_float.y,
+            place_idx_float: mouse_indices_float.x,
         }
     }
 
-    pub fn frag_idx(&self) -> FragIdx {
-        self.frag_idx
+    /// The integer index of the row that's being hovered (which may be negative)
+    pub fn hovered_row_idx(&self) -> isize {
+        self.row_idx_float.floor() as isize
+    }
+
+    /// The integer index of the row **below** the nearest row boundary to the cursor
+    pub fn nearest_row_boundary(&self) -> isize {
+        self.row_idx_float.round() as isize
     }
 }
