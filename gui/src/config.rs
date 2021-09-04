@@ -6,6 +6,7 @@ use eframe::egui::{Color32, Vec2};
 /// Configuration settings for Jigsaw's GUI
 #[derive(Debug, Clone)]
 pub struct Config {
+    /* Display */
     pub(crate) col_width: f32,  // points
     pub(crate) row_height: f32, // points
 
@@ -17,14 +18,15 @@ pub struct Config {
     pub(crate) frag_padding_x: f32, // multiple of `col_width`
     pub(crate) frag_padding_y: f32, // multiple of `row_height`
 
+    /// Widths are multiples of `self.col_width`
+    pub(crate) bell_lines: HashMap<Bell, (f32, Color32)>,
+
+    /* User interaction */
     /// When splitting a fragment at a rule-off, the cursor must be less than this many rows away
     /// from the nearest rule-off.
     pub(crate) ruleoff_snap_distance: f32, // rows
     /// When a fragment is split, how far away is the 2nd fragment?
     pub(crate) split_height: f32, // multiples of `row_height`
-
-    /// Widths are multiples of `self.col_width`
-    pub(crate) bell_lines: HashMap<Bell, (f32, Color32)>,
 }
 
 impl Config {
@@ -54,7 +56,7 @@ impl Default for Config {
             text_pos_y: 0.05,
 
             frag_padding_x: 0.5,
-            frag_padding_y: 0.35,
+            frag_padding_y: 0.3,
 
             ruleoff_snap_distance: 3.0, // rows
             split_height: 2.0,
