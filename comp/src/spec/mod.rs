@@ -8,14 +8,19 @@ use std::{
     rc::Rc,
 };
 
-use bellframe::{row::RowAccumulator, AnnotBlock, IncompatibleStages, Row, RowBuf, Stage};
+use bellframe::{
+    music::Regex, row::RowAccumulator, AnnotBlock, IncompatibleStages, Row, RowBuf, Stage,
+};
 use emath::Pos2;
 use index_vec::index_vec;
 use jigsaw_utils::indexed_vec::{
     ChunkIdx, ChunkVec, FragIdx, FragVec, MethodSlice, MethodVec, RowIdx, RowVec,
 };
 
-use crate::expanded_frag::{ExpandedFrag, RowData};
+use crate::{
+    expanded_frag::{ExpandedFrag, RowData},
+    Music,
+};
 
 use self::part_heads::PartHeads;
 
@@ -24,12 +29,15 @@ use self::part_heads::PartHeads;
 /// modify.  Contrast this with [`FullState`](crate::full::FullState), which is computed from
 /// `CompSpec` and is designed to be efficient to query and display to the user (and so contains a
 /// large amount of redundant information).
+// PERF: Maybe wrap the `Vec`s in `Rc`s
 #[derive(Debug, Clone)]
 pub struct CompSpec {
     fragments: FragVec<Rc<Fragment>>,
     part_heads: Rc<PartHeads>,
     methods: MethodVec<Rc<Method>>,
     calls: Vec<Rc<Call>>,
+    // TODO: Make this structure use `Rc`s internally
+    music: Rc<Vec<Music>>,
     stage: Stage,
 }
 
@@ -48,6 +56,7 @@ impl CompSpec {
             part_heads: Rc::new(PartHeads::one_part(stage)),
             methods: index_vec![],
             calls: vec![],
+            music: Rc::new(vec![]),
             stage,
         }
     }
@@ -88,21 +97,38 @@ impl CompSpec {
             })
             .collect::<ChunkVec<_>>();
 
-        let fragment = Rc::new(Fragment {
+        let fragment = Fragment {
             position: Pos2::new(200.0, 100.0),
             start_row: Rc::new(RowBuf::rounds(STAGE)),
             chunks,
             is_proved: true,
-        });
+        };
+
+        let music = Rc::new(vec![
+            Music::Group(
+                "56s/65s".to_owned(),
+                vec![
+                    Music::Regex(Some("65s".to_owned()), Regex::parse("*6578")),
+                    Music::Regex(Some("56s".to_owned()), Regex::parse("*5678")),
+                ],
+            ),
+            Music::runs_front_and_back(Stage::MAJOR, 4),
+            Music::runs_front_and_back(Stage::MAJOR, 5),
+            Music::runs_front_and_back(Stage::MAJOR, 6),
+            Music::runs_front_and_back(Stage::MAJOR, 7),
+            Music::Regex(Some("Queens".to_owned()), Regex::parse("13572468")),
+            Music::Regex(Some("Backrounds".to_owned()), Regex::parse("87654321")),
+        ]);
 
         CompSpec {
-            stage: STAGE,
+            fragments: index_vec![Rc::new(fragment)],
             part_heads: Rc::new(
                 PartHeads::parse("18234567", STAGE).unwrap(), /* PartHeads::one_part(STAGE) */
             ),
             methods,
             calls: vec![], // No calls for now
-            fragments: index_vec![fragment],
+            music,
+            stage: STAGE,
         }
     }
 
@@ -125,6 +151,10 @@ impl CompSpec {
         &self.methods
     }
 
+    pub(crate) fn music(&self) -> &[Music] {
+        &self.music
+    }
+
     pub(crate) fn stage(&self) -> Stage {
         self.stage
     }
@@ -143,6 +173,37 @@ impl CompSpec {
     pub fn set_part_heads(&mut self, part_heads: PartHeads) {
         assert_eq!(self.stage, part_heads.stage());
         self.part_heads = Rc::new(part_heads);
+    }
+
+    /// Solo a single [`Fragment`], or unmute everything if this is the only unmuted [`Fragment`].
+    pub fn solo_frag(&mut self, frag_idx: FragIdx) -> Result<(), EditError> {
+        /// Helper function to set `f.is_proved`, without cloning any fragments which don't need to
+        /// be changed
+        fn set_frag_proved(f: &mut Rc<Fragment>, is_proved: bool) {
+            if f.is_proved != is_proved {
+                Rc::make_mut(f).is_proved = is_proved;
+            }
+        }
+
+        // Abort with error if `frag_idx` is out-of-bounds
+        self.get_fragment(frag_idx)?;
+
+        let is_the_only_unmuted_frag = self
+            .fragments
+            .iter_enumerated()
+            // `true` when all fragments are proved if and only if they have index `idx`
+            .all(|(idx, frag)| (idx == frag_idx) == (frag.is_proved));
+        if is_the_only_unmuted_frag {
+            // Unmute all fragments
+            for frag in self.fragments.iter_mut() {
+                set_frag_proved(frag, true);
+            }
+        } else {
+            for (idx, frag) in self.fragments.iter_mut_enumerated() {
+                set_frag_proved(frag, idx == frag_idx);
+            }
+        }
+        Ok(())
     }
 
     /// Deletes the [`Fragment`] with a given [`FragIdx`]
@@ -175,7 +236,7 @@ impl CompSpec {
             .map(Deref::deref)
     }
 
-    fn get_fragment_mut(&mut self, idx: FragIdx) -> Result<&mut Fragment, EditError> {
+    pub(crate) fn get_fragment_mut(&mut self, idx: FragIdx) -> Result<&mut Fragment, EditError> {
         let len = self.fragments.len();
         self.fragments
             .get_mut(idx)
@@ -186,7 +247,7 @@ impl CompSpec {
 
 /// A single `Fragment` of composition.
 #[derive(Debug, Clone)]
-pub(crate) struct Fragment {
+pub struct Fragment {
     /// The on-screen location of the top-left corner of the top row this `Frag`
     position: Pos2,
     start_row: Rc<RowBuf>,
@@ -198,9 +259,17 @@ pub(crate) struct Fragment {
 }
 
 impl Fragment {
+    /// Toggles whether or not this `Fragment` is proved.  This never fails, but returns a
+    /// [`Result`] to make it more convenient to use with
+    /// [`History::apply_frag_edit`](crate::history::History::apply_frag_edit).
+    pub fn toggle_mute(&mut self) -> Result<(), EditError> {
+        self.is_proved = !self.is_proved;
+        Ok(())
+    }
+
     /// Gets the number of non-leftover [`Row`]s in this [`Fragment`] in one part of the
     /// composition.
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.chunks.iter().map(|c| c.len()).sum()
     }
 
@@ -401,6 +470,7 @@ impl Chunk {
     }
 
     /// Splits `self` into two chunks.  Empty `Chunk`s are returned as `None`
+    #[allow(clippy::type_complexity)]
     fn split(
         self: Rc<Self>,
         at: usize,
@@ -521,8 +591,6 @@ pub enum EditError {
     },
     // Trying to split the region covered by a call
     SplitCall,
-    // No rule-off was close enough to snap to
-    NoRuleoffCloseEnough,
 }
 
 ///////////////

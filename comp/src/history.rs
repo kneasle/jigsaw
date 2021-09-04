@@ -2,6 +2,10 @@
 
 use std::{collections::VecDeque, iter};
 
+use jigsaw_utils::indexed_vec::FragIdx;
+
+use crate::spec::{self, EditError};
+
 use super::spec::CompSpec;
 
 /// An undo history of the composition being edited by Jigsaw.
@@ -17,7 +21,7 @@ pub struct History {
 
 impl History {
     /// Creates a new [`History`] containing only one [`CompSpec`]
-    pub(crate) fn new(spec: CompSpec) -> Self {
+    pub fn new(spec: CompSpec) -> Self {
         Self {
             history: iter::once(spec).collect(),
             current_undo_index: 0,
@@ -47,7 +51,8 @@ impl History {
     }
 
     /// Apply a closure to modify current [`CompSpec`], thus creating a new step in the undo
-    /// history
+    /// history.  If `Err(_)` is returned, then the edit is 'aborted' and no new history step
+    /// is created.
     pub fn apply_edit<O, E>(
         &mut self,
         edit: impl FnOnce(&mut CompSpec) -> Result<O, E>,
@@ -62,7 +67,8 @@ impl History {
     }
 
     /// Apply a closure to modify current [`CompSpec`], thus creating a new step in the undo
-    /// history
+    /// history.  Unlike [`History::apply_edit`], this assumes that the edit will
+    /// always succeed.
     pub fn apply_infallible_edit<R>(&mut self, edit: impl FnOnce(&mut CompSpec) -> R) -> R {
         // Apply the edit to a clone of the current spec
         let mut new_spec = self.comp_spec().to_owned();
@@ -70,6 +76,27 @@ impl History {
         // Add this new spec to the undo history
         self.append_history(new_spec);
         result // bubble the result
+    }
+
+    /// Apply a closure to modify a specific [`Fragment`](spec::Fragment) of the current
+    /// [`CompSpec`], thus creating a new step in the undo history.  If `Err(_)` is returned, then
+    /// the edit is 'aborted' and no new history step is created.
+    pub fn apply_frag_edit<O, E>(
+        &mut self,
+        frag_idx: FragIdx,
+        edit: impl FnOnce(&mut spec::Fragment) -> Result<O, E>,
+    ) -> Result<O, E>
+    where
+        E: From<EditError>,
+    {
+        // Apply the edit to a clone of the current spec
+        let mut new_spec = self.comp_spec().clone();
+        let frag = new_spec.get_fragment_mut(frag_idx)?;
+        let edit_value = edit(frag)?;
+        // Add this new spec to the undo history
+        self.append_history(new_spec);
+        // Bubble the result
+        Ok(edit_value)
     }
 
     /// Add a new [`CompSpec`] to the undo history, after the [`CompSpec`] currently being viewed.
@@ -86,7 +113,7 @@ impl History {
         // TODO: Possibly drop old history if the chain gets too long
     }
 
-    pub(crate) fn comp_spec(&self) -> &CompSpec {
+    pub fn comp_spec(&self) -> &CompSpec {
         &self.history[self.current_undo_index]
     }
 }

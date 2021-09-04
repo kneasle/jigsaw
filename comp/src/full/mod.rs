@@ -10,16 +10,12 @@ use jigsaw_utils::{
     types::{RowLocation, RowSource},
 };
 
-use crate::{
-    music,
-    spec::{self, part_heads::PartHeads, CompSpec},
-};
+use crate::spec::{self, part_heads::PartHeads, CompSpec};
 
 // Imports only used for doc comments
 #[allow(unused_imports)]
 use bellframe::Row;
 
-/// Code to build a [`FullState`] from [`ExpandedFrag`]s and other data
 mod from_expanded_frags;
 
 /// The fully specified state of a composition.  This is designed to be efficient to query and easy
@@ -27,9 +23,9 @@ mod from_expanded_frags;
 /// to disk.
 ///
 /// There will only be one copy of [`FullState`] instantiated at a time, and it is up to the
-/// [`State`](super::State) instance to make sure that it always represents the data that the user
-/// expects to see.  Every time the [`CompSpec`] being viewed changes (either through the user's
-/// changes or through undo/redo), the [`FullState`] is recomputed for the new [`CompSpec`].
+/// `JigsawApp` instance to make sure that it always represents the data that the user expects to
+/// see.  Every time the [`CompSpec`] being viewed changes (either through the user's changes or
+/// through undo/redo), the [`FullState`] is recomputed for the new [`CompSpec`].
 #[derive(Debug)]
 pub struct FullState {
     pub part_heads: Rc<PartHeads>,
@@ -43,21 +39,21 @@ pub struct FullState {
 
 impl FullState {
     /// Creates a new [`FullState`] representing the same composition as a given [`CompSpec`].
-    pub fn new(spec: &CompSpec, music: &[music::Music]) -> Self {
+    pub fn new(spec: &CompSpec) -> Self {
         let expanded_frags = spec.expand_fragments();
         from_expanded_frags::from_expanded_frags(
             expanded_frags,
             &spec.methods(),
             spec.part_heads().clone(),
-            music,
+            &spec.music(),
             spec.stage(),
         )
     }
 
     /// Updates `self` to represent the same composition as a given [`CompSpec`]
-    pub fn update(&mut self, spec: &CompSpec, music: &[music::Music]) {
+    pub fn update(&mut self, spec: &CompSpec) {
         // For now, just overwrite `self` without reusing any allocations
-        *self = Self::new(spec, music);
+        *self = Self::new(spec);
     }
 }
 

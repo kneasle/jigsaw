@@ -1,3 +1,5 @@
+//! Code to build a [`FullState`] from [`ExpandedFrag`]s and other data
+
 // This lint gives false positives for raw pointers (which are hashed by the memory address they
 // point to).  See https://github.com/rust-lang/rust-clippy/issues/6745
 #![allow(clippy::mutable_key_type)]
@@ -12,10 +14,9 @@ use crate::{
     expanded_frag::ExpandedFrag,
     full, music,
     spec::{self, part_heads::PartHeads},
-    FullState,
 };
 
-use super::Stats;
+use super::{FullState, Stats};
 
 pub(super) fn from_expanded_frags(
     expanded_frags: FragVec<ExpandedFrag>,
@@ -282,8 +283,7 @@ fn expand_frag(
     // Helper function to convert between `spec::Method` and the corresponding `full::Method`
     let spec_to_full_method = |spec: &Rc<spec::Method>| {
         let spec_method_ptr = spec.as_ref() as *const spec::Method;
-        let fullmethod = methods[method_map[&spec_method_ptr]].clone();
-        fullmethod
+        methods[method_map[&spec_method_ptr]].clone()
     };
 
     // Generate `row_data` elements, with some fields left 'empty' to be filled in later

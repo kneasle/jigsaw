@@ -7,35 +7,67 @@ use std::{
 
 use bellframe::Bell;
 use eframe::egui::{
-    epaint::Galley, Color32, Pos2, Rect, Rgba, Sense, Shape, Stroke, TextStyle, Ui, Vec2, Widget,
+    self, epaint::Galley, Color32, Pos2, Rect, Response, Rgba, Sense, Shape, Stroke, TextStyle, Ui,
+    Vec2, Widget,
 };
 use itertools::Itertools;
-use jigsaw_comp::{
-    full::{Fragment, FullRowData},
-    FullState,
-};
+use jigsaw_comp::full::{Fragment, FullRowData, FullState};
 use jigsaw_utils::{
     indexed_vec::{FragIdx, PartIdx},
     types::RowSource,
 };
 
-use super::config::Config;
+use crate::config::Config;
+
+pub(crate) fn draw(
+    ctx: &egui::CtxRef,
+    full_state: &FullState,
+    config: &Config,
+    camera_pos: Pos2,
+    rows_to_highlight: HashSet<RowSource>,
+    part_being_viewed: PartIdx,
+) -> CanvasResponse {
+    let mut frag_hover = None;
+    let inner_response = egui::CentralPanel::default()
+        .show(ctx, |ui| {
+            ui.add(CanvasWidget {
+                full_state,
+                config,
+                camera_pos,
+                rows_to_highlight,
+                part_being_viewed,
+                frag_hover: &mut frag_hover, // Used to pass values out of `ui.add`
+            })
+        })
+        .inner;
+
+    CanvasResponse {
+        frag_hover,
+        inner: inner_response,
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct CanvasResponse {
+    pub frag_hover: Option<FragHover>,
+    pub inner: Response,
+}
 
 /// A [`Widget`] which renders the canvas-style view of the composition being edited
 #[derive(Debug)]
-pub(crate) struct Canvas<'a> {
+struct CanvasWidget<'a> {
     /// The [`FullState`] of the composition currently being viewed
-    pub(crate) state: &'a FullState,
+    full_state: &'a FullState,
     /// Configuration & styling for the GUI
-    pub(crate) config: &'a Config,
+    config: &'a Config,
     /// Position of the camera
-    pub(crate) camera_pos: Pos2,
-    pub(crate) rows_to_highlight: HashSet<RowSource>,
-    pub(crate) part_being_viewed: PartIdx,
-    pub(crate) frag_hover: &'a mut Option<FragHover>,
+    camera_pos: Pos2,
+    rows_to_highlight: HashSet<RowSource>,
+    part_being_viewed: PartIdx,
+    frag_hover: &'a mut Option<FragHover>,
 }
 
-impl<'a> Widget for Canvas<'a> {
+impl<'a> Widget for CanvasWidget<'a> {
     fn ui(self, ui: &mut Ui) -> eframe::egui::Response {
         let size = ui.available_size_before_wrap_finite();
         let (rect, response) = ui.allocate_exact_size(size, Sense::click_and_drag());
@@ -46,20 +78,20 @@ impl<'a> Widget for Canvas<'a> {
         // table when rendering.  This way, the text layout only gets calculated once which
         // (marginally) increases performance and keeps this code in one place.
         let bell_name_galleys = self
-            .state
+            .full_state
             .stage
             .bells()
             .map(|bell| ui.fonts().layout_single_line(TextStyle::Body, bell.name()))
             .collect_vec();
 
-        for (frag_idx, frag) in self.state.fragments.iter_enumerated() {
+        for (frag_idx, frag) in self.full_state.fragments.iter_enumerated() {
             /* Compute bboxes */
 
             // The unpadded rectangle containing all the rows
             let row_bbox = Rect::from_min_size(
                 origin + frag.position.to_vec2(),
                 Vec2::new(
-                    self.config.col_width * self.state.stage.num_bells() as f32,
+                    self.config.col_width * self.full_state.stage.num_bells() as f32,
                     // TODO: This doesn't take row folding into account - once row folding is
                     // implemented, this will become incorrect
                     self.config.row_height * frag.num_rows() as f32,
@@ -98,7 +130,7 @@ impl<'a> Widget for Canvas<'a> {
     }
 }
 
-impl<'a> Canvas<'a> {
+impl<'a> CanvasWidget<'a> {
     /// Draw a [`Fragment`] to the display, returning the bounding [`Rect`] of this [`Fragment`]
     /// **in screen space**.
     fn draw_frag(

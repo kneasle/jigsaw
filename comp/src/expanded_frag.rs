@@ -1,14 +1,17 @@
 //! Intermediate representation between 'expansion' (which converts a
-//! [`CompSpec`](crate::spec::CompSpec) into a list of
+//! [`CompSpec`] into a list of
 //! [`ExpandedFrag`]s, where the expansion of each [`Fragment`](crate::spec::Fragment) is
-//! independent) and 'annotation' (where the data from all [`ExpandedFrag`]s, [`Music`]
-//! definitions, etc. are combined to add additional annotations like falseness, frag links, etc).
+//! independent) and 'annotation' (where the data from all [`ExpandedFrag`]s,
+//! [`Music`](crate::music::Music) definitions, etc. are combined to add additional annotations
+//! like falseness, frag links, etc).
 //!
 //! The main purpose of this intermediate step is to separate the full [`CompSpec`] ->
-//! [`FullState`] conversion from the implementation details of [`CompSpec`] itself.
-//! [`ExpandedFrag`] is intended as the public interface of [`CompSpec`]'s fragment storage - so
-//! long as [`CompSpec`] can generate [`ExpandedFrag`]s, its internal representation can be
-//! changed at any point.
+//! [`FullState`](crate::full::FullState) conversion from the implementation details of
+//! [`CompSpec`] itself.  [`ExpandedFrag`] is intended as the public interface of [`CompSpec`]'s
+//! fragment storage - so long as [`CompSpec`] can generate [`ExpandedFrag`]s, its internal
+//! representation can be changed at any point.
+//!
+//! [`CompSpec`]: spec::CompSpec
 
 use std::rc::Rc;
 
