@@ -437,8 +437,14 @@ impl Chunk {
                 transposition: _,
             } => {
                 assert!(row_idx < *length);
-                let num_leads = row_idx / method.lead_len();
-                let end_sub_lead_index = row_idx % method.lead_len();
+                // The index of the row at `row_idx`, relative to the start of the first lead of
+                // this block (i.e. the one that contains `start_sub_lead_index`
+                let end_idx = *start_sub_lead_index + row_idx;
+                // How many lead ends are there between the start of `self` and the row at
+                // `row_idx`
+                let num_leads = end_idx / method.lead_len();
+                // The sub-lead index of the row at `row_idx`
+                let end_sub_lead_index = end_idx % method.lead_len();
                 // Update the `accum` to refer to the lead end containing the start row of `self`
                 accum.accumulate(&method.inner.row_in_plain_lead(*start_sub_lead_index).inv())?;
                 // Accumulate full leads until we reach the lead containing `row_idx`
