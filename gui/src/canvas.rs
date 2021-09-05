@@ -11,7 +11,7 @@ use eframe::egui::{
     Vec2, Widget,
 };
 use itertools::Itertools;
-use jigsaw_comp::full::{Fragment, FullRowData, FullState};
+use jigsaw_comp::full::{Fragment, FullState, RowDataForOnePart};
 use jigsaw_utils::{
     indexed_vec::{FragIdx, PartIdx},
     types::RowSource,
@@ -198,7 +198,7 @@ impl<'a> CanvasWidget<'a> {
         ui: &mut Ui,
         rows_bbox: Rect,
         source: RowSource,
-        data: FullRowData,
+        data: RowDataForOnePart,
         bell_name_galleys: &[Arc<Galley>],
         lines: &mut HashMap<Bell, (f32, Color32, Vec<Pos2>)>,
     ) {

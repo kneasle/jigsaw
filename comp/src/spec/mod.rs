@@ -191,8 +191,8 @@ impl CompSpec {
         let is_the_only_unmuted_frag = self
             .fragments
             .iter_enumerated()
-            // `true` when all fragments are proved if and only if they have index `idx`
-            .all(|(idx, frag)| (idx == frag_idx) == (frag.is_proved));
+            // `true` exactly when: all fragments are proved if and only if they have index `idx`
+            .all(|(idx, frag)| (idx == frag_idx) == frag.is_proved);
         if is_the_only_unmuted_frag {
             // Unmute all fragments
             for frag in self.fragments.iter_mut() {
@@ -344,7 +344,7 @@ impl Fragment {
                 let final_row = final_row_accum.into_total();
                 return Some((chunk_idx, sub_chunk_idx, final_row));
             }
-            // If this chunk didn't contain `idx`, then keep searching
+            // If this chunk didn't contain `row_idx`, then keep searching
             chunk_start_idx = next_chunk_start_idx;
             chunk_start_row *= chunk.transposition();
         }
@@ -429,14 +429,13 @@ impl Chunk {
         row_idx: usize,
         accum: &mut RowAccumulator,
     ) -> Result<(), IncompatibleStages> {
+        assert!(row_idx < self.len());
         match self {
             Chunk::Method {
                 method,
                 start_sub_lead_index,
-                length,
-                transposition: _,
+                ..
             } => {
-                assert!(row_idx < *length);
                 // The index of the row at `row_idx`, relative to the start of the first lead of
                 // this block (i.e. the one that contains `start_sub_lead_index`)
                 let end_idx = *start_sub_lead_index + row_idx;

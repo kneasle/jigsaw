@@ -72,15 +72,14 @@ impl epi::App for JigsawApp {
         // without using interior mutability (e.g. because the user typed into the part head box,
         // or input a keyboard shortcut), then this change is represented as an `Action` and pushed
         // to a list of `actions` which will all be applied at the end of the frame.
-
         let mut actions = Vec::<Action>::new(); // These all take effect at the end of the frame
 
-        let canvas_response = self.draw_gui(ctx, |a| actions.push(a));
+        let gui_response = self.draw_gui(ctx, |a| actions.push(a));
 
         // PERF: Handling inputs **before** rendering the GUI would save a frame of latency
-        self.handle_input(ctx, canvas_response, |action| actions.push(action));
+        self.handle_input(ctx, gui_response, |action| actions.push(action));
 
-        /* APPLY ALL ACTIONS */
+        // Apply all actions
         for action in actions {
             self.apply_action(action);
         }
@@ -220,11 +219,13 @@ impl JigsawApp {
             pos_of_new_frag,
         })
     }
+}
 
-    ///////////////////
-    // APPLY ACTIONS //
-    ///////////////////
+/////////////
+// ACTIONS //
+/////////////
 
+impl JigsawApp {
     fn apply_action(&mut self, action: Action) {
         match action {
             Action::PanView(delta) => self.camera_pos += delta,
@@ -239,7 +240,6 @@ impl JigsawApp {
 
     fn apply_comp_action(&mut self, action: CompAction) -> Result<(), ActionError> {
         match action {
-            /* UPDATES WHICH CHANGE THE COMPOSITION */
             CompAction::UndoRedo(direction) => {
                 let was_successful = match direction {
                     HistoryDirection::Undo => self.history.undo(),
@@ -283,34 +283,6 @@ impl JigsawApp {
         Ok(())
     }
 }
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-enum FragSplitLocation {
-    NearestRow,
-    NearestRuleoff,
-}
-
-/*
-/// The possible ways that the state of `JigsawApp` can be mutated.  These can be randomly
-/// generated to test the app without the overhead of running a full GUI.
-#[derive(Debug, Clone)]
-pub(crate) enum Action {
-    /// Update the 'Part Heads' box to some new value
-    SetPartHeadString(String),
-    /// Updates the [`PartHeads`] of the current [`CompSpec`]
-    SetPartHeads(PartHeads),
-    /// Undo or redo (which are similar enough to be handled as one case)
-    UndoRedo(HistoryDirection),
-    /// Delete a fragment
-    DeleteFragment(FragIdx),
-    /// Split a fragment at a given row
-    SplitFragment {
-        frag_idx: FragIdx,
-        split_index: isize,
-        pos_of_new_frag: Pos2,
-    },
-}
-*/
 
 /// The possible ways that the state of `JigsawApp` can be mutated.  These can be randomly
 /// generated to test the app without the overhead of running a full GUI.
@@ -364,4 +336,14 @@ impl From<spec::EditError> for ActionError {
 pub(crate) enum HistoryDirection {
     Undo,
     Redo,
+}
+
+//////////
+// MISC //
+//////////
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+enum FragSplitLocation {
+    NearestRow,
+    NearestRuleoff,
 }

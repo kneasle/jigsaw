@@ -81,7 +81,7 @@ impl Fragment {
         self.row_data.len()
     }
 
-    pub fn rows_in_part(&self, part: PartIdx) -> impl Iterator<Item = (RowIdx, FullRowData)> {
+    pub fn rows_in_part(&self, part: PartIdx) -> impl Iterator<Item = (RowIdx, RowDataForOnePart)> {
         let row_vec = &self.rows_per_part[part];
         let stage = row_vec.stage();
         row_vec
@@ -90,7 +90,10 @@ impl Fragment {
             .zip_eq(self.music_highlights_per_part[part].chunks(stage.num_bells()))
             .enumerate()
             .map(|(idx, ((row, data), music_counts))| {
-                (RowIdx::new(idx), FullRowData::new(row, music_counts, data))
+                (
+                    RowIdx::new(idx),
+                    RowDataForOnePart::new(row, music_counts, data),
+                )
             })
     }
 
@@ -119,13 +122,13 @@ impl Fragment {
 
 /// All the data required to render a row to the screen
 #[derive(Debug, Clone)]
-pub struct FullRowData<'frag> {
+pub struct RowDataForOnePart<'frag> {
     pub row: &'frag Row,
     pub music_counts: &'frag [u8],
     data: &'frag RowData,
 }
 
-impl<'frag> FullRowData<'frag> {
+impl<'frag> RowDataForOnePart<'frag> {
     pub fn new(row: &'frag Row, music_counts: &'frag [u8], data: &'frag RowData) -> Self {
         Self {
             row,
@@ -135,7 +138,7 @@ impl<'frag> FullRowData<'frag> {
     }
 }
 
-impl<'frag> Deref for FullRowData<'frag> {
+impl<'frag> Deref for RowDataForOnePart<'frag> {
     type Target = &'frag RowData;
 
     #[inline]
