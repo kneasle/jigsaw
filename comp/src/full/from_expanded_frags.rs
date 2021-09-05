@@ -330,7 +330,7 @@ fn expand_frag(
             };
             // Add a ruleoff and method marking for the splice
             if is_splice {
-                full_row.is_proved = true;
+                full_row.ruleoff_above = true;
                 full_row.method_annotation = Some(spec_to_full_method(meth));
             }
         }

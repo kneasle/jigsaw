@@ -438,7 +438,7 @@ impl Chunk {
             } => {
                 assert!(row_idx < *length);
                 // The index of the row at `row_idx`, relative to the start of the first lead of
-                // this block (i.e. the one that contains `start_sub_lead_index`
+                // this block (i.e. the one that contains `start_sub_lead_index`)
                 let end_idx = *start_sub_lead_index + row_idx;
                 // How many lead ends are there between the start of `self` and the row at
                 // `row_idx`
