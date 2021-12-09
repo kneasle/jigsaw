@@ -237,7 +237,7 @@ mod music_gen {
             music::Music::Group(name, source_sub_groups) => {
                 // For a music group, expand the sub-groups in turn and total the match counts
                 let (sub_groups, count, max_count) =
-                    expand_music_groups(&source_sub_groups, expanded_frags, frag_musics, stage);
+                    expand_music_groups(source_sub_groups, expanded_frags, frag_musics, stage);
                 full::MusicGroup {
                     name: name.to_owned(),
                     max_count,

@@ -383,6 +383,7 @@ enum Chunk {
         length: usize,
         transposition: RowBuf,
     },
+    #[allow(dead_code)]
     Call {
         call: Rc<Call>,
         method: Rc<Method>,

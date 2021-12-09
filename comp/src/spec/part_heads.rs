@@ -77,7 +77,7 @@ impl PartHeads {
             return Ok(ReparseOk::SameRows);
         }
 
-        let parsed_part_heads = Self::parse_and_expand(&new_spec_string, self.stage())?;
+        let parsed_part_heads = Self::parse_and_expand(new_spec_string, self.stage())?;
         if parsed_part_heads == self.rows {
             // If the rows are the same, then update the spec string in-place.  This won't generate
             // an undo step, even if the strings are different.

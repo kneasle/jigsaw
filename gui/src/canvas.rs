@@ -313,6 +313,7 @@ impl FragHover {
     }
 
     /// The integer index of the row that's being hovered (which may be negative)
+    #[allow(dead_code)]
     pub fn hovered_row_idx(&self) -> isize {
         self.row_idx_float.floor() as isize
     }

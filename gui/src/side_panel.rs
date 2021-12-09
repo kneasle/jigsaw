@@ -111,7 +111,7 @@ fn draw_parts_panel(
     }
 
     // Parse the user's input
-    let parse_result = full_state.part_heads.try_reparse(&part_head_str);
+    let parse_result = full_state.part_heads.try_reparse(part_head_str);
     match parse_result {
         // If the part heads changed, then replace them as another undo step
         Ok(part_heads::ReparseOk::DifferentRows(new_phs)) => {
@@ -219,7 +219,7 @@ fn draw_music_group_ui(
             egui::CollapsingHeader::new(label)
                 .id_source(name)
                 .show(ui, |sub_ui| {
-                    draw_music_ui(sub_ui, &sub_groups, rows_to_highlight)
+                    draw_music_ui(sub_ui, sub_groups, rows_to_highlight)
                 })
                 .header_response
         }

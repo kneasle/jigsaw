@@ -279,7 +279,7 @@ impl JigsawApp {
                 .apply_edit(|spec| spec.split_fragment(frag_idx, split_index, pos_of_new_frag))?,
         }
         // If the edit succeeded, rebuild `self.full_state` so that the new changes are rendered
-        self.full_state.update(&self.history.comp_spec());
+        self.full_state.update(self.history.comp_spec());
         Ok(())
     }
 }
